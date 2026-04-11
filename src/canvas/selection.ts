@@ -313,9 +313,6 @@ export class SelectionManager {
       const world = this.viewport.toWorld(e.global.x, e.global.y);
       this.reconnectCursor = { x: world.x, y: world.y };
 
-      // Move the dragged handle to follow the cursor
-      handle.position.set(world.x, world.y);
-
       // Find candidate node (allow same node for port change)
       const candidate = this.findNodeAt(world.x, world.y);
       const fixedNode =
@@ -328,6 +325,16 @@ export class SelectionManager {
       if (valid !== this.reconnectCandidate) {
         this.reconnectCandidate = valid;
         this.updateReconnectHighlight();
+      }
+
+      // Snap handle to nearest port when over a candidate, else follow cursor
+      if (valid) {
+        const rect = getNodeWorldRect(valid);
+        const side = getNearestSide(rect, this.reconnectCursor);
+        const snap = getFixedSideAnchor(rect, side);
+        handle.position.set(snap.x, snap.y);
+      } else {
+        handle.position.set(world.x, world.y);
       }
 
       this.redrawReconnectGhost();
