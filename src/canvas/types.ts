@@ -54,22 +54,40 @@ export type BezierPoints = {
   cp2x: number; cp2y: number;
 };
 
+/**
+ * Compute cubic bezier control points for an edge between two anchors.
+ *
+ * When the target is "ahead" (in the direction the side faces), a moderate
+ * offset creates a direct curve. When the target is "behind" (opposite
+ * direction), the offset increases to produce a smooth loop instead of
+ * a cramped S-curve.
+ */
 export function computeBezierControlPoints(
   startX: number, startY: number, startSide: Side,
   endX: number, endY: number, endSide: Side | null,
 ): BezierPoints {
   const dx = endX - startX;
   const dy = endY - startY;
-  const dist = Math.hypot(dx, dy);
-  const offset = Math.min(Math.max(dist * 0.4, 30), 120);
   const startDir = sideDirection(startSide);
-  const cp1x = startX + startDir.x * offset;
-  const cp1y = startY + startDir.y * offset;
+
+  // How far the end is in the direction this side faces
+  const startProj = dx * startDir.x + dy * startDir.y;
+  const startOffset = startProj > 0
+    ? Math.min(Math.max(startProj * 0.4, 30), 200)
+    : Math.min(Math.abs(startProj) * 0.6 + 60, 300);
+
+  const cp1x = startX + startDir.x * startOffset;
+  const cp1y = startY + startDir.y * startOffset;
+
   let cp2x: number, cp2y: number;
   if (endSide) {
     const endDir = sideDirection(endSide);
-    cp2x = endX + endDir.x * offset;
-    cp2y = endY + endDir.y * offset;
+    const endProj = -dx * endDir.x + -dy * endDir.y;
+    const endOffset = endProj > 0
+      ? Math.min(Math.max(endProj * 0.4, 30), 200)
+      : Math.min(Math.abs(endProj) * 0.6 + 60, 300);
+    cp2x = endX + endDir.x * endOffset;
+    cp2y = endY + endDir.y * endOffset;
   } else {
     cp2x = endX - dx * 0.25;
     cp2y = endY - dy * 0.25;
