@@ -105,12 +105,13 @@ export async function buildDemoScene(
     ghostLayer,
     viewport,
     () => nodeContainers,
-    ({ source, target }) => {
+    ({ source, target, targetPos }) => {
       const edge = createEdge(
         {
           id: `edge-user-${allEdges.length}`,
           sourceNode: source,
-          targetNode: target,
+          targetNode: target ?? undefined,
+          targetPos: targetPos ?? undefined,
           label: undefined,
         },
         edgeLineLayer,

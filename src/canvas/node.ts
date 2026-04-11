@@ -2,6 +2,7 @@ import { Container, Graphics, Text, TextStyle, Sprite, Texture } from "pixi.js";
 import { viewState } from "./view-state";
 import type { Redrawable } from "./types";
 import { textResolution, nodeSizeMap } from "./types";
+import { getPortPositions } from "./node-ports";
 
 export type NodeData = {
   id: string;
@@ -66,7 +67,7 @@ export function createNode(data: NodeData): Container {
   // Expanded hit area includes space around the border for connection ports.
   // Without this, port hit zones that extend beyond the node would be
   // rejected by the parent's hit test.
-  const PORT_MARGIN = 12;
+  const PORT_MARGIN = 22;
   container.hitArea = {
     contains: (x: number, y: number) =>
       x >= -PORT_MARGIN &&
@@ -102,15 +103,12 @@ export function resizeNode(
   }
 
   // Update port positions
+  const portPositions = getPortPositions(width, height);
   for (const child of container.children) {
     if (child.label === "ports") {
       for (const port of child.children) {
-        switch (port.label) {
-          case "top": port.position.set(width / 2, 0); break;
-          case "right": port.position.set(width, height / 2); break;
-          case "bottom": port.position.set(width / 2, height); break;
-          case "left": port.position.set(0, height / 2); break;
-        }
+        const pos = portPositions[port.label as keyof typeof portPositions];
+        if (pos) port.position.set(pos.x, pos.y);
       }
       break;
     }

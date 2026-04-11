@@ -6,7 +6,8 @@ import { sideDirection, textResolution, getNodeWorldRect } from "./types";
 export type EdgeData = {
   id: string;
   sourceNode: Container;
-  targetNode: Container;
+  targetNode?: Container;
+  targetPos?: { x: number; y: number };
   label?: string;
 };
 
@@ -64,7 +65,8 @@ export type EdgeDisplay = {
   labelPill: Redrawable | null;
   labelText: Text | null;
   sourceNode: Container;
-  targetNode: Container;
+  targetNode: Container | null;
+  targetPos: { x: number; y: number } | null;
 };
 
 export function createEdge(
@@ -96,7 +98,8 @@ export function createEdge(
     labelPill,
     labelText,
     sourceNode: data.sourceNode,
-    targetNode: data.targetNode,
+    targetNode: data.targetNode ?? null,
+    targetPos: data.targetPos ?? null,
   };
 
   updateEdge(display, data.label);
@@ -107,19 +110,34 @@ export function createEdge(
 
 export function updateEdge(edge: EdgeDisplay, label?: string): void {
   const sourceRect = getNodeWorldRect(edge.sourceNode);
-  const targetRect = getNodeWorldRect(edge.targetNode);
-
   const sourceCenter = {
     x: sourceRect.x + sourceRect.width / 2,
     y: sourceRect.y + sourceRect.height / 2,
   };
-  const targetCenter = {
-    x: targetRect.x + targetRect.width / 2,
-    y: targetRect.y + targetRect.height / 2,
-  };
+
+  let targetCenter: { x: number; y: number };
+  let endAnchor: Anchor;
+
+  if (edge.targetNode) {
+    const targetRect = getNodeWorldRect(edge.targetNode);
+    targetCenter = {
+      x: targetRect.x + targetRect.width / 2,
+      y: targetRect.y + targetRect.height / 2,
+    };
+    endAnchor = getSideAnchor(targetRect, sourceCenter);
+  } else if (edge.targetPos) {
+    targetCenter = edge.targetPos;
+    const dx = sourceCenter.x - edge.targetPos.x;
+    const dy = sourceCenter.y - edge.targetPos.y;
+    const side: Side = Math.abs(dx) > Math.abs(dy)
+      ? (dx > 0 ? "right" : "left")
+      : (dy > 0 ? "bottom" : "top");
+    endAnchor = { x: edge.targetPos.x, y: edge.targetPos.y, side };
+  } else {
+    return;
+  }
 
   const startAnchor = getSideAnchor(sourceRect, targetCenter);
-  const endAnchor = getSideAnchor(targetRect, sourceCenter);
 
   // Control points extend perpendicular to anchor sides (organized flow)
   const dist = Math.hypot(

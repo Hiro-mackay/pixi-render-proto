@@ -11,6 +11,12 @@ export type NodeSize = { width: number; height: number };
  */
 export const nodeSizeMap = new WeakMap<Container, NodeSize>();
 
+/**
+ * Maps each node container to its ports container.
+ * Used by SelectionManager to show/hide ports on select/clear.
+ */
+export const nodePortsMap = new WeakMap<Container, Container>();
+
 export function getNodeWorldRect(node: Container): {
   x: number;
   y: number;

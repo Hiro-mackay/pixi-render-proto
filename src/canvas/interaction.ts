@@ -114,7 +114,7 @@ export function enableGroupDrag(
     const affected = edges.filter(
       (edge) =>
         childNodes.includes(edge.sourceNode) ||
-        childNodes.includes(edge.targetNode),
+        (edge.targetNode && childNodes.includes(edge.targetNode)),
     );
     for (const edge of affected) {
       updateEdge(edge);

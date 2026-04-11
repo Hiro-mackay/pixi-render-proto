@@ -2,6 +2,7 @@ import { Container, FederatedPointerEvent, Graphics } from "pixi.js";
 import { Viewport } from "pixi-viewport";
 import { viewState } from "./view-state";
 import type { Redrawable } from "./types";
+import { nodePortsMap } from "./types";
 
 export type ResizeHandler = (
   node: Container,
@@ -90,12 +91,27 @@ export class SelectionManager {
   }
 
   select(node: Container, width: number, height: number): void {
+    // Hide ports on previously selected node
+    if (this.selected) {
+      const prevPorts = nodePortsMap.get(this.selected.node);
+      if (prevPorts) prevPorts.visible = false;
+    }
+
     this.selected = { node, width, height };
     this.outline.__redraw = () => this.redraw();
+
+    // Show ports on newly selected node
+    const ports = nodePortsMap.get(node);
+    if (ports) ports.visible = true;
+
     this.update();
   }
 
   clear(): void {
+    if (this.selected) {
+      const ports = nodePortsMap.get(this.selected.node);
+      if (ports) ports.visible = false;
+    }
     this.selected = null;
     this.outline.visible = false;
     this.outline.__redraw = undefined;

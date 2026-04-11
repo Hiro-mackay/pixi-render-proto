@@ -7,13 +7,15 @@ export type { Side } from "./types";
 
 export type EdgeCreationResult = {
   source: Container;
-  target: Container;
+  sourceSide: Side;
+  target: Container | null;
+  targetPos: { x: number; y: number } | null;
 };
 
 /**
- * Manages the state of edge creation: when the user drags from a node port,
- * this class tracks the source node, renders a ghost bezier curve following
- * the cursor, and commits a real edge on drop if released over a target node.
+ * Manages edge creation: drag from a node port to create a connected
+ * or dangling edge. Shows a ghost bezier during drag and highlights
+ * potential target nodes.
  */
 export class EdgeCreator {
   private sourceNode: Container | null = null;
@@ -22,6 +24,8 @@ export class EdgeCreator {
   private cursorWorld: { x: number; y: number } = { x: 0, y: 0 };
 
   private ghostLine: Redrawable;
+  private highlightGraphic: Redrawable;
+  private highlightedNode: Container | null = null;
   private viewport: Viewport;
   private onCreate: (result: EdgeCreationResult) => void;
   private getAllNodes: () => Container[];
@@ -35,13 +39,16 @@ export class EdgeCreator {
     this.ghostLine = new Graphics();
     this.ghostLine.visible = false;
     ghostLayer.addChild(this.ghostLine);
+    this.ghostLine.__redraw = () => this.redraw();
+
+    this.highlightGraphic = new Graphics();
+    this.highlightGraphic.visible = false;
+    ghostLayer.addChild(this.highlightGraphic);
+    this.highlightGraphic.__redraw = () => this.updateHighlight();
 
     this.viewport = viewport;
     this.getAllNodes = getAllNodes;
     this.onCreate = onCreate;
-
-    // Register redraw so ghost line stroke stays zoom-invariant
-    this.ghostLine.__redraw = () => this.redraw();
   }
 
   start(node: Container, side: Side, anchorX: number, anchorY: number): void {
@@ -57,21 +64,40 @@ export class EdgeCreator {
   updateCursor(worldX: number, worldY: number): void {
     if (!this.sourceNode) return;
     this.cursorWorld = { x: worldX, y: worldY };
+
+    // Connect preview: highlight potential target node
+    const candidate = this.findNodeAt(worldX, worldY);
+    const validTarget =
+      candidate && candidate !== this.sourceNode ? candidate : null;
+
+    if (validTarget !== this.highlightedNode) {
+      this.highlightedNode = validTarget;
+      this.updateHighlight();
+    }
+
     this.redraw();
   }
 
-  /**
-   * Called on pointer up. Finds a target node at the given screen position
-   * and commits the edge if valid.
-   */
   finishAt(screenX: number, screenY: number): void {
-    if (!this.sourceNode) return;
+    if (!this.sourceNode || !this.sourceSide) return;
 
     const world = this.viewport.toWorld(screenX, screenY);
     const target = this.findNodeAt(world.x, world.y);
 
     if (target && target !== this.sourceNode) {
-      this.onCreate({ source: this.sourceNode, target });
+      this.onCreate({
+        source: this.sourceNode,
+        sourceSide: this.sourceSide,
+        target,
+        targetPos: null,
+      });
+    } else {
+      this.onCreate({
+        source: this.sourceNode,
+        sourceSide: this.sourceSide,
+        target: null,
+        targetPos: { x: world.x, y: world.y },
+      });
     }
     this.cancel();
   }
@@ -82,6 +108,9 @@ export class EdgeCreator {
     this.sourceAnchor = null;
     this.ghostLine.clear();
     this.ghostLine.visible = false;
+    this.highlightedNode = null;
+    this.highlightGraphic.clear();
+    this.highlightGraphic.visible = false;
     this.viewport.pause = false;
   }
 
@@ -89,11 +118,6 @@ export class EdgeCreator {
     return this.sourceNode !== null;
   }
 
-  /**
-   * Wire canvas DOM events so cursor movement and pointerup drive
-   * edge creation. Call once after creating the EdgeCreator.
-   * Returns a cleanup function that removes all listeners.
-   */
   bindCanvasEvents(canvas: HTMLCanvasElement): () => void {
     const ac = new AbortController();
     const { signal } = ac;
@@ -115,7 +139,6 @@ export class EdgeCreator {
       this.finishAt(sx, sy);
     }, { signal });
 
-    // Safety net: cancel if pointer is lost (e.g. browser captures it)
     window.addEventListener("pointercancel", () => {
       if (this.isActive()) this.cancel();
     }, { signal });
@@ -144,6 +167,30 @@ export class EdgeCreator {
       }
     }
     return null;
+  }
+
+  private updateHighlight(): void {
+    this.highlightGraphic.clear();
+    if (!this.highlightedNode) {
+      this.highlightGraphic.visible = false;
+      return;
+    }
+    const rect = getNodeWorldRect(this.highlightedNode);
+    const pad = 4 / viewState.scale;
+    const strokeW = 2.5 / viewState.scale;
+    this.highlightGraphic.roundRect(
+      rect.x - pad,
+      rect.y - pad,
+      rect.width + pad * 2,
+      rect.height + pad * 2,
+      10,
+    );
+    this.highlightGraphic.stroke({
+      width: strokeW,
+      color: 0x3b82f6,
+      alpha: 0.8,
+    });
+    this.highlightGraphic.visible = true;
   }
 
   private redraw(): void {
@@ -182,7 +229,11 @@ export class EdgeCreator {
     });
 
     // Small dot at cursor end
-    this.ghostLine.circle(this.cursorWorld.x, this.cursorWorld.y, 4 / viewState.scale);
+    this.ghostLine.circle(
+      this.cursorWorld.x,
+      this.cursorWorld.y,
+      4 / viewState.scale,
+    );
     this.ghostLine.fill({ color: 0x3b82f6, alpha: 0.9 });
   }
 }
