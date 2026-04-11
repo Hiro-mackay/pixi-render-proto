@@ -1,7 +1,7 @@
 import { Assets, Container, Texture } from "pixi.js";
 import type { CanvasContext } from "./setup";
 import { createNode, resizeNode } from "./node";
-import { createEdge, updateEdge, type EdgeDisplay } from "./edge";
+import { createEdge, removeEdge, updateEdge, type EdgeDisplay } from "./edge";
 import { createGroup, type GroupData } from "./group";
 import {
   enableDrag,
@@ -101,18 +101,23 @@ export async function buildDemoScene(
     }
   });
 
+  selection.setDeleteEdgeHandler((edge) => {
+    const idx = allEdges.indexOf(edge);
+    if (idx >= 0) allEdges.splice(idx, 1);
+    removeEdge(edge);
+  });
+
   const nodeContainers: Container[] = [];
   const edgeCreator = new EdgeCreator(
     ghostLayer,
     viewport,
     () => nodeContainers,
-    ({ source, target, targetPos }) => {
+    ({ source, target }) => {
       const edge = createEdge(
         {
           id: `edge-user-${allEdges.length}`,
           sourceNode: source,
-          targetNode: target ?? undefined,
-          targetPos: targetPos ?? undefined,
+          targetNode: target,
           label: undefined,
         },
         edgeLineLayer,
@@ -180,6 +185,8 @@ export async function buildDemoScene(
     allEdges.push(edge);
     enableEdgeClick(edge, selection);
   }
+
+  selection.setReconnectDeps(() => nodeContainers);
 
   for (const node of nodeContainers) {
     enableDrag(node, viewport, allEdges, selection);

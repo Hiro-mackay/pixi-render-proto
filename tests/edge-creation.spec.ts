@@ -108,7 +108,7 @@ test.describe("Edge Creation UI", () => {
     expect(edgesAfter).toBe(edgesBefore + 1);
   });
 
-  test("drag to empty space creates a dangling edge", async ({ page }) => {
+  test("drag to empty space does not create an edge", async ({ page }) => {
     const canvas = page.locator("canvas");
     const box = await canvas.boundingBox();
     if (!box) throw new Error("Canvas not found");
@@ -122,11 +122,10 @@ test.describe("Edge Creation UI", () => {
     await page.mouse.click(box.x + nodePos.x, box.y + nodePos.y);
     await page.waitForTimeout(400);
 
-    // Get the right port position (node center + offset to right edge)
+    // Drag from approximate right port to empty space
     const portX = box.x + nodePos.x + 50;
     const portY = box.y + nodePos.y;
 
-    // Drag from port to empty space
     await page.mouse.move(portX, portY, { steps: 5 });
     await page.waitForTimeout(100);
     await page.mouse.down();
@@ -135,13 +134,9 @@ test.describe("Edge Creation UI", () => {
     await page.mouse.up();
     await page.waitForTimeout(400);
 
-    await page.screenshot({
-      path: "tests/screenshots/edge-create-dangling.png",
-    });
-
     const edgesAfter = await countEdgeLines(page);
-    // Dangling edge should still be created
-    expect(edgesAfter).toBe(edgesBefore + 1);
+    // No edge should be created when dropping on empty space
+    expect(edgesAfter).toBe(edgesBefore);
   });
 });
 

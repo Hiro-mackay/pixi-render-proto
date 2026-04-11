@@ -6,8 +6,7 @@ import { sideDirection, textResolution, getNodeWorldRect } from "./types";
 export type EdgeData = {
   id: string;
   sourceNode: Container;
-  targetNode?: Container;
-  targetPos?: { x: number; y: number };
+  targetNode: Container;
   label?: string;
 };
 
@@ -70,8 +69,7 @@ export type EdgeDisplay = {
   labelPill: Redrawable | null;
   labelText: Text | null;
   sourceNode: Container;
-  targetNode: Container | null;
-  targetPos: { x: number; y: number } | null;
+  targetNode: Container;
   selected: boolean;
 };
 
@@ -110,8 +108,7 @@ export function createEdge(
     labelPill,
     labelText,
     sourceNode: data.sourceNode,
-    targetNode: data.targetNode ?? null,
-    targetPos: data.targetPos ?? null,
+    targetNode: data.targetNode,
     selected: false,
   };
 
@@ -126,6 +123,21 @@ export function setEdgeSelected(edge: EdgeDisplay, selected: boolean): void {
   updateEdge(edge);
 }
 
+export function removeEdge(edge: EdgeDisplay): void {
+  edge.line.removeFromParent();
+  edge.line.destroy();
+  edge.hitLine.removeFromParent();
+  edge.hitLine.destroy();
+  if (edge.labelPill) {
+    edge.labelPill.removeFromParent();
+    edge.labelPill.destroy();
+  }
+  if (edge.labelText) {
+    edge.labelText.removeFromParent();
+    edge.labelText.destroy();
+  }
+}
+
 export function updateEdge(edge: EdgeDisplay, label?: string): void {
   const sourceRect = getNodeWorldRect(edge.sourceNode);
   const sourceCenter = {
@@ -133,27 +145,12 @@ export function updateEdge(edge: EdgeDisplay, label?: string): void {
     y: sourceRect.y + sourceRect.height / 2,
   };
 
-  let targetCenter: { x: number; y: number };
-  let endAnchor: Anchor;
-
-  if (edge.targetNode) {
-    const targetRect = getNodeWorldRect(edge.targetNode);
-    targetCenter = {
-      x: targetRect.x + targetRect.width / 2,
-      y: targetRect.y + targetRect.height / 2,
-    };
-    endAnchor = getSideAnchor(targetRect, sourceCenter);
-  } else if (edge.targetPos) {
-    targetCenter = edge.targetPos;
-    const dx = sourceCenter.x - edge.targetPos.x;
-    const dy = sourceCenter.y - edge.targetPos.y;
-    const side: Side = Math.abs(dx) > Math.abs(dy)
-      ? (dx > 0 ? "right" : "left")
-      : (dy > 0 ? "bottom" : "top");
-    endAnchor = { x: edge.targetPos.x, y: edge.targetPos.y, side };
-  } else {
-    return;
-  }
+  const targetRect = getNodeWorldRect(edge.targetNode);
+  const targetCenter = {
+    x: targetRect.x + targetRect.width / 2,
+    y: targetRect.y + targetRect.height / 2,
+  };
+  const endAnchor = getSideAnchor(targetRect, sourceCenter);
 
   const startAnchor = getSideAnchor(sourceRect, targetCenter);
 
@@ -268,7 +265,7 @@ function drawLabelPill(
   });
 }
 
-function getSideAnchor(rect: Rect, target: { x: number; y: number }): Anchor {
+export function getSideAnchor(rect: Rect, target: { x: number; y: number }): Anchor {
   const cx = rect.x + rect.width / 2;
   const cy = rect.y + rect.height / 2;
   const dx = target.x - cx;
