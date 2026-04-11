@@ -98,6 +98,7 @@ export async function buildDemoScene(
   const selectionLayer = new Container();
   selectionLayer.label = "selection-layer";
   const selection = new SelectionManager(selectionLayer, viewport);
+  ctx.addCleanup(() => selection.destroy());
 
   const groupDropHighlight = new Graphics();
   groupDropHighlight.visible = false;

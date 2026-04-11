@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
-import { initCanvas, destroyCanvas, type CanvasContext } from "./canvas/setup";
-import { buildDemoScene } from "./canvas/demo-scene";
+import { createCanvasEngine, type CanvasEngine } from "./core";
 
 export function App() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -10,20 +9,27 @@ export function App() {
     if (!container) return;
 
     const ac = new AbortController();
-    let ctx: CanvasContext | undefined;
+    let engine: CanvasEngine | undefined;
 
-    initCanvas(container).then(async (c) => {
-      ctx = c;
-      if (ac.signal.aborted) {
-        destroyCanvas(ctx);
-        return;
-      }
-      await buildDemoScene(ctx, ac.signal);
-    });
+    createCanvasEngine(container, {
+      debug: import.meta.env.DEV,
+      signal: ac.signal,
+    })
+      .then((e) => {
+        if (ac.signal.aborted) {
+          e.destroy();
+          return;
+        }
+        engine = e;
+      })
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        throw err;
+      });
 
     return () => {
       ac.abort();
-      if (ctx) destroyCanvas(ctx);
+      engine?.destroy();
     };
   }, []);
 
