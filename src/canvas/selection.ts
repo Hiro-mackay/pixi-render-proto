@@ -208,9 +208,13 @@ export class SelectionManager {
   }
 
   update(): void {
-    if (!this.selected) return;
-    this.redraw();
-    this.outline.visible = true;
+    if (this.selected) {
+      this.redraw();
+      this.outline.visible = true;
+    }
+    if (this.selectedEdge && !this.reconnecting) {
+      this.positionEndpointHandles(this.selectedEdge);
+    }
   }
 
   destroy(): void {
