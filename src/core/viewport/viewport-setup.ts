@@ -1,12 +1,12 @@
 import {
   Application,
-  Container,
   Text,
   TextStyle,
   Ticker,
 } from "pixi.js";
 import { Viewport } from "pixi-viewport";
-import type { EngineOptions, Redrawable } from "../types";
+import type { EngineOptions } from "../types";
+import { setupZoomHandler } from "./zoom-handler";
 
 declare global {
   interface Window {
@@ -18,47 +18,14 @@ const BG_COLOR = 0x1a1a2e;
 const MIN_ZOOM = 0.02;
 const MAX_ZOOM = 16;
 const WORLD_SIZE = 8000;
-const ZOOM_SENSITIVITY = 0.01;
-const MAX_TEXT_RESOLUTION = 8;
 const FPS_SAMPLE_INTERVAL = 30;
 
 export interface ViewportContext {
   readonly app: Application;
   readonly viewport: Viewport;
   readonly getScale: () => number;
+  readonly onZoom: (callback: () => void) => void;
   readonly destroy: () => void;
-}
-
-function updateTextResolutions(container: Container, scale: number): void {
-  const dpr = window.devicePixelRatio || 1;
-  const targetRes = Math.min(Math.ceil(scale * dpr), MAX_TEXT_RESOLUTION);
-
-  const walk = (node: Container) => {
-    if (node instanceof Text) {
-      if (node.resolution !== targetRes) {
-        node.resolution = targetRes;
-      }
-    }
-    for (const child of node.children) {
-      if (child instanceof Container) {
-        walk(child);
-      }
-    }
-  };
-  walk(container);
-}
-
-function walkRedraw(container: Container): void {
-  if (!container.visible) return;
-  const node = container as Redrawable;
-  if (typeof node.__redraw === "function") {
-    node.__redraw();
-  }
-  for (const child of container.children) {
-    if (child instanceof Container) {
-      walkRedraw(child);
-    }
-  }
 }
 
 export async function initViewport(
@@ -102,48 +69,8 @@ export async function initViewport(
   viewport.drag().pinch().decelerate();
   viewport.clampZoom({ minScale: MIN_ZOOM, maxScale: MAX_ZOOM });
 
-  const canvasEl = app.canvas;
-  const onWheel = (e: WheelEvent) => {
-    e.preventDefault();
-
-    if (e.ctrlKey) {
-      const rect = canvasEl.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-
-      const zoomFactor = Math.exp(-e.deltaY * ZOOM_SENSITIVITY);
-      const worldPosBefore = viewport.toWorld(mouseX, mouseY);
-
-      const rawScale = viewport.scale.x * zoomFactor;
-      const clampedScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, rawScale));
-      viewport.setZoom(clampedScale, false);
-
-      const worldPosAfter = viewport.toWorld(mouseX, mouseY);
-      viewport.x += (worldPosAfter.x - worldPosBefore.x) * viewport.scale.x;
-      viewport.y += (worldPosAfter.y - worldPosBefore.y) * viewport.scale.y;
-
-      viewport.emit("zoomed", { viewport, type: "wheel" });
-    } else {
-      viewport.x -= e.deltaX;
-      viewport.y -= e.deltaY;
-      viewport.emit("moved", { viewport, type: "wheel" });
-    }
-  };
-  canvasEl.addEventListener("wheel", onWheel, { passive: false });
-  cleanupFns.push(() => canvasEl.removeEventListener("wheel", onWheel));
-
-  let lastQuantizedScale = 0;
-  const handleZoom = () => {
-    walkRedraw(viewport);
-
-    const quantized = Math.round(viewport.scale.x * 10) / 10;
-    if (quantized !== lastQuantizedScale) {
-      lastQuantizedScale = quantized;
-      updateTextResolutions(viewport, quantized);
-    }
-  };
-  viewport.on("zoomed", handleZoom);
-  cleanupFns.push(() => viewport.off("zoomed", handleZoom));
+  const zoomHandler = setupZoomHandler(viewport, app.canvas as HTMLCanvasElement);
+  cleanupFns.push(zoomHandler.cleanup);
 
   if (debug) {
     const fpsText = new Text({
@@ -194,6 +121,7 @@ export async function initViewport(
     app,
     viewport,
     getScale: () => viewport.scale.x,
+    onZoom: zoomHandler.onZoom,
     destroy: () => {
       destroyAll();
       app.ticker.stop();

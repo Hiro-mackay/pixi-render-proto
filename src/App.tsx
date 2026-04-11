@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { createCanvasEngine, type CanvasEngine } from "./core";
+import { buildDemoScene } from "../examples/demo-scene";
 
 export function App() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -15,12 +16,13 @@ export function App() {
       debug: import.meta.env.DEV,
       signal: ac.signal,
     })
-      .then((e) => {
+      .then(async (e) => {
         if (ac.signal.aborted) {
           e.destroy();
           return;
         }
         engine = e;
+        await buildDemoScene(e, ac.signal);
       })
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === "AbortError") return;

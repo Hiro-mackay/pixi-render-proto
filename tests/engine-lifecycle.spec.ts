@@ -21,30 +21,35 @@ test.describe("Phase 0: Engine Lifecycle", () => {
     expect(["webgl", "webgl2"]).toContain(contextType);
   });
 
-  test("should display dark background (0x1a1a2e)", async ({ page }) => {
-    const bgColor = await page.evaluate(() => {
+  test("should render content on canvas", async ({ page }) => {
+    const result = await page.evaluate(() => {
       const canvas = document.querySelector("canvas") as HTMLCanvasElement;
-      if (!canvas) return null;
+      if (!canvas) return { hasContent: false };
       const tmp = document.createElement("canvas");
       tmp.width = canvas.width;
       tmp.height = canvas.height;
       const ctx = tmp.getContext("2d");
-      if (!ctx) return null;
+      if (!ctx) return { hasContent: false };
       ctx.drawImage(canvas, 0, 0);
-      const pixel = ctx.getImageData(
-        Math.floor(tmp.width / 2),
-        Math.floor(tmp.height / 2),
-        1,
-        1,
-      ).data;
-      return { r: pixel[0], g: pixel[1], b: pixel[2] };
+      const data = ctx.getImageData(0, 0, tmp.width, tmp.height).data;
+      const BG_R = 26, BG_G = 26, BG_B = 46;
+      let nonBg = 0;
+      const step = 4;
+      let total = 0;
+      for (let y = 0; y < tmp.height; y += step) {
+        for (let x = 0; x < tmp.width; x += step) {
+          const i = (y * tmp.width + x) * 4;
+          total++;
+          if (
+            Math.abs(data[i]! - BG_R) > 15 ||
+            Math.abs(data[i + 1]! - BG_G) > 15 ||
+            Math.abs(data[i + 2]! - BG_B) > 15
+          ) nonBg++;
+        }
+      }
+      return { hasContent: nonBg > total * 0.02 };
     });
-
-    expect(bgColor).not.toBeNull();
-    // Background 0x1a1a2e = rgb(26, 26, 46)
-    expect(bgColor!.r).toBeCloseTo(26, -1);
-    expect(bgColor!.g).toBeCloseTo(26, -1);
-    expect(bgColor!.b).toBeCloseTo(46, -1);
+    expect(result.hasContent).toBe(true);
   });
 
   test("should pan via mouse wheel", async ({ page }) => {
