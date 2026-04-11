@@ -300,8 +300,9 @@ export class SelectionManager {
       if (edge.labelPill) (edge.labelPill as Graphics).visible = false;
       if (edge.labelText) edge.labelText.visible = false;
 
-      // Hide endpoint handles during drag
-      for (const ep of this.endpointHandles) ep.visible = false;
+      // Hide the other endpoint handle; keep the dragged one for events
+      const otherIdx = endpoint === "source" ? 1 : 0;
+      this.endpointHandles[otherIdx]!.visible = false;
 
       this.reconnectGhost.visible = true;
       this.redrawReconnectGhost();
