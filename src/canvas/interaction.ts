@@ -1,6 +1,6 @@
 import { Container, FederatedPointerEvent } from "pixi.js";
 import { Viewport } from "pixi-viewport";
-import { EdgeDisplay, updateEdge } from "./edge";
+import { type EdgeDisplay, updateEdge } from "./edge";
 import { SelectionManager } from "./selection";
 import { nodeSizeMap } from "./types";
 
@@ -136,6 +136,27 @@ export function enableGroupDrag(
 
   group.on("pointerup", stopDrag);
   group.on("pointerupoutside", stopDrag);
+}
+
+export function enableEdgeClick(
+  edge: EdgeDisplay,
+  selection: SelectionManager,
+): void {
+  let downPos = { x: 0, y: 0 };
+
+  edge.hitLine.on("pointerdown", (e: FederatedPointerEvent) => {
+    downPos.x = e.global.x;
+    downPos.y = e.global.y;
+    e.stopPropagation();
+  });
+
+  edge.hitLine.on("pointerup", (e: FederatedPointerEvent) => {
+    const dx = e.global.x - downPos.x;
+    const dy = e.global.y - downPos.y;
+    if (Math.hypot(dx, dy) < CLICK_THRESHOLD_PX) {
+      selection.selectEdge(edge);
+    }
+  });
 }
 
 /**

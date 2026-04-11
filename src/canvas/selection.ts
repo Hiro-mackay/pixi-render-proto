@@ -3,6 +3,7 @@ import { Viewport } from "pixi-viewport";
 import { viewState } from "./view-state";
 import type { Redrawable } from "./types";
 import { nodePortsMap } from "./types";
+import { type EdgeDisplay, setEdgeSelected } from "./edge";
 
 export type ResizeHandler = (
   node: Container,
@@ -38,6 +39,7 @@ export class SelectionManager {
     width: number;
     height: number;
   } | null = null;
+  private selectedEdge: EdgeDisplay | null = null;
 
   // Resize drag state
   private resizing = false;
@@ -91,6 +93,9 @@ export class SelectionManager {
   }
 
   select(node: Container, width: number, height: number): void {
+    // Deselect any selected edge
+    this.clearEdge();
+
     // Hide ports on previously selected node
     if (this.selected) {
       const prevPorts = nodePortsMap.get(this.selected.node);
@@ -107,7 +112,22 @@ export class SelectionManager {
     this.update();
   }
 
+  selectEdge(edge: EdgeDisplay): void {
+    // Deselect any selected node
+    this.clearNode();
+    // Deselect previous edge
+    this.clearEdge();
+
+    this.selectedEdge = edge;
+    setEdgeSelected(edge, true);
+  }
+
   clear(): void {
+    this.clearNode();
+    this.clearEdge();
+  }
+
+  private clearNode(): void {
     if (this.selected) {
       const ports = nodePortsMap.get(this.selected.node);
       if (ports) ports.visible = false;
@@ -116,6 +136,13 @@ export class SelectionManager {
     this.outline.visible = false;
     this.outline.__redraw = undefined;
     for (const h of this.handles) h.visible = false;
+  }
+
+  private clearEdge(): void {
+    if (this.selectedEdge) {
+      setEdgeSelected(this.selectedEdge, false);
+      this.selectedEdge = null;
+    }
   }
 
   update(): void {

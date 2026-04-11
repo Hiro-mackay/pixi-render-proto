@@ -59,14 +59,20 @@ type Rect = {
   height: number;
 };
 
+const HIT_STROKE_WIDTH = 10;
+const SELECTED_COLOR = 0x3b82f6;
+const SELECTED_STROKE_WIDTH = 2.5;
+
 export type EdgeDisplay = {
   id: string;
   line: Redrawable;
+  hitLine: Graphics;
   labelPill: Redrawable | null;
   labelText: Text | null;
   sourceNode: Container;
   targetNode: Container | null;
   targetPos: { x: number; y: number } | null;
+  selected: boolean;
 };
 
 export function createEdge(
@@ -76,6 +82,11 @@ export function createEdge(
 ): EdgeDisplay {
   const line: Redrawable = new Graphics();
   lineParent.addChild(line);
+
+  const hitLine = new Graphics();
+  hitLine.eventMode = "static";
+  hitLine.cursor = "pointer";
+  lineParent.addChild(hitLine);
 
   let labelText: Text | null = null;
   let labelPill: Redrawable | null = null;
@@ -95,17 +106,24 @@ export function createEdge(
   const display: EdgeDisplay = {
     id: data.id,
     line,
+    hitLine,
     labelPill,
     labelText,
     sourceNode: data.sourceNode,
     targetNode: data.targetNode ?? null,
     targetPos: data.targetPos ?? null,
+    selected: false,
   };
 
   updateEdge(display, data.label);
   line.__redraw = () => updateEdge(display, data.label);
 
   return display;
+}
+
+export function setEdgeSelected(edge: EdgeDisplay, selected: boolean): void {
+  edge.selected = selected;
+  updateEdge(edge);
 }
 
 export function updateEdge(edge: EdgeDisplay, label?: string): void {
@@ -154,7 +172,10 @@ export function updateEdge(edge: EdgeDisplay, label?: string): void {
   const cp2x = endAnchor.x + endDir.x * offset;
   const cp2y = endAnchor.y + endDir.y * offset;
 
-  const strokeWidth = STROKE_WIDTH / viewState.scale;
+  const color = edge.selected ? SELECTED_COLOR : EDGE_COLOR;
+  const alpha = edge.selected ? 1.0 : EDGE_ALPHA;
+  const baseWidth = edge.selected ? SELECTED_STROKE_WIDTH : STROKE_WIDTH;
+  const strokeWidth = baseWidth / viewState.scale;
 
   edge.line.clear();
   edge.line.moveTo(startAnchor.x, startAnchor.y);
@@ -168,8 +189,8 @@ export function updateEdge(edge: EdgeDisplay, label?: string): void {
   );
   edge.line.stroke({
     width: strokeWidth,
-    color: EDGE_COLOR,
-    alpha: EDGE_ALPHA,
+    color,
+    alpha,
   });
 
   drawArrowHead(
@@ -179,7 +200,26 @@ export function updateEdge(edge: EdgeDisplay, label?: string): void {
     -endDir.x,
     -endDir.y,
     strokeWidth,
+    color,
+    alpha,
   );
+
+  // Wider invisible hit area for click detection
+  edge.hitLine.clear();
+  edge.hitLine.moveTo(startAnchor.x, startAnchor.y);
+  edge.hitLine.bezierCurveTo(
+    cp1x,
+    cp1y,
+    cp2x,
+    cp2y,
+    endAnchor.x,
+    endAnchor.y,
+  );
+  edge.hitLine.stroke({
+    width: HIT_STROKE_WIDTH / viewState.scale,
+    color: 0xffffff,
+    alpha: 0.001,
+  });
 
   if (edge.labelText && edge.labelPill) {
     const t = 0.5;
@@ -283,6 +323,8 @@ function drawArrowHead(
   dirX: number,
   dirY: number,
   strokeWidth: number,
+  color: number = EDGE_COLOR,
+  alpha: number = EDGE_ALPHA,
 ): void {
   const len = Math.hypot(dirX, dirY) || 1;
   const nx = dirX / len;
@@ -303,10 +345,10 @@ function drawArrowHead(
   g.lineTo(leftX, leftY);
   g.lineTo(rightX, rightY);
   g.lineTo(tipX, tipY);
-  g.fill({ color: EDGE_COLOR, alpha: EDGE_ALPHA + 0.2 });
+  g.fill({ color, alpha: Math.min(alpha + 0.2, 1.0) });
   g.stroke({
     width: strokeWidth * 0.5,
-    color: EDGE_COLOR,
-    alpha: EDGE_ALPHA,
+    color,
+    alpha,
   });
 }

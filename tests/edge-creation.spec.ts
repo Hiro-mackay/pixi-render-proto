@@ -202,7 +202,8 @@ async function countEdgeLines(page: Page): Promise<number> {
     const walk = (c: any, depth: number) => {
       if (!c || depth > 12) return;
       if (c.label === "edge-line-layer") {
-        count = c.children?.length ?? 0;
+        // Each edge has 2 children (line + hitLine)
+        count = Math.floor((c.children?.length ?? 0) / 2);
         return;
       }
       for (const child of c.children ?? []) walk(child, depth + 1);

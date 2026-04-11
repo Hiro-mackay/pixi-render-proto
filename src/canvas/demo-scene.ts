@@ -5,6 +5,7 @@ import { createEdge, updateEdge, type EdgeDisplay } from "./edge";
 import { createGroup, type GroupData } from "./group";
 import {
   enableDrag,
+  enableEdgeClick,
   enableGroupDrag,
   enableDeselectOnEmptyClick,
 } from "./interaction";
@@ -118,6 +119,7 @@ export async function buildDemoScene(
         edgeLabelLayer,
       );
       allEdges.push(edge);
+      enableEdgeClick(edge, selection);
     },
   );
   const cleanupEdgeCreator = edgeCreator.bindCanvasEvents(app.canvas as HTMLCanvasElement);
@@ -176,6 +178,7 @@ export async function buildDemoScene(
       edgeLabelLayer,
     );
     allEdges.push(edge);
+    enableEdgeClick(edge, selection);
   }
 
   for (const node of nodeContainers) {
