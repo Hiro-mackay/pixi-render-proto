@@ -1,6 +1,6 @@
 import { Container, FederatedPointerEvent, Graphics } from "pixi.js";
 import { Viewport } from "pixi-viewport";
-import { viewState } from "./view-state";
+import { viewState, ANCHOR_HIDE_THRESHOLD } from "./view-state";
 import type { Redrawable, Side } from "./types";
 import { nodePortsMap, getNodeWorldRect, sideDirection } from "./types";
 import {
@@ -123,7 +123,10 @@ export class SelectionManager {
       shape.circle(0, 0, r);
       shape.fill(0x3b82f6);
       shape.stroke({ width: 1.5, color: 0xffffff });
-      shape.__redraw = () => ep.scale.set(1 / viewState.scale);
+      shape.__redraw = () => {
+        ep.scale.set(1 / viewState.scale);
+        ep.alpha = viewState.scale < ANCHOR_HIDE_THRESHOLD ? 0 : 1;
+      };
       ep.addChild(shape);
 
       this.setupEndpointDrag(ep, i === 0 ? "source" : "target");
@@ -540,6 +543,7 @@ export class SelectionManager {
     this.outline.rect(x - pad, y - pad, width + pad * 2, height + pad * 2);
     this.outline.stroke({ width: 2 / scale, color: 0x3b82f6 });
 
+    const showHandles = scale >= ANCHOR_HIDE_THRESHOLD;
     const corners = [
       { x: x - pad, y: y - pad },
       { x: x + width + pad, y: y - pad },
@@ -551,7 +555,7 @@ export class SelectionManager {
       const corner = corners[i]!;
       handle.position.set(corner.x, corner.y);
       handle.scale.set(inv);
-      handle.visible = true;
+      handle.visible = showHandles;
     }
   }
 }
