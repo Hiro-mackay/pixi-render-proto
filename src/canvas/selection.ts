@@ -314,6 +314,9 @@ export class SelectionManager {
       const world = this.viewport.toWorld(e.global.x, e.global.y);
       this.reconnectCursor = { x: world.x, y: world.y };
 
+      // Move the dragged handle to follow the cursor
+      handle.position.set(world.x, world.y);
+
       // Find candidate node
       const candidate = this.findNodeAt(world.x, world.y);
       const fixedNode =
