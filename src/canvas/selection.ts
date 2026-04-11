@@ -21,12 +21,18 @@ export type ResizeHandler = (
 
 export type DeleteEdgeHandler = (edge: EdgeDisplay) => void;
 
+// 0-3: corners (TL, TR, BL, BR), 4-7: edges (top, right, bottom, left)
 const HANDLE_CURSORS = [
-  "nwse-resize",
-  "nesw-resize",
-  "nesw-resize",
-  "nwse-resize",
+  "nwse-resize", "nesw-resize", "nesw-resize", "nwse-resize",
+  "ns-resize", "ew-resize", "ns-resize", "ew-resize",
 ] as const;
+
+// Which axes each handle constrains: null = free, "x" = lock X, "y" = lock Y
+type ResizeAxis = "x" | "y" | null;
+const HANDLE_AXIS: ResizeAxis[] = [
+  null, null, null, null,  // corners: free movement
+  "y", "x", "y", "x",    // edges: top(Y), right(X), bottom(Y), left(X)
+];
 
 export class SelectionManager {
   private layer: Container;
@@ -81,28 +87,43 @@ export class SelectionManager {
     this.outline.visible = false;
     this.layer.addChild(this.outline);
 
-    // Resize corner handles
-    this.handles = [];
+    // Resize handles: 0-3 corners (squares), 4-7 edges (invisible lines)
+    // Add edge handles first (lower z), then corners on top for priority
+    this.handles = new Array(8);
+    const hs = SelectionManager.HANDLE_SIZE;
+
+    // 4-7: edge handles (invisible, full-edge hit area set in redraw)
+    for (let i = 4; i < 8; i++) {
+      const handle = new Container();
+      handle.visible = false;
+      handle.eventMode = "static";
+      handle.cursor = HANDLE_CURSORS[i];
+      handle.hitArea = {
+        contains: (x: number, y: number) =>
+          x >= -hs && x <= hs && y >= -hs && y <= hs,
+      };
+      this.setupResizeEvents(handle, i);
+      this.handles[i] = handle;
+      this.layer.addChild(handle);
+    }
+
+    // 0-3: corner handles (visible squares, on top of edge handles)
     for (let i = 0; i < 4; i++) {
       const handle = new Container();
       handle.visible = false;
       handle.eventMode = "static";
       handle.cursor = HANDLE_CURSORS[i];
-
-      const hs = SelectionManager.HANDLE_SIZE;
       handle.hitArea = {
         contains: (x: number, y: number) =>
           x >= -hs && x <= hs && y >= -hs && y <= hs,
       };
-
       const shape = new Graphics();
       shape.rect(-hs / 2, -hs / 2, hs, hs);
       shape.fill(0xffffff);
       shape.stroke({ width: 1.5, color: 0x3b82f6 });
       handle.addChild(shape);
-
       this.setupResizeEvents(handle, i);
-      this.handles.push(handle);
+      this.handles[i] = handle;
       this.layer.addChild(handle);
     }
 
@@ -492,11 +513,17 @@ export class SelectionManager {
       this.viewport.pause = true;
 
       const { node, width, height } = this.selected;
+      // Corners: opposite corner is anchor
+      // Edges: opposite edge midpoint is anchor
       const anchors = [
-        { x: node.x + width, y: node.y + height },
-        { x: node.x, y: node.y + height },
-        { x: node.x + width, y: node.y },
-        { x: node.x, y: node.y },
+        { x: node.x + width, y: node.y + height }, // 0: TL → BR
+        { x: node.x, y: node.y + height },          // 1: TR → BL
+        { x: node.x + width, y: node.y },           // 2: BL → TR
+        { x: node.x, y: node.y },                    // 3: BR → TL
+        { x: node.x + width / 2, y: node.y + height }, // 4: top → bottom
+        { x: node.x, y: node.y + height / 2 },         // 5: right → left
+        { x: node.x + width / 2, y: node.y },          // 6: bottom → top
+        { x: node.x + width, y: node.y + height / 2 }, // 7: left → right
       ];
       this.anchorPoint = anchors[index]!;
     });
@@ -507,17 +534,49 @@ export class SelectionManager {
 
       const world = this.viewport.toWorld(e.global.x, e.global.y);
       const anchor = this.anchorPoint;
+      const axis = HANDLE_AXIS[index];
 
-      const rawW = Math.abs(world.x - anchor.x);
-      const rawH = Math.abs(world.y - anchor.y);
+      // For edge handles, use current dimensions on the constrained axis
+      const curNode = this.selected.node;
+      const curW = this.selected.width;
+      const curH = this.selected.height;
+
+      let rawW: number, rawH: number, dirX: number, dirY: number;
+
+      if (axis === "y") {
+        // Top/bottom edge: only Y changes, X stays
+        rawW = curW;
+        rawH = Math.abs(world.y - anchor.y);
+        dirX = 1;
+        dirY = world.y >= anchor.y ? 1 : -1;
+      } else if (axis === "x") {
+        // Left/right edge: only X changes, Y stays
+        rawW = Math.abs(world.x - anchor.x);
+        rawH = curH;
+        dirX = world.x >= anchor.x ? 1 : -1;
+        dirY = 1;
+      } else {
+        // Corner: both axes
+        rawW = Math.abs(world.x - anchor.x);
+        rawH = Math.abs(world.y - anchor.y);
+        dirX = world.x >= anchor.x ? 1 : -1;
+        dirY = world.y >= anchor.y ? 1 : -1;
+      }
+
       const newW = Math.max(rawW, SelectionManager.MIN_WIDTH);
       const newH = Math.max(rawH, SelectionManager.MIN_HEIGHT);
 
-      const dirX = world.x >= anchor.x ? 1 : -1;
-      const dirY = world.y >= anchor.y ? 1 : -1;
-
-      const newX = dirX > 0 ? anchor.x : anchor.x - newW;
-      const newY = dirY > 0 ? anchor.y : anchor.y - newH;
+      let newX: number, newY: number;
+      if (axis === "y") {
+        newX = curNode.x;
+        newY = dirY > 0 ? anchor.y : anchor.y - newH;
+      } else if (axis === "x") {
+        newX = dirX > 0 ? anchor.x : anchor.x - newW;
+        newY = curNode.y;
+      } else {
+        newX = dirX > 0 ? anchor.x : anchor.x - newW;
+        newY = dirY > 0 ? anchor.y : anchor.y - newH;
+      }
 
       this.selected.width = newW;
       this.selected.height = newH;
@@ -551,6 +610,9 @@ export class SelectionManager {
     this.outline.stroke({ width: 2 / scale, color: 0x3b82f6 });
 
     const showHandles = scale >= ANCHOR_HIDE_THRESHOLD;
+    const edgeHitW = 6; // hit area thickness in screen px
+
+    // 0-3: corner handles
     const corners = [
       { x: x - pad, y: y - pad },
       { x: x + width + pad, y: y - pad },
@@ -559,9 +621,33 @@ export class SelectionManager {
     ];
     for (let i = 0; i < 4; i++) {
       const handle = this.handles[i]!;
-      const corner = corners[i]!;
-      handle.position.set(corner.x, corner.y);
+      const pos = corners[i]!;
+      handle.position.set(pos.x, pos.y);
       handle.scale.set(inv);
+      handle.visible = showHandles;
+    }
+
+    // 4-7: edge handles (top, right, bottom, left)
+    // Positioned at edge midpoints with hit areas spanning the full edge
+    const edgeW = width + pad * 2; // outline width in world
+    const edgeH = height + pad * 2;
+    const halfThick = edgeHitW; // in local (counter-scaled) px
+
+    const edgeDefs = [
+      { px: x + width / 2, py: y - pad, hw: (edgeW * scale) / 2, hh: halfThick },
+      { px: x + width + pad, py: y + height / 2, hw: halfThick, hh: (edgeH * scale) / 2 },
+      { px: x + width / 2, py: y + height + pad, hw: (edgeW * scale) / 2, hh: halfThick },
+      { px: x - pad, py: y + height / 2, hw: halfThick, hh: (edgeH * scale) / 2 },
+    ];
+    for (let i = 0; i < 4; i++) {
+      const handle = this.handles[i + 4]!;
+      const def = edgeDefs[i]!;
+      handle.position.set(def.px, def.py);
+      handle.scale.set(inv);
+      handle.hitArea = {
+        contains: (hx: number, hy: number) =>
+          hx >= -def.hw && hx <= def.hw && hy >= -def.hh && hy <= def.hh,
+      };
       handle.visible = showHandles;
     }
   }

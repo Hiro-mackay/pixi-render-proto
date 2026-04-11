@@ -95,13 +95,21 @@ export function resizeNode(
   const bg = container.children[0] as Redrawable;
   bg.__redraw?.();
 
-  // Reposition icon and label
+  // Center icon + label vertically and horizontally
+  let icon: Sprite | null = null;
+  let label: Text | null = null;
   for (const child of container.children) {
-    if (child instanceof Sprite) {
-      child.position.x = (width - child.width) / 2;
-    } else if (child instanceof Text) {
-      child.position.x = width / 2;
-    }
+    if (child instanceof Sprite) icon = child;
+    else if (child instanceof Text) label = child;
+  }
+
+  if (icon && label) {
+    const contentH = icon.height + 4 + label.height;
+    const startY = (height - contentH) / 2;
+    icon.position.set((width - icon.width) / 2, startY);
+    label.position.set(width / 2, startY + icon.height + 4);
+  } else if (label) {
+    label.position.set(width / 2, height / 2 - label.height / 2);
   }
 
   // Update port positions
