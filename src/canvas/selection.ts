@@ -8,6 +8,7 @@ import {
   setEdgeSelected,
   updateEdge,
   getSideAnchor,
+  getFixedSideAnchor,
 } from "./edge";
 
 export type ResizeHandler = (
@@ -55,6 +56,7 @@ export class SelectionManager {
   private reconnectEndpoint: "source" | "target" | null = null;
   private reconnectOriginal: {
     sourceNode: Container;
+    sourceSide: Side;
     targetNode: Container;
   } | null = null;
   private reconnectFixedAnchor: { x: number; y: number } | null = null;
@@ -243,12 +245,8 @@ export class SelectionManager {
       x: sourceRect.x + sourceRect.width / 2,
       y: sourceRect.y + sourceRect.height / 2,
     };
-    const targetCenter = {
-      x: targetRect.x + targetRect.width / 2,
-      y: targetRect.y + targetRect.height / 2,
-    };
 
-    const sourceAnchor = getSideAnchor(sourceRect, targetCenter);
+    const sourceAnchor = getFixedSideAnchor(sourceRect, edge.sourceSide);
     const targetAnchor = getSideAnchor(targetRect, sourceCenter);
 
     const inv = 1 / viewState.scale;
@@ -273,6 +271,7 @@ export class SelectionManager {
       this.reconnectEndpoint = endpoint;
       this.reconnectOriginal = {
         sourceNode: this.selectedEdge.sourceNode,
+        sourceSide: this.selectedEdge.sourceSide,
         targetNode: this.selectedEdge.targetNode,
       };
       this.viewport.pause = true;
@@ -282,14 +281,20 @@ export class SelectionManager {
       const fixedNode =
         endpoint === "source" ? edge.targetNode : edge.sourceNode;
       const fixedRect = getNodeWorldRect(fixedNode);
-      const dragNode =
-        endpoint === "source" ? edge.sourceNode : edge.targetNode;
-      const dragRect = getNodeWorldRect(dragNode);
-      const dragCenter = {
-        x: dragRect.x + dragRect.width / 2,
-        y: dragRect.y + dragRect.height / 2,
-      };
-      const fixedAnchor = getSideAnchor(fixedRect, dragCenter);
+
+      let fixedAnchor;
+      if (endpoint === "target") {
+        // Dragging target: fixed end is source (use fixed side)
+        fixedAnchor = getFixedSideAnchor(fixedRect, edge.sourceSide);
+      } else {
+        // Dragging source: fixed end is target (auto side)
+        const dragRect = getNodeWorldRect(edge.sourceNode);
+        const dragCenter = {
+          x: dragRect.x + dragRect.width / 2,
+          y: dragRect.y + dragRect.height / 2,
+        };
+        fixedAnchor = getSideAnchor(fixedRect, dragCenter);
+      }
       this.reconnectFixedAnchor = { x: fixedAnchor.x, y: fixedAnchor.y };
       this.reconnectFixedSide = fixedAnchor.side;
       this.reconnectCursor = { x: fixedAnchor.x, y: fixedAnchor.y };
@@ -345,12 +350,21 @@ export class SelectionManager {
         // Reconnect
         if (this.reconnectEndpoint === "source") {
           edge.sourceNode = candidate;
+          // Determine new sourceSide from the candidate facing the target
+          const candidateRect = getNodeWorldRect(candidate);
+          const tgtRect = getNodeWorldRect(edge.targetNode);
+          const tgtCenter = {
+            x: tgtRect.x + tgtRect.width / 2,
+            y: tgtRect.y + tgtRect.height / 2,
+          };
+          edge.sourceSide = getSideAnchor(candidateRect, tgtCenter).side;
         } else {
           edge.targetNode = candidate;
         }
       } else {
         // Revert to original
         edge.sourceNode = this.reconnectOriginal.sourceNode;
+        edge.sourceSide = this.reconnectOriginal.sourceSide;
         edge.targetNode = this.reconnectOriginal.targetNode;
       }
 

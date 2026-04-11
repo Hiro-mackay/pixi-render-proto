@@ -6,6 +6,7 @@ import { sideDirection, textResolution, getNodeWorldRect } from "./types";
 export type EdgeData = {
   id: string;
   sourceNode: Container;
+  sourceSide: Side;
   targetNode: Container;
   label?: string;
 };
@@ -69,6 +70,7 @@ export type EdgeDisplay = {
   labelPill: Redrawable | null;
   labelText: Text | null;
   sourceNode: Container;
+  sourceSide: Side;
   targetNode: Container;
   selected: boolean;
 };
@@ -108,6 +110,7 @@ export function createEdge(
     labelPill,
     labelText,
     sourceNode: data.sourceNode,
+    sourceSide: data.sourceSide,
     targetNode: data.targetNode,
     selected: false,
   };
@@ -146,13 +149,10 @@ export function updateEdge(edge: EdgeDisplay, label?: string): void {
   };
 
   const targetRect = getNodeWorldRect(edge.targetNode);
-  const targetCenter = {
-    x: targetRect.x + targetRect.width / 2,
-    y: targetRect.y + targetRect.height / 2,
-  };
   const endAnchor = getSideAnchor(targetRect, sourceCenter);
 
-  const startAnchor = getSideAnchor(sourceRect, targetCenter);
+  // Source anchor is fixed to the specified side
+  const startAnchor = getFixedSideAnchor(sourceRect, edge.sourceSide);
 
   // Control points extend perpendicular to anchor sides (organized flow)
   const dist = Math.hypot(
@@ -263,6 +263,21 @@ function drawLabelPill(
     color: 0x0f172a,
     alpha: 0.5,
   });
+}
+
+export function getFixedSideAnchor(rect: Rect, side: Side): Anchor {
+  const cx = rect.x + rect.width / 2;
+  const cy = rect.y + rect.height / 2;
+  switch (side) {
+    case "top":
+      return { x: cx, y: rect.y, side };
+    case "right":
+      return { x: rect.x + rect.width, y: cy, side };
+    case "bottom":
+      return { x: cx, y: rect.y + rect.height, side };
+    case "left":
+      return { x: rect.x, y: cy, side };
+  }
 }
 
 export function getSideAnchor(rect: Rect, target: { x: number; y: number }): Anchor {

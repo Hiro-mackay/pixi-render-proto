@@ -7,6 +7,7 @@ export type { Side } from "./types";
 
 export type EdgeCreationResult = {
   source: Container;
+  sourceSide: Side;
   target: Container;
 };
 
@@ -83,7 +84,11 @@ export class EdgeCreator {
     const target = this.findNodeAt(world.x, world.y);
 
     if (target && target !== this.sourceNode) {
-      this.onCreate({ source: this.sourceNode, target });
+      this.onCreate({
+        source: this.sourceNode,
+        sourceSide: this.sourceSide!,
+        target,
+      });
     }
     this.cancel();
   }

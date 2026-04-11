@@ -1,7 +1,13 @@
 import { Assets, Container, Texture } from "pixi.js";
 import type { CanvasContext } from "./setup";
 import { createNode, resizeNode } from "./node";
-import { createEdge, removeEdge, updateEdge, type EdgeDisplay } from "./edge";
+import {
+  createEdge,
+  removeEdge,
+  updateEdge,
+  getSideAnchor,
+  type EdgeDisplay,
+} from "./edge";
 import { createGroup, type GroupData } from "./group";
 import {
   enableDrag,
@@ -12,7 +18,7 @@ import {
 import { SelectionManager } from "./selection";
 import { EdgeCreator } from "./edge-creator";
 import { attachConnectionPorts } from "./node-ports";
-import { PROTOCOL_LABELS } from "./types";
+import { PROTOCOL_LABELS, getNodeWorldRect } from "./types";
 
 import computeIcon from "../assets/icons/compute.svg";
 import databaseIcon from "../assets/icons/database.svg";
@@ -112,11 +118,12 @@ export async function buildDemoScene(
     ghostLayer,
     viewport,
     () => nodeContainers,
-    ({ source, target }) => {
+    ({ source, sourceSide, target }) => {
       const edge = createEdge(
         {
           id: `edge-user-${allEdges.length}`,
           sourceNode: source,
+          sourceSide,
           targetNode: target,
           label: undefined,
         },
@@ -177,8 +184,16 @@ export async function buildDemoScene(
     const protocols = [...PROTOCOL_LABELS, ""] as const;
     const label = protocols[i % protocols.length];
 
+    const srcRect = getNodeWorldRect(src);
+    const tgtRect = getNodeWorldRect(tgt);
+    const tgtCenter = {
+      x: tgtRect.x + tgtRect.width / 2,
+      y: tgtRect.y + tgtRect.height / 2,
+    };
+    const sourceSide = getSideAnchor(srcRect, tgtCenter).side;
+
     const edge = createEdge(
-      { id: `edge-${i}`, sourceNode: src, targetNode: tgt, label: label || undefined },
+      { id: `edge-${i}`, sourceNode: src, sourceSide, targetNode: tgt, label: label || undefined },
       edgeLineLayer,
       edgeLabelLayer,
     );
