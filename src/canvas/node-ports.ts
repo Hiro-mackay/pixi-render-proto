@@ -9,13 +9,13 @@ import { EdgeCreator } from "./edge-creator";
  * Ports are hidden by default and shown when the node is selected
  * (managed by SelectionManager via nodePortsMap).
  *
- * Ports sit outside the node boundary by ANCHOR_OFFSET pixels.
- * Uses Method 2 (counter-scale) so ports stay a constant screen size.
+ * Ports sit outside the node boundary at a zoom-invariant screen distance.
+ * Uses counter-scale so ports stay a constant screen size.
  */
 
 const PORT_RADIUS = 5;
-const HIT_RADIUS = 10;
-export const ANCHOR_OFFSET = 10;
+const HIT_RADIUS = 12;
+const ANCHOR_SCREEN_PX = 14;
 
 export function attachConnectionPorts(
   node: Container,
@@ -27,18 +27,15 @@ export function attachConnectionPorts(
   const portsContainer = new Container();
   portsContainer.label = "ports";
 
-  const positions = getPortPositions(nodeSize.width, nodeSize.height);
   const sides: Side[] = ["top", "right", "bottom", "left"];
 
   for (const side of sides) {
-    const pos = positions[side];
     const port: Redrawable = new Graphics();
     port.label = side;
     port.circle(0, 0, PORT_RADIUS);
     port.fill(0x3b82f6);
     port.stroke({ width: 1.5, color: 0xffffff });
 
-    port.position.set(pos.x, pos.y);
     port.eventMode = "static";
     port.cursor = "crosshair";
     port.hitArea = {
@@ -46,11 +43,15 @@ export function attachConnectionPorts(
         hx * hx + hy * hy < HIT_RADIUS * HIT_RADIUS,
     };
 
-    const updateScale = () => {
+    const updatePort = () => {
       port.scale.set(1 / viewState.scale);
+      const size = nodeSizeMap.get(node);
+      if (!size) return;
+      const pos = getPortPositions(size.width, size.height)[side];
+      port.position.set(pos.x, pos.y);
     };
-    updateScale();
-    port.__redraw = updateScale;
+    updatePort();
+    port.__redraw = updatePort;
 
     port.on("pointerdown", (e: FederatedPointerEvent) => {
       e.stopPropagation();
@@ -74,10 +75,11 @@ export function getPortPositions(
   width: number,
   height: number,
 ): Record<Side, { x: number; y: number }> {
+  const offset = ANCHOR_SCREEN_PX / viewState.scale;
   return {
-    top: { x: width / 2, y: -ANCHOR_OFFSET },
-    right: { x: width + ANCHOR_OFFSET, y: height / 2 },
-    bottom: { x: width / 2, y: height + ANCHOR_OFFSET },
-    left: { x: -ANCHOR_OFFSET, y: height / 2 },
+    top: { x: width / 2, y: -offset },
+    right: { x: width + offset, y: height / 2 },
+    bottom: { x: width / 2, y: height + offset },
+    left: { x: -offset, y: height / 2 },
   };
 }

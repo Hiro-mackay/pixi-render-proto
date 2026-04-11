@@ -65,15 +65,17 @@ export function createNode(data: NodeData): Container {
   container.addChild(label);
 
   // Expanded hit area includes space around the border for connection ports.
-  // Without this, port hit zones that extend beyond the node would be
-  // rejected by the parent's hit test.
-  const PORT_MARGIN = 22;
+  // Margin is dynamic: port offset (zoom-dependent) + hit radius (counter-scaled).
   container.hitArea = {
-    contains: (x: number, y: number) =>
-      x >= -PORT_MARGIN &&
-      x <= size.width + PORT_MARGIN &&
-      y >= -PORT_MARGIN &&
-      y <= size.height + PORT_MARGIN,
+    contains: (x: number, y: number) => {
+      const margin = (14 + 12) / viewState.scale;
+      return (
+        x >= -margin &&
+        x <= size.width + margin &&
+        y >= -margin &&
+        y <= size.height + margin
+      );
+    },
   };
 
   return container;
