@@ -1,7 +1,7 @@
 import { Container, Graphics, Text, TextStyle, Sprite, Texture } from "pixi.js";
 import { viewState } from "./view-state";
 import type { Redrawable } from "./types";
-import { textResolution, nodeSizeMap } from "./types";
+import { textResolution, nodeSizeMap, nodePortsMap } from "./types";
 import { getPortPositions } from "./node-ports";
 
 export type NodeData = {
@@ -64,11 +64,13 @@ export function createNode(data: NodeData): Container {
   label.position.set(size.width / 2, data.icon ? 42 : 12);
   container.addChild(label);
 
-  // Expanded hit area includes space around the border for connection ports.
-  // Margin is dynamic: port offset (zoom-dependent) + hit radius (counter-scaled).
+  // Hit area expands only when ports are visible (node selected).
+  // Otherwise stays tight to the node boundary to avoid blocking edges.
   container.hitArea = {
     contains: (x: number, y: number) => {
-      const margin = (14 + 12) / viewState.scale;
+      const ports = nodePortsMap.get(container);
+      const portsVisible = ports?.visible ?? false;
+      const margin = portsVisible ? (14 + 12) / viewState.scale : 0;
       return (
         x >= -margin &&
         x <= size.width + margin &&
