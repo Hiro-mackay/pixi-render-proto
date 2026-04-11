@@ -1,7 +1,7 @@
 import { Container, Graphics, Text, TextStyle } from "pixi.js";
 import { viewState } from "./view-state";
 import type { Redrawable, ProtocolLabel, Side } from "./types";
-import { sideDirection, textResolution, getNodeWorldRect } from "./types";
+import { sideDirection, textResolution, getNodeWorldRect, computeBezierControlPoints } from "./types";
 
 export type EdgeData = {
   id: string;
@@ -151,20 +151,10 @@ export function updateEdge(edge: EdgeDisplay, label?: string): void {
   const startAnchor = getFixedSideAnchor(sourceRect, edge.sourceSide);
   const endAnchor = getFixedSideAnchor(targetRect, edge.targetSide);
 
-  // Control points extend perpendicular to anchor sides (organized flow)
-  const dist = Math.hypot(
-    endAnchor.x - startAnchor.x,
-    endAnchor.y - startAnchor.y,
+  const { cp1x, cp1y, cp2x, cp2y } = computeBezierControlPoints(
+    startAnchor.x, startAnchor.y, startAnchor.side,
+    endAnchor.x, endAnchor.y, endAnchor.side,
   );
-  const offset = Math.min(Math.max(dist * 0.4, 30), 120);
-
-  const startDir = sideDirection(startAnchor.side);
-  const endDir = sideDirection(endAnchor.side);
-
-  const cp1x = startAnchor.x + startDir.x * offset;
-  const cp1y = startAnchor.y + startDir.y * offset;
-  const cp2x = endAnchor.x + endDir.x * offset;
-  const cp2y = endAnchor.y + endDir.y * offset;
 
   const color = edge.selected ? SELECTED_COLOR : EDGE_COLOR;
   const alpha = edge.selected ? 1.0 : EDGE_ALPHA;
@@ -187,6 +177,7 @@ export function updateEdge(edge: EdgeDisplay, label?: string): void {
     alpha,
   });
 
+  const endDir = sideDirection(endAnchor.side);
   drawArrowHead(
     edge.line,
     endAnchor.x,

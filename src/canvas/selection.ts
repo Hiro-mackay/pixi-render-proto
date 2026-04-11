@@ -2,7 +2,12 @@ import { Container, FederatedPointerEvent, Graphics } from "pixi.js";
 import { Viewport } from "pixi-viewport";
 import { viewState, ANCHOR_HIDE_THRESHOLD } from "./view-state";
 import type { Redrawable, Side } from "./types";
-import { nodePortsMap, getNodeWorldRect, sideDirection } from "./types";
+import {
+  nodePortsMap,
+  getNodeWorldRect,
+  computeBezierControlPoints,
+  findNodeAt as findNodeAtUtil,
+} from "./types";
 import {
   type EdgeDisplay,
   setEdgeSelected,
@@ -317,7 +322,7 @@ export class SelectionManager {
       // Hide edge line during drag
       edge.line.visible = false;
       edge.hitLine.visible = false;
-      if (edge.labelPill) (edge.labelPill as Graphics).visible = false;
+      if (edge.labelPill) edge.labelPill.visible = false;
       if (edge.labelText) edge.labelText.visible = false;
 
       // Hide the other endpoint handle; keep the dragged one for events
@@ -391,7 +396,7 @@ export class SelectionManager {
       // Restore visibility
       edge.line.visible = true;
       edge.hitLine.visible = true;
-      if (edge.labelPill) (edge.labelPill as Graphics).visible = true;
+      if (edge.labelPill) edge.labelPill.visible = true;
       if (edge.labelText) edge.labelText.visible = true;
 
       updateEdge(edge);
@@ -416,20 +421,7 @@ export class SelectionManager {
 
   private findNodeAt(worldX: number, worldY: number): Container | null {
     if (!this.getAllNodes) return null;
-    const nodes = this.getAllNodes();
-    for (let i = nodes.length - 1; i >= 0; i--) {
-      const n = nodes[i]!;
-      const rect = getNodeWorldRect(n);
-      if (
-        worldX >= rect.x &&
-        worldX <= rect.x + rect.width &&
-        worldY >= rect.y &&
-        worldY <= rect.y + rect.height
-      ) {
-        return n;
-      }
-    }
-    return null;
+    return findNodeAtUtil(this.getAllNodes(), worldX, worldY);
   }
 
   private redrawReconnectGhost(): void {
@@ -453,24 +445,10 @@ export class SelectionManager {
       endSide = side;
     }
 
-    const dx = endX - anchor.x;
-    const dy = endY - anchor.y;
-    const dist = Math.hypot(dx, dy);
-    const offset = Math.min(Math.max(dist * 0.4, 30), 120);
-
-    const dir = sideDirection(this.reconnectFixedSide);
-    const cp1x = anchor.x + dir.x * offset;
-    const cp1y = anchor.y + dir.y * offset;
-
-    let cp2x: number, cp2y: number;
-    if (endSide) {
-      const endDir = sideDirection(endSide);
-      cp2x = endX + endDir.x * offset;
-      cp2y = endY + endDir.y * offset;
-    } else {
-      cp2x = endX - dx * 0.25;
-      cp2y = endY - dy * 0.25;
-    }
+    const { cp1x, cp1y, cp2x, cp2y } = computeBezierControlPoints(
+      anchor.x, anchor.y, this.reconnectFixedSide,
+      endX, endY, endSide,
+    );
 
     this.reconnectGhost.clear();
     this.reconnectGhost.moveTo(anchor.x, anchor.y);

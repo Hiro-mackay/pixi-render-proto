@@ -49,6 +49,54 @@ export function textResolution(): number {
   return Math.ceil(window.devicePixelRatio || 1) * 2;
 }
 
+export type BezierPoints = {
+  cp1x: number; cp1y: number;
+  cp2x: number; cp2y: number;
+};
+
+export function computeBezierControlPoints(
+  startX: number, startY: number, startSide: Side,
+  endX: number, endY: number, endSide: Side | null,
+): BezierPoints {
+  const dx = endX - startX;
+  const dy = endY - startY;
+  const dist = Math.hypot(dx, dy);
+  const offset = Math.min(Math.max(dist * 0.4, 30), 120);
+  const startDir = sideDirection(startSide);
+  const cp1x = startX + startDir.x * offset;
+  const cp1y = startY + startDir.y * offset;
+  let cp2x: number, cp2y: number;
+  if (endSide) {
+    const endDir = sideDirection(endSide);
+    cp2x = endX + endDir.x * offset;
+    cp2y = endY + endDir.y * offset;
+  } else {
+    cp2x = endX - dx * 0.25;
+    cp2y = endY - dy * 0.25;
+  }
+  return { cp1x, cp1y, cp2x, cp2y };
+}
+
+export function findNodeAt(
+  nodes: Container[],
+  worldX: number,
+  worldY: number,
+): Container | null {
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const n = nodes[i]!;
+    const rect = getNodeWorldRect(n);
+    if (
+      worldX >= rect.x &&
+      worldX <= rect.x + rect.width &&
+      worldY >= rect.y &&
+      worldY <= rect.y + rect.height
+    ) {
+      return n;
+    }
+  }
+  return null;
+}
+
 export const PROTOCOL_LABELS = [
   "HTTPS :443",
   "gRPC :50051",

@@ -2,7 +2,7 @@ import { Container, Graphics } from "pixi.js";
 import { Viewport } from "pixi-viewport";
 import { viewState } from "./view-state";
 import type { Redrawable, Side } from "./types";
-import { sideDirection, getNodeWorldRect } from "./types";
+import { getNodeWorldRect, computeBezierControlPoints, findNodeAt } from "./types";
 import { getNearestSide, getFixedSideAnchor } from "./edge";
 export type { Side } from "./types";
 
@@ -160,20 +160,7 @@ export class EdgeCreator {
   }
 
   private findNodeAt(worldX: number, worldY: number): Container | null {
-    const nodes = this.getAllNodes();
-    for (let i = nodes.length - 1; i >= 0; i--) {
-      const n = nodes[i]!;
-      const rect = getNodeWorldRect(n);
-      if (
-        worldX >= rect.x &&
-        worldX <= rect.x + rect.width &&
-        worldY >= rect.y &&
-        worldY <= rect.y + rect.height
-      ) {
-        return n;
-      }
-    }
-    return null;
+    return findNodeAt(this.getAllNodes(), worldX, worldY);
   }
 
   private updateHighlight(): void {
@@ -222,24 +209,10 @@ export class EdgeCreator {
       endSide = side;
     }
 
-    const dx = endX - this.sourceAnchor.x;
-    const dy = endY - this.sourceAnchor.y;
-    const dist = Math.hypot(dx, dy);
-    const offset = Math.min(Math.max(dist * 0.4, 30), 120);
-
-    const dir = sideDirection(this.sourceSide);
-    const cp1x = this.sourceAnchor.x + dir.x * offset;
-    const cp1y = this.sourceAnchor.y + dir.y * offset;
-
-    let cp2x: number, cp2y: number;
-    if (endSide) {
-      const endDir = sideDirection(endSide);
-      cp2x = endX + endDir.x * offset;
-      cp2y = endY + endDir.y * offset;
-    } else {
-      cp2x = endX - dx * 0.25;
-      cp2y = endY - dy * 0.25;
-    }
+    const { cp1x, cp1y, cp2x, cp2y } = computeBezierControlPoints(
+      this.sourceAnchor.x, this.sourceAnchor.y, this.sourceSide,
+      endX, endY, endSide,
+    );
 
     this.ghostLine.clear();
     this.ghostLine.moveTo(this.sourceAnchor.x, this.sourceAnchor.y);

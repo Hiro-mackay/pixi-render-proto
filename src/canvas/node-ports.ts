@@ -68,6 +68,7 @@ export function attachConnectionPorts(
     };
     updatePort();
     defaultShape.__redraw = updatePort;
+    hoverShape.__redraw = updatePort;
 
     portContainer.on("pointerenter", () => {
       defaultShape.visible = false;
