@@ -7,8 +7,8 @@ import {
   type EdgeDisplay,
   setEdgeSelected,
   updateEdge,
-  getSideAnchor,
   getFixedSideAnchor,
+  getNearestSide,
 } from "./edge";
 
 export type ResizeHandler = (
@@ -58,6 +58,7 @@ export class SelectionManager {
     sourceNode: Container;
     sourceSide: Side;
     targetNode: Container;
+    targetSide: Side;
   } | null = null;
   private reconnectFixedAnchor: { x: number; y: number } | null = null;
   private reconnectFixedSide: Side | null = null;
@@ -245,13 +246,9 @@ export class SelectionManager {
   private positionEndpointHandles(edge: EdgeDisplay): void {
     const sourceRect = getNodeWorldRect(edge.sourceNode);
     const targetRect = getNodeWorldRect(edge.targetNode);
-    const sourceCenter = {
-      x: sourceRect.x + sourceRect.width / 2,
-      y: sourceRect.y + sourceRect.height / 2,
-    };
 
     const sourceAnchor = getFixedSideAnchor(sourceRect, edge.sourceSide);
-    const targetAnchor = getSideAnchor(targetRect, sourceCenter);
+    const targetAnchor = getFixedSideAnchor(targetRect, edge.targetSide);
 
     const inv = 1 / viewState.scale;
     this.endpointHandles[0]!.position.set(sourceAnchor.x, sourceAnchor.y);
@@ -277,6 +274,7 @@ export class SelectionManager {
         sourceNode: this.selectedEdge.sourceNode,
         sourceSide: this.selectedEdge.sourceSide,
         targetNode: this.selectedEdge.targetNode,
+        targetSide: this.selectedEdge.targetSide,
       };
       this.viewport.pause = true;
 
@@ -285,20 +283,9 @@ export class SelectionManager {
       const fixedNode =
         endpoint === "source" ? edge.targetNode : edge.sourceNode;
       const fixedRect = getNodeWorldRect(fixedNode);
-
-      let fixedAnchor;
-      if (endpoint === "target") {
-        // Dragging target: fixed end is source (use fixed side)
-        fixedAnchor = getFixedSideAnchor(fixedRect, edge.sourceSide);
-      } else {
-        // Dragging source: fixed end is target (auto side)
-        const dragRect = getNodeWorldRect(edge.sourceNode);
-        const dragCenter = {
-          x: dragRect.x + dragRect.width / 2,
-          y: dragRect.y + dragRect.height / 2,
-        };
-        fixedAnchor = getSideAnchor(fixedRect, dragCenter);
-      }
+      const fixedSide =
+        endpoint === "source" ? edge.targetSide : edge.sourceSide;
+      const fixedAnchor = getFixedSideAnchor(fixedRect, fixedSide);
       this.reconnectFixedAnchor = { x: fixedAnchor.x, y: fixedAnchor.y };
       this.reconnectFixedSide = fixedAnchor.side;
       this.reconnectCursor = { x: fixedAnchor.x, y: fixedAnchor.y };
@@ -326,7 +313,7 @@ export class SelectionManager {
       // Move the dragged handle to follow the cursor
       handle.position.set(world.x, world.y);
 
-      // Find candidate node
+      // Find candidate node (allow same node for port change)
       const candidate = this.findNodeAt(world.x, world.y);
       const fixedNode =
         this.reconnectEndpoint === "source"
@@ -351,25 +338,23 @@ export class SelectionManager {
       const candidate = this.reconnectCandidate;
 
       if (candidate) {
-        // Reconnect
+        // Reconnect — determine port from cursor position
+        const candidateRect = getNodeWorldRect(candidate);
+        const droppedSide = getNearestSide(candidateRect, this.reconnectCursor);
+
         if (this.reconnectEndpoint === "source") {
           edge.sourceNode = candidate;
-          // Determine new sourceSide from the candidate facing the target
-          const candidateRect = getNodeWorldRect(candidate);
-          const tgtRect = getNodeWorldRect(edge.targetNode);
-          const tgtCenter = {
-            x: tgtRect.x + tgtRect.width / 2,
-            y: tgtRect.y + tgtRect.height / 2,
-          };
-          edge.sourceSide = getSideAnchor(candidateRect, tgtCenter).side;
+          edge.sourceSide = droppedSide;
         } else {
           edge.targetNode = candidate;
+          edge.targetSide = droppedSide;
         }
       } else {
         // Revert to original
         edge.sourceNode = this.reconnectOriginal.sourceNode;
         edge.sourceSide = this.reconnectOriginal.sourceSide;
         edge.targetNode = this.reconnectOriginal.targetNode;
+        edge.targetSide = this.reconnectOriginal.targetSide;
       }
 
       // Restore visibility
@@ -423,29 +408,49 @@ export class SelectionManager {
     const cursor = this.reconnectCursor;
     const strokeWidth = 1.5 / viewState.scale;
 
-    const dx = cursor.x - anchor.x;
-    const dy = cursor.y - anchor.y;
+    // Snap to nearest port when over a candidate node
+    let endX = cursor.x;
+    let endY = cursor.y;
+    let endSide: Side | null = null;
+
+    if (this.reconnectCandidate) {
+      const rect = getNodeWorldRect(this.reconnectCandidate);
+      const side = getNearestSide(rect, cursor);
+      const snapAnchor = getFixedSideAnchor(rect, side);
+      endX = snapAnchor.x;
+      endY = snapAnchor.y;
+      endSide = side;
+    }
+
+    const dx = endX - anchor.x;
+    const dy = endY - anchor.y;
     const dist = Math.hypot(dx, dy);
     const offset = Math.min(Math.max(dist * 0.4, 30), 120);
 
     const dir = sideDirection(this.reconnectFixedSide);
     const cp1x = anchor.x + dir.x * offset;
     const cp1y = anchor.y + dir.y * offset;
-    const cp2x = cursor.x - dx * 0.25;
-    const cp2y = cursor.y - dy * 0.25;
+
+    let cp2x: number, cp2y: number;
+    if (endSide) {
+      const endDir = sideDirection(endSide);
+      cp2x = endX + endDir.x * offset;
+      cp2y = endY + endDir.y * offset;
+    } else {
+      cp2x = endX - dx * 0.25;
+      cp2y = endY - dy * 0.25;
+    }
 
     this.reconnectGhost.clear();
     this.reconnectGhost.moveTo(anchor.x, anchor.y);
-    this.reconnectGhost.bezierCurveTo(
-      cp1x, cp1y, cp2x, cp2y, cursor.x, cursor.y,
-    );
+    this.reconnectGhost.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
     this.reconnectGhost.stroke({
       width: strokeWidth,
       color: 0x3b82f6,
       alpha: 0.9,
     });
 
-    this.reconnectGhost.circle(cursor.x, cursor.y, 4 / viewState.scale);
+    this.reconnectGhost.circle(endX, endY, 4 / viewState.scale);
     this.reconnectGhost.fill({ color: 0x3b82f6, alpha: 0.9 });
   }
 

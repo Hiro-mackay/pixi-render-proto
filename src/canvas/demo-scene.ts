@@ -118,13 +118,14 @@ export async function buildDemoScene(
     ghostLayer,
     viewport,
     () => nodeContainers,
-    ({ source, sourceSide, target }) => {
+    ({ source, sourceSide, target, targetSide }) => {
       const edge = createEdge(
         {
           id: `edge-user-${allEdges.length}`,
           sourceNode: source,
           sourceSide,
           targetNode: target,
+          targetSide,
           label: undefined,
         },
         edgeLineLayer,
@@ -186,14 +187,19 @@ export async function buildDemoScene(
 
     const srcRect = getNodeWorldRect(src);
     const tgtRect = getNodeWorldRect(tgt);
+    const srcCenter = {
+      x: srcRect.x + srcRect.width / 2,
+      y: srcRect.y + srcRect.height / 2,
+    };
     const tgtCenter = {
       x: tgtRect.x + tgtRect.width / 2,
       y: tgtRect.y + tgtRect.height / 2,
     };
     const sourceSide = getSideAnchor(srcRect, tgtCenter).side;
+    const targetSide = getSideAnchor(tgtRect, srcCenter).side;
 
     const edge = createEdge(
-      { id: `edge-${i}`, sourceNode: src, sourceSide, targetNode: tgt, label: label || undefined },
+      { id: `edge-${i}`, sourceNode: src, sourceSide, targetNode: tgt, targetSide, label: label || undefined },
       edgeLineLayer,
       edgeLabelLayer,
     );

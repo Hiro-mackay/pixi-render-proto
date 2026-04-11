@@ -8,6 +8,7 @@ export type EdgeData = {
   sourceNode: Container;
   sourceSide: Side;
   targetNode: Container;
+  targetSide: Side;
   label?: string;
 };
 
@@ -72,6 +73,7 @@ export type EdgeDisplay = {
   sourceNode: Container;
   sourceSide: Side;
   targetNode: Container;
+  targetSide: Side;
   selected: boolean;
 };
 
@@ -112,6 +114,7 @@ export function createEdge(
     sourceNode: data.sourceNode,
     sourceSide: data.sourceSide,
     targetNode: data.targetNode,
+    targetSide: data.targetSide,
     selected: false,
   };
 
@@ -143,16 +146,10 @@ export function removeEdge(edge: EdgeDisplay): void {
 
 export function updateEdge(edge: EdgeDisplay, label?: string): void {
   const sourceRect = getNodeWorldRect(edge.sourceNode);
-  const sourceCenter = {
-    x: sourceRect.x + sourceRect.width / 2,
-    y: sourceRect.y + sourceRect.height / 2,
-  };
-
   const targetRect = getNodeWorldRect(edge.targetNode);
-  const endAnchor = getSideAnchor(targetRect, sourceCenter);
 
-  // Source anchor is fixed to the specified side
   const startAnchor = getFixedSideAnchor(sourceRect, edge.sourceSide);
+  const endAnchor = getFixedSideAnchor(targetRect, edge.targetSide);
 
   // Control points extend perpendicular to anchor sides (organized flow)
   const dist = Math.hypot(
@@ -263,6 +260,27 @@ function drawLabelPill(
     color: 0x0f172a,
     alpha: 0.5,
   });
+}
+
+export function getNearestSide(rect: Rect, point: { x: number; y: number }): Side {
+  const cx = rect.x + rect.width / 2;
+  const cy = rect.y + rect.height / 2;
+  const sides: { side: Side; x: number; y: number }[] = [
+    { side: "top", x: cx, y: rect.y },
+    { side: "right", x: rect.x + rect.width, y: cy },
+    { side: "bottom", x: cx, y: rect.y + rect.height },
+    { side: "left", x: rect.x, y: cy },
+  ];
+  let best = sides[0]!;
+  let bestDist = Infinity;
+  for (const s of sides) {
+    const d = Math.hypot(s.x - point.x, s.y - point.y);
+    if (d < bestDist) {
+      bestDist = d;
+      best = s;
+    }
+  }
+  return best.side;
 }
 
 export function getFixedSideAnchor(rect: Rect, side: Side): Anchor {

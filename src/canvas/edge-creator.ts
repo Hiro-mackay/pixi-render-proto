@@ -3,12 +3,14 @@ import { Viewport } from "pixi-viewport";
 import { viewState } from "./view-state";
 import type { Redrawable, Side } from "./types";
 import { sideDirection, getNodeWorldRect } from "./types";
+import { getNearestSide, getFixedSideAnchor } from "./edge";
 export type { Side } from "./types";
 
 export type EdgeCreationResult = {
   source: Container;
   sourceSide: Side;
   target: Container;
+  targetSide: Side;
 };
 
 /**
@@ -84,10 +86,13 @@ export class EdgeCreator {
     const target = this.findNodeAt(world.x, world.y);
 
     if (target && target !== this.sourceNode) {
+      const targetRect = getNodeWorldRect(target);
+      const targetSide = getNearestSide(targetRect, world);
       this.onCreate({
         source: this.sourceNode,
         sourceSide: this.sourceSide!,
         target,
+        targetSide,
       });
     }
     this.cancel();
@@ -192,39 +197,50 @@ export class EdgeCreator {
 
     const strokeWidth = 1.5 / viewState.scale;
 
-    const dx = this.cursorWorld.x - this.sourceAnchor.x;
-    const dy = this.cursorWorld.y - this.sourceAnchor.y;
+    // Snap endpoint to nearest port when over a candidate node
+    let endX = this.cursorWorld.x;
+    let endY = this.cursorWorld.y;
+    let endSide: Side | null = null;
+
+    if (this.highlightedNode) {
+      const rect = getNodeWorldRect(this.highlightedNode);
+      const side = getNearestSide(rect, this.cursorWorld);
+      const anchor = getFixedSideAnchor(rect, side);
+      endX = anchor.x;
+      endY = anchor.y;
+      endSide = side;
+    }
+
+    const dx = endX - this.sourceAnchor.x;
+    const dy = endY - this.sourceAnchor.y;
     const dist = Math.hypot(dx, dy);
     const offset = Math.min(Math.max(dist * 0.4, 30), 120);
 
     const dir = sideDirection(this.sourceSide);
     const cp1x = this.sourceAnchor.x + dir.x * offset;
     const cp1y = this.sourceAnchor.y + dir.y * offset;
-    const cp2x = this.cursorWorld.x - dx * 0.25;
-    const cp2y = this.cursorWorld.y - dy * 0.25;
+
+    let cp2x: number, cp2y: number;
+    if (endSide) {
+      const endDir = sideDirection(endSide);
+      cp2x = endX + endDir.x * offset;
+      cp2y = endY + endDir.y * offset;
+    } else {
+      cp2x = endX - dx * 0.25;
+      cp2y = endY - dy * 0.25;
+    }
 
     this.ghostLine.clear();
     this.ghostLine.moveTo(this.sourceAnchor.x, this.sourceAnchor.y);
-    this.ghostLine.bezierCurveTo(
-      cp1x,
-      cp1y,
-      cp2x,
-      cp2y,
-      this.cursorWorld.x,
-      this.cursorWorld.y,
-    );
+    this.ghostLine.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
     this.ghostLine.stroke({
       width: strokeWidth,
       color: 0x3b82f6,
       alpha: 0.9,
     });
 
-    // Small dot at cursor end
-    this.ghostLine.circle(
-      this.cursorWorld.x,
-      this.cursorWorld.y,
-      4 / viewState.scale,
-    );
+    // Small dot at endpoint
+    this.ghostLine.circle(endX, endY, 4 / viewState.scale);
     this.ghostLine.fill({ color: 0x3b82f6, alpha: 0.9 });
   }
 }
