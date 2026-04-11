@@ -1,7 +1,7 @@
 import { Container, Graphics, Text, TextStyle, Sprite, Texture } from "pixi.js";
 import { viewState } from "./view-state";
 import type { Redrawable } from "./types";
-import { textResolution, nodeSizeMap } from "./types";
+import { textResolution, elementSizeMap } from "./types";
 import { getPortPositions } from "./node-ports";
 
 export type NodeData = {
@@ -29,7 +29,7 @@ export function createNode(data: NodeData): Container {
   container.label = data.id;
   container.position.set(data.x, data.y);
   const size = { width: data.width, height: data.height };
-  nodeSizeMap.set(container, size);
+  elementSizeMap.set(container, size);
   container.eventMode = "static";
   container.cursor = "grab";
 
@@ -77,7 +77,7 @@ export function resizeNode(
   width: number,
   height: number,
 ): void {
-  const size = nodeSizeMap.get(container);
+  const size = elementSizeMap.get(container);
   if (!size) return;
   size.width = width;
   size.height = height;

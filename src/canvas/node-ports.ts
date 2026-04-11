@@ -1,7 +1,7 @@
 import { Container, FederatedPointerEvent, Graphics } from "pixi.js";
 import { viewState, ANCHOR_HIDE_THRESHOLD } from "./view-state";
 import type { Redrawable, Side } from "./types";
-import { nodeSizeMap, nodePortsMap } from "./types";
+import { elementSizeMap, nodePortsMap } from "./types";
 import { EdgeCreator } from "./edge-creator";
 
 /**
@@ -25,7 +25,7 @@ export function attachConnectionPorts(
   node: Container,
   creator: EdgeCreator,
 ): void {
-  const nodeSize = nodeSizeMap.get(node);
+  const nodeSize = elementSizeMap.get(node);
   if (!nodeSize) return;
 
   const portsContainer = new Container();
@@ -61,7 +61,7 @@ export function attachConnectionPorts(
     const updatePort = () => {
       portContainer.scale.set(1 / viewState.scale);
       portContainer.alpha = viewState.scale < ANCHOR_HIDE_THRESHOLD ? 0 : 1;
-      const size = nodeSizeMap.get(node);
+      const size = elementSizeMap.get(node);
       if (!size) return;
       const pos = getPortPositions(size.width, size.height)[side];
       portContainer.position.set(pos.x, pos.y);
@@ -85,7 +85,7 @@ export function attachConnectionPorts(
       e.stopPropagation();
       defaultShape.visible = false;
       hoverShape.visible = true;
-      const size = nodeSizeMap.get(node);
+      const size = elementSizeMap.get(node);
       if (!size) return;
       const p = getPortPositions(size.width, size.height)[side];
       const anchorX = node.x + p.x;

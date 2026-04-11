@@ -4,13 +4,14 @@ import { viewState, ANCHOR_HIDE_THRESHOLD } from "./view-state";
 import type { Redrawable, Side } from "./types";
 import {
   nodePortsMap,
-  getNodeWorldRect,
+  getElementRect,
   computeBezierControlPoints,
   findNodeAt as findNodeAtUtil,
 } from "./types";
 import {
   type EdgeDisplay,
   setEdgeSelected,
+  setEdgeVisible,
   updateEdge,
   getFixedSideAnchor,
   getNearestSide,
@@ -45,6 +46,7 @@ export class SelectionManager {
   private handles: Container[];
   private viewport: Viewport;
   private onResize: ResizeHandler | null = null;
+  private onResizeEnd: (() => void) | null = null;
   private onDeleteEdge: DeleteEdgeHandler | null = null;
   private getAllNodes: (() => Container[]) | null = null;
   private selected: {
@@ -186,8 +188,9 @@ export class SelectionManager {
     }, { signal: this.abortController.signal });
   }
 
-  setResizeHandler(handler: ResizeHandler): void {
+  setResizeHandler(handler: ResizeHandler, onEnd?: () => void): void {
     this.onResize = handler;
+    this.onResizeEnd = onEnd ?? null;
   }
 
   setDeleteEdgeHandler(handler: DeleteEdgeHandler): void {
@@ -273,20 +276,22 @@ export class SelectionManager {
   }
 
   private positionEndpointHandles(edge: EdgeDisplay): void {
-    const sourceRect = getNodeWorldRect(edge.sourceNode);
-    const targetRect = getNodeWorldRect(edge.targetNode);
+    const sourceRect = getElementRect(edge.sourceNode);
+    const targetRect = getElementRect(edge.targetNode);
 
     const sourceAnchor = getFixedSideAnchor(sourceRect, edge.sourceSide);
     const targetAnchor = getFixedSideAnchor(targetRect, edge.targetSide);
 
     const inv = 1 / viewState.scale;
+
+    // Hide handle if its node is inside a collapsed group
     this.endpointHandles[0]!.position.set(sourceAnchor.x, sourceAnchor.y);
     this.endpointHandles[0]!.scale.set(inv);
-    this.endpointHandles[0]!.visible = true;
+    this.endpointHandles[0]!.visible = edge.sourceNode.visible;
 
     this.endpointHandles[1]!.position.set(targetAnchor.x, targetAnchor.y);
     this.endpointHandles[1]!.scale.set(inv);
-    this.endpointHandles[1]!.visible = true;
+    this.endpointHandles[1]!.visible = edge.targetNode.visible;
   }
 
   private setupEndpointDrag(
@@ -311,7 +316,7 @@ export class SelectionManager {
       const edge = this.selectedEdge;
       const fixedNode =
         endpoint === "source" ? edge.targetNode : edge.sourceNode;
-      const fixedRect = getNodeWorldRect(fixedNode);
+      const fixedRect = getElementRect(fixedNode);
       const fixedSide =
         endpoint === "source" ? edge.targetSide : edge.sourceSide;
       const fixedAnchor = getFixedSideAnchor(fixedRect, fixedSide);
@@ -320,10 +325,7 @@ export class SelectionManager {
       this.reconnectCursor = { x: fixedAnchor.x, y: fixedAnchor.y };
 
       // Hide edge line during drag
-      edge.line.visible = false;
-      edge.hitLine.visible = false;
-      if (edge.labelPill) edge.labelPill.visible = false;
-      if (edge.labelText) edge.labelText.visible = false;
+      setEdgeVisible(edge, false);
 
       // Hide the other endpoint handle; keep the dragged one for events
       const otherIdx = endpoint === "source" ? 1 : 0;
@@ -355,7 +357,7 @@ export class SelectionManager {
 
       // Snap handle to nearest port when over a candidate, else follow cursor
       if (valid) {
-        const rect = getNodeWorldRect(valid);
+        const rect = getElementRect(valid);
         const side = getNearestSide(rect, this.reconnectCursor);
         const snap = getFixedSideAnchor(rect, side);
         handle.position.set(snap.x, snap.y);
@@ -375,7 +377,7 @@ export class SelectionManager {
 
       if (candidate) {
         // Reconnect — determine port from cursor position
-        const candidateRect = getNodeWorldRect(candidate);
+        const candidateRect = getElementRect(candidate);
         const droppedSide = getNearestSide(candidateRect, this.reconnectCursor);
 
         if (this.reconnectEndpoint === "source") {
@@ -394,10 +396,7 @@ export class SelectionManager {
       }
 
       // Restore visibility
-      edge.line.visible = true;
-      edge.hitLine.visible = true;
-      if (edge.labelPill) edge.labelPill.visible = true;
-      if (edge.labelText) edge.labelText.visible = true;
+      setEdgeVisible(edge, true);
 
       updateEdge(edge);
       this.positionEndpointHandles(edge);
@@ -437,7 +436,7 @@ export class SelectionManager {
     let endSide: Side | null = null;
 
     if (this.reconnectCandidate) {
-      const rect = getNodeWorldRect(this.reconnectCandidate);
+      const rect = getElementRect(this.reconnectCandidate);
       const side = getNearestSide(rect, cursor);
       const snapAnchor = getFixedSideAnchor(rect, side);
       endX = snapAnchor.x;
@@ -469,7 +468,7 @@ export class SelectionManager {
       this.reconnectHighlight.visible = false;
       return;
     }
-    const rect = getNodeWorldRect(this.reconnectCandidate);
+    const rect = getElementRect(this.reconnectCandidate);
     const pad = 4 / viewState.scale;
     const strokeW = 2.5 / viewState.scale;
     this.reconnectHighlight.roundRect(
@@ -567,6 +566,7 @@ export class SelectionManager {
       this.resizing = false;
       this.resizeHandleIndex = -1;
       this.viewport.pause = false;
+      this.onResizeEnd?.();
     };
 
     handle.on("pointerup", finish);

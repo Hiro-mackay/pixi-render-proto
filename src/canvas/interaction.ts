@@ -2,56 +2,130 @@ import { Container, FederatedPointerEvent } from "pixi.js";
 import { Viewport } from "pixi-viewport";
 import { type EdgeDisplay, updateEdge } from "./edge";
 import { SelectionManager } from "./selection";
-import { nodeSizeMap } from "./types";
+import { elementSizeMap, groupMetaMap } from "./types";
+import {
+  getDescendants,
+  findGroupAt,
+  assignToGroup,
+  removeFromGroup,
+  getParentGroup,
+  isDescendantOf,
+} from "./group-hierarchy";
 
 const CLICK_THRESHOLD_PX = 5;
 
-export function enableDrag(
-  node: Container,
-  viewport: Viewport,
-  edges: EdgeDisplay[],
-  selection: SelectionManager,
-): void {
+export type GroupHighlight = {
+  show: (group: Container) => void;
+  hide: () => void;
+};
+
+export type DragContext = {
+  viewport: Viewport;
+  edges: EdgeDisplay[];
+  selection: SelectionManager;
+  allGroups: Container[];
+  groupHighlight: GroupHighlight;
+};
+
+export function enableItemDrag(item: Container, ctx: DragContext): void {
+  const { viewport, edges, selection, allGroups, groupHighlight } = ctx;
+  const isGroup = groupMetaMap.has(item);
+  const itemSize = elementSizeMap.get(item) ?? { width: 0, height: 0 };
+
   let dragging = false;
   let movedDistance = 0;
   let dragOffset = { x: 0, y: 0 };
   let downPos = { x: 0, y: 0 };
 
-  node.on("pointerdown", (e: FederatedPointerEvent) => {
+  // Cached at pointerdown — avoid per-frame allocation
+  let cachedDescendants: Container[] = [];
+  let cachedCandidates: Container[] = [];
+  let cachedEdges: EdgeDisplay[] = [];
+
+  item.on("pointerdown", (e: FederatedPointerEvent) => {
     if (selection.isResizing()) return;
     dragging = true;
     movedDistance = 0;
-    node.cursor = "grabbing";
+    item.cursor = "grabbing";
     viewport.pause = true;
 
+    // Build caches once per drag session
+    if (isGroup) {
+      cachedDescendants = getDescendants(item);
+      const nodeSet = new Set(
+        cachedDescendants.filter((d) => !groupMetaMap.has(d)),
+      );
+      cachedEdges = edges.filter(
+        (e) => nodeSet.has(e.sourceNode) || nodeSet.has(e.targetNode),
+      );
+      cachedCandidates = allGroups.filter(
+        (g) => g !== item && !isDescendantOf(g, item),
+      );
+    } else {
+      cachedEdges = edges.filter(
+        (e) => e.sourceNode === item || e.targetNode === item,
+      );
+      cachedCandidates = allGroups;
+    }
+
     const worldPos = viewport.toWorld(e.global.x, e.global.y);
-    dragOffset.x = worldPos.x - node.x;
-    dragOffset.y = worldPos.y - node.y;
+    dragOffset.x = worldPos.x - item.x;
+    dragOffset.y = worldPos.y - item.y;
     downPos.x = e.global.x;
     downPos.y = e.global.y;
 
     e.stopPropagation();
   });
 
-  node.on("globalpointermove", (e: FederatedPointerEvent) => {
+  item.on("globalpointermove", (e: FederatedPointerEvent) => {
     if (!dragging) return;
 
-    const dx = e.global.x - downPos.x;
-    const dy = e.global.y - downPos.y;
-    movedDistance = Math.max(movedDistance, Math.hypot(dx, dy));
+    if (movedDistance < CLICK_THRESHOLD_PX) {
+      const screenDx = e.global.x - downPos.x;
+      const screenDy = e.global.y - downPos.y;
+      movedDistance = Math.hypot(screenDx, screenDy);
+    }
 
     const worldPos = viewport.toWorld(e.global.x, e.global.y);
-    node.x = worldPos.x - dragOffset.x;
-    node.y = worldPos.y - dragOffset.y;
 
-    const related = edges.filter(
-      (edge) => edge.sourceNode === node || edge.targetNode === node,
-    );
-    for (const edge of related) {
+    if (isGroup) {
+      const dx = worldPos.x - dragOffset.x - item.x;
+      const dy = worldPos.y - dragOffset.y - item.y;
+      item.x += dx;
+      item.y += dy;
+      for (const child of cachedDescendants) {
+        child.x += dx;
+        child.y += dy;
+      }
+      dragOffset.x = worldPos.x - item.x;
+      dragOffset.y = worldPos.y - item.y;
+    } else {
+      item.x = worldPos.x - dragOffset.x;
+      item.y = worldPos.y - dragOffset.y;
+    }
+
+    // Real-time group membership: assign/remove as item moves
+    const cx = item.x + itemSize.width / 2;
+    const cy = item.y + itemSize.height / 2;
+    const candidate = findGroupAt(cachedCandidates, cx, cy);
+    const currentParent = getParentGroup(item);
+
+    if (candidate && candidate !== item && candidate !== currentParent) {
+      groupHighlight.show(candidate);
+      assignToGroup(item, candidate);
+    } else if (!candidate && currentParent) {
+      groupHighlight.hide();
+      removeFromGroup(item);
+    } else if (candidate && candidate !== item) {
+      groupHighlight.show(candidate);
+    } else {
+      groupHighlight.hide();
+    }
+
+    for (const edge of cachedEdges) {
       updateEdge(edge);
     }
 
-    // Keep selection outline following the dragged node
     selection.update();
   });
 
@@ -59,83 +133,23 @@ export function enableDrag(
     if (!dragging) return;
     const wasClick = movedDistance < CLICK_THRESHOLD_PX;
     dragging = false;
-    node.cursor = "grab";
+    item.cursor = "grab";
     viewport.pause = false;
+    groupHighlight.hide();
 
     if (wasClick) {
-      const size = nodeSizeMap.get(node);
-      if (size) {
-        selection.select(node, size.width, size.height);
+      if (itemSize.width > 0) {
+        selection.select(item, itemSize.width, itemSize.height);
       }
     }
+
+    cachedDescendants = [];
+    cachedCandidates = [];
+    cachedEdges = [];
   };
 
-  node.on("pointerup", finish);
-  node.on("pointerupoutside", finish);
-}
-
-export function enableGroupDrag(
-  group: Container,
-  childNodes: Container[],
-  viewport: Viewport,
-  edges: EdgeDisplay[],
-  selection: SelectionManager,
-): void {
-  let dragging = false;
-  let dragOffset = { x: 0, y: 0 };
-
-  group.on("pointerdown", (e: FederatedPointerEvent) => {
-    dragging = true;
-    group.cursor = "grabbing";
-    viewport.pause = true;
-
-    const worldPos = viewport.toWorld(e.global.x, e.global.y);
-    dragOffset.x = worldPos.x - group.x;
-    dragOffset.y = worldPos.y - group.y;
-
-    e.stopPropagation();
-  });
-
-  group.on("globalpointermove", (e: FederatedPointerEvent) => {
-    if (!dragging) return;
-
-    const worldPos = viewport.toWorld(e.global.x, e.global.y);
-    const dx = worldPos.x - dragOffset.x - group.x;
-    const dy = worldPos.y - dragOffset.y - group.y;
-
-    group.x += dx;
-    group.y += dy;
-
-    for (const child of childNodes) {
-      child.x += dx;
-      child.y += dy;
-    }
-
-    const affected = edges.filter(
-      (edge) =>
-        childNodes.includes(edge.sourceNode) ||
-        childNodes.includes(edge.targetNode),
-    );
-    for (const edge of affected) {
-      updateEdge(edge);
-    }
-
-    dragOffset.x = worldPos.x - group.x;
-    dragOffset.y = worldPos.y - group.y;
-
-    // Keep selection outline following dragged node
-    selection.update();
-  });
-
-  const stopDrag = () => {
-    if (!dragging) return;
-    dragging = false;
-    group.cursor = "grab";
-    viewport.pause = false;
-  };
-
-  group.on("pointerup", stopDrag);
-  group.on("pointerupoutside", stopDrag);
+  item.on("pointerup", finish);
+  item.on("pointerupoutside", finish);
 }
 
 export function enableEdgeClick(
@@ -159,9 +173,6 @@ export function enableEdgeClick(
   });
 }
 
-/**
- * Clear selection when clicking on empty viewport space.
- */
 export function enableDeselectOnEmptyClick(
   viewport: Viewport,
   selection: SelectionManager,

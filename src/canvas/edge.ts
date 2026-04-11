@@ -1,7 +1,7 @@
 import { Container, Graphics, Text, TextStyle } from "pixi.js";
 import { viewState } from "./view-state";
 import type { Redrawable, ProtocolLabel, Side } from "./types";
-import { sideDirection, textResolution, getNodeWorldRect, computeBezierControlPoints } from "./types";
+import { sideDirection, textResolution, getElementRect, computeBezierControlPoints, groupParentMap } from "./types";
 
 export type EdgeData = {
   id: string;
@@ -129,6 +129,13 @@ export function setEdgeSelected(edge: EdgeDisplay, selected: boolean): void {
   updateEdge(edge);
 }
 
+export function setEdgeVisible(edge: EdgeDisplay, visible: boolean): void {
+  edge.line.visible = visible;
+  edge.hitLine.visible = visible;
+  if (edge.labelPill) edge.labelPill.visible = visible;
+  if (edge.labelText) edge.labelText.visible = visible;
+}
+
 export function removeEdge(edge: EdgeDisplay): void {
   edge.line.removeFromParent();
   edge.line.destroy();
@@ -144,9 +151,32 @@ export function removeEdge(edge: EdgeDisplay): void {
   }
 }
 
+/**
+ * Find the visible ancestor for an edge endpoint.
+ * If the node is hidden (inside a collapsed group), route to the group instead.
+ */
+function getVisibleContainer(node: Container): Container {
+  let current = node;
+  while (!current.visible) {
+    const parent = groupParentMap.get(current);
+    if (!parent) break;
+    current = parent;
+  }
+  return current;
+}
+
 export function updateEdge(edge: EdgeDisplay, label?: string): void {
-  const sourceRect = getNodeWorldRect(edge.sourceNode);
-  const targetRect = getNodeWorldRect(edge.targetNode);
+  const sourceVisible = getVisibleContainer(edge.sourceNode);
+  const targetVisible = getVisibleContainer(edge.targetNode);
+
+  // Hide edge if both endpoints resolve to the same collapsed group
+  const bothHidden = sourceVisible === targetVisible &&
+    sourceVisible !== edge.sourceNode;
+  setEdgeVisible(edge, !bothHidden);
+  if (bothHidden) return;
+
+  const sourceRect = getElementRect(sourceVisible);
+  const targetRect = getElementRect(targetVisible);
 
   const startAnchor = getFixedSideAnchor(sourceRect, edge.sourceSide);
   const endAnchor = getFixedSideAnchor(targetRect, edge.targetSide);

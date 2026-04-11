@@ -1,6 +1,7 @@
-import { Assets, Container, Texture } from "pixi.js";
+import { Assets, Container, Graphics, Texture } from "pixi.js";
 import type { CanvasContext } from "./setup";
 import { createNode, resizeNode } from "./node";
+import { resizeGroup } from "./group";
 import {
   createEdge,
   removeEdge,
@@ -10,15 +11,16 @@ import {
 } from "./edge";
 import { createGroup, type GroupData } from "./group";
 import {
-  enableDrag,
+  enableItemDrag,
   enableEdgeClick,
-  enableGroupDrag,
   enableDeselectOnEmptyClick,
 } from "./interaction";
 import { SelectionManager } from "./selection";
 import { EdgeCreator } from "./edge-creator";
 import { attachConnectionPorts } from "./node-ports";
-import { PROTOCOL_LABELS, getNodeWorldRect } from "./types";
+import { PROTOCOL_LABELS, getElementRect, groupMetaMap, elementSizeMap } from "./types";
+import { assignToGroup, removeFromGroup, getParentGroup, findGroupAt, isInsideGroup } from "./group-hierarchy";
+import { viewState } from "./view-state";
 
 import computeIcon from "../assets/icons/compute.svg";
 import databaseIcon from "../assets/icons/database.svg";
@@ -35,7 +37,6 @@ const NODE_COUNT = 200;
 const ICON_PATHS = [computeIcon, databaseIcon, storageIcon, loadbalancerIcon];
 const NODE_COLORS = [0x2d3748, 0x2c3e50, 0x1a365d, 0x2d2d3f];
 
-// Deterministic PRNG (mulberry32) so the demo scene is reproducible across reloads
 function mulberry32(seed: number): () => number {
   let s = seed | 0;
   return () => {
@@ -64,6 +65,12 @@ const GROUP_DEFS: GroupData[] = [
   { id: "g-subnet", label: "Public Subnet", x: 60, y: 80, width: 220, height: 230, color: 0x4299e1 },
 ];
 
+// Nested group relationships (parent → child)
+const GROUP_NESTING: [string, string][] = [
+  ["g-frontend", "g-vpc"],
+  ["g-vpc", "g-subnet"],
+];
+
 export async function buildDemoScene(
   ctx: CanvasContext,
   signal?: AbortSignal,
@@ -78,11 +85,9 @@ export async function buildDemoScene(
 
   const allEdges: EdgeDisplay[] = [];
   const groupContainers: Container[] = [];
-  const groupChildMap: Map<Container, Container[]> = new Map();
 
   const edgeLineLayer = new Container();
   edgeLineLayer.label = "edge-line-layer";
-  viewport.addChild(edgeLineLayer);
 
   const edgeLabelLayer = new Container();
   edgeLabelLayer.label = "edge-label-layer";
@@ -94,17 +99,118 @@ export async function buildDemoScene(
   selectionLayer.label = "selection-layer";
   const selection = new SelectionManager(selectionLayer, viewport);
 
-  selection.setResizeHandler((node, x, y, width, height) => {
-    node.x = x;
-    node.y = y;
-    resizeNode(node, width, height);
+  const groupDropHighlight = new Graphics();
+  groupDropHighlight.visible = false;
+  ghostLayer.addChild(groupDropHighlight);
+  let highlightedGroup: Container | null = null;
+  const groupHighlight = {
+    show: (group: Container) => {
+      if (group === highlightedGroup) return;
+      highlightedGroup = group;
+      const meta = groupMetaMap.get(group);
+      const size = elementSizeMap.get(group);
+      if (!meta || !size) return;
+      groupDropHighlight.clear();
+      const pad = 2 / viewState.scale;
+      groupDropHighlight.roundRect(
+        group.x - pad, group.y - pad,
+        size.width + pad * 2, size.height + pad * 2, 14,
+      );
+      groupDropHighlight.fill({ color: meta.color, alpha: 0.08 });
+      groupDropHighlight.stroke({
+        width: 3 / viewState.scale,
+        color: meta.color,
+        alpha: 0.9,
+      });
+      groupDropHighlight.visible = true;
+    },
+    hide: () => {
+      if (!highlightedGroup) return;
+      highlightedGroup = null;
+      groupDropHighlight.clear();
+      groupDropHighlight.visible = false;
+    },
+  };
+
+  // All draggable items (nodes + groups) — used for unified membership reconciliation
+  const allItems: Container[] = [];
+
+  // Re-evaluate group membership for all items (nodes and sub-groups)
+  const reconcileMembership = () => {
+    for (const item of allItems) {
+      const sz = elementSizeMap.get(item);
+      if (!sz) continue;
+      const cx = item.x + sz.width / 2;
+      const cy = item.y + sz.height / 2;
+      // For groups, exclude self and descendants from candidates
+      const isGrp = groupMetaMap.has(item);
+      const candidates = isGrp
+        ? groupContainers.filter((g) => g !== item)
+        : groupContainers;
+      const target = findGroupAt(candidates, cx, cy);
+      const current = getParentGroup(item);
+
+      if (target && target !== current) {
+        assignToGroup(item, target);
+      } else if (!target && current) {
+        removeFromGroup(item);
+      }
+    }
+  };
+
+  // Highlight items inside a resizing group's boundary
+  const memberHighlight = new Graphics();
+  memberHighlight.visible = false;
+  ghostLayer.addChild(memberHighlight);
+
+  const highlightMembers = (group: Container) => {
+    const meta = groupMetaMap.get(group);
+    memberHighlight.clear();
+    let hasHighlights = false;
+    for (const item of allItems) {
+      if (item === group) continue;
+      if (isInsideGroup(item, group)) {
+        const sz = elementSizeMap.get(item);
+        if (!sz) continue;
+        hasHighlights = true;
+        const p = 2 / viewState.scale;
+        const r = groupMetaMap.has(item) ? 12 : 10;
+        memberHighlight.roundRect(
+          item.x - p, item.y - p,
+          sz.width + p * 2, sz.height + p * 2, r,
+        );
+        memberHighlight.stroke({
+          width: 1.5 / viewState.scale,
+          color: meta?.color ?? 0x3b82f6,
+          alpha: 0.6,
+        });
+      }
+    }
+    memberHighlight.visible = hasHighlights;
+  };
+
+  selection.setResizeHandler((container, x, y, width, height) => {
+    container.x = x;
+    container.y = y;
+
+    if (groupMetaMap.has(container)) {
+      resizeGroup(container, width, height);
+      reconcileMembership();
+      highlightMembers(container);
+    } else {
+      resizeNode(container, width, height);
+      memberHighlight.visible = false;
+    }
 
     const related = allEdges.filter(
-      (e) => e.sourceNode === node || e.targetNode === node,
+      (e) => e.sourceNode === container || e.targetNode === container,
     );
     for (const edge of related) {
       updateEdge(edge);
     }
+  }, () => {
+    memberHighlight.clear();
+    memberHighlight.visible = false;
   });
 
   selection.setDeleteEdgeHandler((edge) => {
@@ -138,13 +244,32 @@ export async function buildDemoScene(
   const cleanupEdgeCreator = edgeCreator.bindCanvasEvents(app.canvas as HTMLCanvasElement);
   ctx.addCleanup(cleanupEdgeCreator);
 
+  // Create groups
+  const groupById = new Map<string, Container>();
   for (const gDef of GROUP_DEFS) {
-    const group = createGroup(gDef);
+    const group = createGroup(gDef, () => {
+      for (const edge of allEdges) {
+        updateEdge(edge);
+      }
+    });
     viewport.addChild(group);
     groupContainers.push(group);
-    groupChildMap.set(group, []);
+    groupById.set(gDef.id, group);
   }
 
+  // Edge lines above groups so edges are clickable over group backgrounds
+  viewport.addChild(edgeLineLayer);
+
+  // Set up nested group relationships
+  for (const [parentId, childId] of GROUP_NESTING) {
+    const parent = groupById.get(parentId);
+    const child = groupById.get(childId);
+    if (parent && child) {
+      assignToGroup(child, parent);
+    }
+  }
+
+  // Create nodes
   for (let i = 0; i < NODE_COUNT; i++) {
     const col = i % COLS;
     const row = Math.floor(i / COLS);
@@ -165,13 +290,16 @@ export async function buildDemoScene(
     viewport.addChild(node);
     nodeContainers.push(node);
 
-    const groupIndex = Math.floor(i / (NODE_COUNT / GROUP_DEFS.length));
-    const assignedGroup = groupContainers[Math.min(groupIndex, groupContainers.length - 1)];
-    if (assignedGroup) {
-      groupChildMap.get(assignedGroup)?.push(node);
+    // Assign node to deepest group that contains its center
+    const cx = x + NODE_W / 2;
+    const cy = y + NODE_H / 2;
+    const targetGroup = findGroupAt(groupContainers, cx, cy);
+    if (targetGroup) {
+      assignToGroup(node, targetGroup);
     }
   }
 
+  // Create edges
   const EDGE_COUNT = 80;
   const rand = mulberry32(42);
   for (let i = 0; i < EDGE_COUNT; i++) {
@@ -185,8 +313,8 @@ export async function buildDemoScene(
     const protocols = [...PROTOCOL_LABELS, ""] as const;
     const label = protocols[i % protocols.length];
 
-    const srcRect = getNodeWorldRect(src);
-    const tgtRect = getNodeWorldRect(tgt);
+    const srcRect = getElementRect(src);
+    const tgtRect = getElementRect(tgt);
     const srcCenter = {
       x: srcRect.x + srcRect.width / 2,
       y: srcRect.y + srcRect.height / 2,
@@ -207,16 +335,20 @@ export async function buildDemoScene(
     enableEdgeClick(edge, selection);
   }
 
+  // Populate unified item list for membership reconciliation
+  allItems.push(...groupContainers, ...nodeContainers);
+
   selection.setReconnectDeps(() => nodeContainers);
 
+  const dragCtx = { viewport, edges: allEdges, selection, allGroups: groupContainers, groupHighlight };
+
   for (const node of nodeContainers) {
-    enableDrag(node, viewport, allEdges, selection);
+    enableItemDrag(node, dragCtx);
     attachConnectionPorts(node, edgeCreator);
   }
 
   for (const group of groupContainers) {
-    const children = groupChildMap.get(group) ?? [];
-    enableGroupDrag(group, children, viewport, allEdges, selection);
+    enableItemDrag(group, dragCtx);
   }
 
   enableDeselectOnEmptyClick(viewport, selection);
@@ -226,8 +358,6 @@ export async function buildDemoScene(
   viewport.addChild(ghostLayer);
   viewport.addChild(selectionLayer);
 
-  // Order matters: setZoom first, then moveCenter (so moveCenter uses the
-  // new scale to compute viewport translation correctly).
   viewport.setZoom(0.6);
   viewport.moveCenter(
     (COLS * GAP_X) / 2,

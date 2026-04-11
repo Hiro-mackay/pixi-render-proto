@@ -2,7 +2,7 @@ import { Container, Graphics } from "pixi.js";
 import { Viewport } from "pixi-viewport";
 import { viewState } from "./view-state";
 import type { Redrawable, Side } from "./types";
-import { getNodeWorldRect, computeBezierControlPoints, findNodeAt } from "./types";
+import { getElementRect, computeBezierControlPoints, findNodeAt } from "./types";
 import { getNearestSide, getFixedSideAnchor } from "./edge";
 export type { Side } from "./types";
 
@@ -94,7 +94,7 @@ export class EdgeCreator {
     const target = this.findNodeAt(world.x, world.y);
 
     if (target && target !== this.sourceNode) {
-      const targetRect = getNodeWorldRect(target);
+      const targetRect = getElementRect(target);
       const targetSide = getNearestSide(targetRect, world);
       this.onCreate({
         source: this.sourceNode,
@@ -169,7 +169,7 @@ export class EdgeCreator {
       this.highlightGraphic.visible = false;
       return;
     }
-    const rect = getNodeWorldRect(this.highlightedNode);
+    const rect = getElementRect(this.highlightedNode);
     const pad = 4 / viewState.scale;
     const strokeW = 2.5 / viewState.scale;
     this.highlightGraphic.roundRect(
@@ -201,7 +201,7 @@ export class EdgeCreator {
     let endSide: Side | null = null;
 
     if (this.highlightedNode) {
-      const rect = getNodeWorldRect(this.highlightedNode);
+      const rect = getElementRect(this.highlightedNode);
       const side = getNearestSide(rect, this.cursorWorld);
       const anchor = getFixedSideAnchor(rect, side);
       endX = anchor.x;

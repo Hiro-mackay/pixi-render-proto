@@ -2,32 +2,29 @@ import type { Container, Graphics } from "pixi.js";
 
 export type Redrawable = Graphics & { __redraw?: () => void };
 
-export type NodeSize = { width: number; height: number };
+export type ElementSize = { width: number; height: number };
 
 /**
- * World-space dimensions for each node container.
- * Registered at creation, read by edge routing and hit-testing.
- * WeakMap so removed nodes are garbage-collected.
+ * World-space dimensions for any canvas element (node or group).
+ * Registered at creation, read by edge routing, hit-testing, and selection.
+ * WeakMap so removed elements are garbage-collected.
  */
-export const nodeSizeMap = new WeakMap<Container, NodeSize>();
+export const elementSizeMap = new WeakMap<Container, ElementSize>();
 
-/**
- * Maps each node container to its ports container.
- * Used by SelectionManager to show/hide ports on select/clear.
- */
+/** Maps each node container to its ports container. */
 export const nodePortsMap = new WeakMap<Container, Container>();
 
-export function getNodeWorldRect(node: Container): {
+export function getElementRect(element: Container): {
   x: number;
   y: number;
   width: number;
   height: number;
 } {
-  const size = nodeSizeMap.get(node);
+  const size = elementSizeMap.get(element);
   if (!size) {
-    throw new Error(`Node "${node.label}" not registered in nodeSizeMap`);
+    throw new Error(`Element "${element.label}" not registered in elementSizeMap`);
   }
-  return { x: node.x, y: node.y, width: size.width, height: size.height };
+  return { x: element.x, y: element.y, width: size.width, height: size.height };
 }
 
 export type Side = "top" | "right" | "bottom" | "left";
@@ -54,14 +51,6 @@ export type BezierPoints = {
   cp2x: number; cp2y: number;
 };
 
-/**
- * Compute cubic bezier control points for an edge between two anchors.
- *
- * When the target is "ahead" (in the direction the side faces), a moderate
- * offset creates a direct curve. When the target is "behind" (opposite
- * direction), the offset increases to produce a smooth loop instead of
- * a cramped S-curve.
- */
 export function computeBezierControlPoints(
   startX: number, startY: number, startSide: Side,
   endX: number, endY: number, endSide: Side | null,
@@ -70,7 +59,6 @@ export function computeBezierControlPoints(
   const dy = endY - startY;
   const startDir = sideDirection(startSide);
 
-  // How far the end is in the direction this side faces
   const startProj = dx * startDir.x + dy * startDir.y;
   const startOffset = startProj > 0
     ? Math.min(Math.max(startProj * 0.4, 30), 200)
@@ -102,7 +90,8 @@ export function findNodeAt(
 ): Container | null {
   for (let i = nodes.length - 1; i >= 0; i--) {
     const n = nodes[i]!;
-    const rect = getNodeWorldRect(n);
+    if (!n.visible) continue;
+    const rect = getElementRect(n);
     if (
       worldX >= rect.x &&
       worldX <= rect.x + rect.width &&
@@ -114,6 +103,26 @@ export function findNodeAt(
   }
   return null;
 }
+
+// --- Group-specific data (not size — size is in elementSizeMap) ---
+
+export type GroupMeta = {
+  id: string;
+  label: string;
+  color: number;
+  collapsed: boolean;
+};
+
+/** Maps a group container to its group-specific metadata */
+export const groupMetaMap = new WeakMap<Container, GroupMeta>();
+
+/** Maps a child (node or group) to its parent group */
+export const groupParentMap = new WeakMap<Container, Container>();
+
+/** Maps a group to its direct children (nodes and sub-groups) */
+export const groupChildrenMap = new WeakMap<Container, Set<Container>>();
+
+// --- Protocol labels ---
 
 export const PROTOCOL_LABELS = [
   "HTTPS :443",
