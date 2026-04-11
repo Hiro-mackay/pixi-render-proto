@@ -5,7 +5,7 @@ import {
   createEdge,
   removeEdge,
   updateEdge,
-  getSideAnchor,
+  getNearestSide,
   type EdgeDisplay,
 } from "./edge";
 import { createGroup, type GroupData } from "./group";
@@ -195,8 +195,8 @@ export async function buildDemoScene(
       x: tgtRect.x + tgtRect.width / 2,
       y: tgtRect.y + tgtRect.height / 2,
     };
-    const sourceSide = getSideAnchor(srcRect, tgtCenter).side;
-    const targetSide = getSideAnchor(tgtRect, srcCenter).side;
+    const sourceSide = getNearestSide(srcRect, tgtCenter);
+    const targetSide = getNearestSide(tgtRect, srcCenter);
 
     const edge = createEdge(
       { id: `edge-${i}`, sourceNode: src, sourceSide, targetNode: tgt, targetSide, label: label || undefined },

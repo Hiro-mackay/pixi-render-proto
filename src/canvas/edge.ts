@@ -298,40 +298,6 @@ export function getFixedSideAnchor(rect: Rect, side: Side): Anchor {
   }
 }
 
-export function getSideAnchor(rect: Rect, target: { x: number; y: number }): Anchor {
-  const cx = rect.x + rect.width / 2;
-  const cy = rect.y + rect.height / 2;
-  const dx = target.x - cx;
-  const dy = target.y - cy;
-
-  // Determine which side faces the target
-  const halfW = rect.width / 2;
-  const halfH = rect.height / 2;
-  const scaleX = halfW / Math.max(Math.abs(dx), 0.0001);
-  const scaleY = halfH / Math.max(Math.abs(dy), 0.0001);
-
-  let side: Side;
-  if (dx === 0 && dy === 0) {
-    side = "right";
-  } else if (scaleX < scaleY) {
-    side = dx > 0 ? "right" : "left";
-  } else {
-    side = dy > 0 ? "bottom" : "top";
-  }
-
-  // Snap to the fixed midpoint of the determined side
-  switch (side) {
-    case "top":
-      return { x: cx, y: rect.y, side };
-    case "right":
-      return { x: rect.x + rect.width, y: cy, side };
-    case "bottom":
-      return { x: cx, y: rect.y + rect.height, side };
-    case "left":
-      return { x: rect.x, y: cy, side };
-  }
-}
-
 function cubicBezierPoint(
   t: number,
   p0: { x: number; y: number },
