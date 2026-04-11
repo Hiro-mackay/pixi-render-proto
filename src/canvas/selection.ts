@@ -1,38 +1,56 @@
-import { Container, Graphics } from "pixi.js";
+import { Container, FederatedPointerEvent, Graphics } from "pixi.js";
+import { Viewport } from "pixi-viewport";
 import { viewState } from "./view-state";
 import type { Redrawable } from "./types";
+
+export type ResizeHandler = (
+  node: Container,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) => void;
+
+const HANDLE_CURSORS = [
+  "nwse-resize", // 0: top-left
+  "nesw-resize", // 1: top-right
+  "nesw-resize", // 2: bottom-left
+  "nwse-resize", // 3: bottom-right
+] as const;
 
 /**
  * Manages the selection overlay for a single node.
  *
- * Demonstrates two zoom-invariant patterns:
+ * Method 1 (selection outline): stroke width = `2 / viewState.scale`
+ * Method 2 (corner handles): counter-scaled to constant screen size
  *
- * Method 1 (selection outline)
- *   - Outline is positioned at the node's bounds (world-space)
- *   - Stroke width is redrawn as `2 / viewState.scale` on zoom change
- *   - Visible thickness stays constant regardless of zoom
- *
- * Method 2 (corner handles)
- *   - Handles are small squares positioned at the node's corners
- *   - Each handle's `scale` is set to `1 / viewState.scale`
- *   - Whole handle shrinks/grows to maintain a constant screen size
+ * Corner handles are interactive and support resize dragging.
  */
 export class SelectionManager {
   private layer: Container;
   private outline: Redrawable;
   private handles: Container[];
+  private viewport: Viewport;
+  private onResize: ResizeHandler | null = null;
   private selected: {
     node: Container;
     width: number;
     height: number;
   } | null = null;
 
-  // Base sizes (in screen pixels — will be counter-scaled)
+  // Resize drag state
+  private resizing = false;
+  private resizeHandleIndex = -1;
+  private anchorPoint = { x: 0, y: 0 };
+
   private static readonly HANDLE_SIZE = 10;
   private static readonly OUTLINE_PADDING = 2;
+  private static readonly MIN_WIDTH = 60;
+  private static readonly MIN_HEIGHT = 40;
 
-  constructor(layer: Container) {
+  constructor(layer: Container, viewport: Viewport) {
     this.layer = layer;
+    this.viewport = viewport;
 
     this.outline = new Graphics();
     this.outline.visible = false;
@@ -42,17 +60,33 @@ export class SelectionManager {
     for (let i = 0; i < 4; i++) {
       const handle = new Container();
       handle.visible = false;
+      handle.eventMode = "static";
+      handle.cursor = HANDLE_CURSORS[i];
+
+      const hs = SelectionManager.HANDLE_SIZE;
+      handle.hitArea = {
+        contains: (x: number, y: number) =>
+          x >= -hs && x <= hs && y >= -hs && y <= hs,
+      };
 
       const shape = new Graphics();
-      const size = SelectionManager.HANDLE_SIZE;
-      shape.rect(-size / 2, -size / 2, size, size);
+      shape.rect(-hs / 2, -hs / 2, hs, hs);
       shape.fill(0xffffff);
       shape.stroke({ width: 1.5, color: 0x3b82f6 });
       handle.addChild(shape);
 
+      this.setupResizeEvents(handle, i);
       this.handles.push(handle);
       this.layer.addChild(handle);
     }
+  }
+
+  setResizeHandler(handler: ResizeHandler): void {
+    this.onResize = handler;
+  }
+
+  isResizing(): boolean {
+    return this.resizing;
   }
 
   select(node: Container, width: number, height: number): void {
@@ -68,14 +102,63 @@ export class SelectionManager {
     for (const h of this.handles) h.visible = false;
   }
 
-  /**
-   * Recompute outline geometry and handle positions.
-   * Call on: initial select, node drag, viewport zoom.
-   */
   update(): void {
     if (!this.selected) return;
     this.redraw();
     this.outline.visible = true;
+  }
+
+  private setupResizeEvents(handle: Container, index: number): void {
+    handle.on("pointerdown", (e: FederatedPointerEvent) => {
+      if (!this.selected) return;
+      e.stopPropagation();
+      this.resizing = true;
+      this.resizeHandleIndex = index;
+      this.viewport.pause = true;
+
+      const { node, width, height } = this.selected;
+      const anchors = [
+        { x: node.x + width, y: node.y + height }, // 0: TL dragged → BR anchor
+        { x: node.x, y: node.y + height },          // 1: TR dragged → BL anchor
+        { x: node.x + width, y: node.y },           // 2: BL dragged → TR anchor
+        { x: node.x, y: node.y },                    // 3: BR dragged → TL anchor
+      ];
+      this.anchorPoint = anchors[index]!;
+    });
+
+    handle.on("globalpointermove", (e: FederatedPointerEvent) => {
+      if (!this.resizing || this.resizeHandleIndex !== index) return;
+      if (!this.selected || !this.onResize) return;
+
+      const world = this.viewport.toWorld(e.global.x, e.global.y);
+      const anchor = this.anchorPoint;
+
+      const rawW = Math.abs(world.x - anchor.x);
+      const rawH = Math.abs(world.y - anchor.y);
+      const newW = Math.max(rawW, SelectionManager.MIN_WIDTH);
+      const newH = Math.max(rawH, SelectionManager.MIN_HEIGHT);
+
+      const dirX = world.x >= anchor.x ? 1 : -1;
+      const dirY = world.y >= anchor.y ? 1 : -1;
+
+      const newX = dirX > 0 ? anchor.x : anchor.x - newW;
+      const newY = dirY > 0 ? anchor.y : anchor.y - newH;
+
+      this.selected.width = newW;
+      this.selected.height = newH;
+      this.onResize(this.selected.node, newX, newY, newW, newH);
+      this.update();
+    });
+
+    const finish = () => {
+      if (!this.resizing || this.resizeHandleIndex !== index) return;
+      this.resizing = false;
+      this.resizeHandleIndex = -1;
+      this.viewport.pause = false;
+    };
+
+    handle.on("pointerup", finish);
+    handle.on("pointerupoutside", finish);
   }
 
   private redraw(): void {

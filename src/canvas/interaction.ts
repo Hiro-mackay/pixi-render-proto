@@ -2,12 +2,12 @@ import { Container, FederatedPointerEvent } from "pixi.js";
 import { Viewport } from "pixi-viewport";
 import { EdgeDisplay, updateEdge } from "./edge";
 import { SelectionManager } from "./selection";
+import { nodeSizeMap } from "./types";
 
 const CLICK_THRESHOLD_PX = 5;
 
 export function enableDrag(
   node: Container,
-  nodeSize: { width: number; height: number },
   viewport: Viewport,
   edges: EdgeDisplay[],
   selection: SelectionManager,
@@ -18,6 +18,7 @@ export function enableDrag(
   let downPos = { x: 0, y: 0 };
 
   node.on("pointerdown", (e: FederatedPointerEvent) => {
+    if (selection.isResizing()) return;
     dragging = true;
     movedDistance = 0;
     node.cursor = "grabbing";
@@ -62,7 +63,10 @@ export function enableDrag(
     viewport.pause = false;
 
     if (wasClick) {
-      selection.select(node, nodeSize.width, nodeSize.height);
+      const size = nodeSizeMap.get(node);
+      if (size) {
+        selection.select(node, size.width, size.height);
+      }
     }
   };
 

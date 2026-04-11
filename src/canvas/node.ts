@@ -27,7 +27,8 @@ export function createNode(data: NodeData): Container {
   const container = new Container();
   container.label = data.id;
   container.position.set(data.x, data.y);
-  nodeSizeMap.set(container, { width: data.width, height: data.height });
+  const size = { width: data.width, height: data.height };
+  nodeSizeMap.set(container, size);
   container.eventMode = "static";
   container.cursor = "grab";
 
@@ -36,7 +37,7 @@ export function createNode(data: NodeData): Container {
 
   const drawBg = () => {
     bg.clear();
-    bg.roundRect(0, 0, data.width, data.height, 8);
+    bg.roundRect(0, 0, size.width, size.height, 8);
     bg.fill(color);
     bg.stroke({ width: 1.5 / viewState.scale, color: 0x4a5568 });
   };
@@ -49,7 +50,7 @@ export function createNode(data: NodeData): Container {
     const iconSize = 28;
     iconSprite.width = iconSize;
     iconSprite.height = iconSize;
-    iconSprite.position.set((data.width - iconSize) / 2, 10);
+    iconSprite.position.set((size.width - iconSize) / 2, 10);
     container.addChild(iconSprite);
   }
 
@@ -59,7 +60,7 @@ export function createNode(data: NodeData): Container {
     resolution: textResolution(),
   });
   label.anchor.set(0.5, 0);
-  label.position.set(data.width / 2, data.icon ? 42 : 12);
+  label.position.set(size.width / 2, data.icon ? 42 : 12);
   container.addChild(label);
 
   // Expanded hit area includes space around the border for connection ports.
@@ -69,10 +70,49 @@ export function createNode(data: NodeData): Container {
   container.hitArea = {
     contains: (x: number, y: number) =>
       x >= -PORT_MARGIN &&
-      x <= data.width + PORT_MARGIN &&
+      x <= size.width + PORT_MARGIN &&
       y >= -PORT_MARGIN &&
-      y <= data.height + PORT_MARGIN,
+      y <= size.height + PORT_MARGIN,
   };
 
   return container;
+}
+
+export function resizeNode(
+  container: Container,
+  width: number,
+  height: number,
+): void {
+  const size = nodeSizeMap.get(container);
+  if (!size) return;
+  size.width = width;
+  size.height = height;
+
+  // Redraw background (uses size via closure)
+  const bg = container.children[0] as Redrawable;
+  bg.__redraw?.();
+
+  // Reposition icon and label
+  for (const child of container.children) {
+    if (child instanceof Sprite) {
+      child.position.x = (width - child.width) / 2;
+    } else if (child instanceof Text) {
+      child.position.x = width / 2;
+    }
+  }
+
+  // Update port positions
+  for (const child of container.children) {
+    if (child.label === "ports") {
+      for (const port of child.children) {
+        switch (port.label) {
+          case "top": port.position.set(width / 2, 0); break;
+          case "right": port.position.set(width, height / 2); break;
+          case "bottom": port.position.set(width / 2, height); break;
+          case "left": port.position.set(0, height / 2); break;
+        }
+      }
+      break;
+    }
+  }
 }

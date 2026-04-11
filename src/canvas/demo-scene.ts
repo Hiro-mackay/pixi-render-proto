@@ -1,7 +1,7 @@
 import { Assets, Container, Texture } from "pixi.js";
 import type { CanvasContext } from "./setup";
-import { createNode } from "./node";
-import { createEdge, type EdgeDisplay } from "./edge";
+import { createNode, resizeNode } from "./node";
+import { createEdge, updateEdge, type EdgeDisplay } from "./edge";
 import { createGroup, type GroupData } from "./group";
 import {
   enableDrag,
@@ -20,7 +20,6 @@ import loadbalancerIcon from "../assets/icons/loadbalancer.svg";
 
 const NODE_W = 140;
 const NODE_H = 68;
-const NODE_SIZE = { width: NODE_W, height: NODE_H } as const;
 const COLS = 14;
 const GAP_X = 180;
 const GAP_Y = 120;
@@ -86,7 +85,20 @@ export async function buildDemoScene(
 
   const selectionLayer = new Container();
   selectionLayer.label = "selection-layer";
-  const selection = new SelectionManager(selectionLayer);
+  const selection = new SelectionManager(selectionLayer, viewport);
+
+  selection.setResizeHandler((node, x, y, width, height) => {
+    node.x = x;
+    node.y = y;
+    resizeNode(node, width, height);
+
+    const related = allEdges.filter(
+      (e) => e.sourceNode === node || e.targetNode === node,
+    );
+    for (const edge of related) {
+      updateEdge(edge);
+    }
+  });
 
   const nodeContainers: Container[] = [];
   const edgeCreator = new EdgeCreator(
@@ -166,18 +178,8 @@ export async function buildDemoScene(
   }
 
   for (const node of nodeContainers) {
-    enableDrag(
-      node,
-      NODE_SIZE,
-      viewport,
-      allEdges,
-      selection,
-    );
-    attachConnectionPorts(
-      node,
-      NODE_SIZE,
-      edgeCreator,
-    );
+    enableDrag(node, viewport, allEdges, selection);
+    attachConnectionPorts(node, edgeCreator);
   }
 
   for (const group of groupContainers) {
