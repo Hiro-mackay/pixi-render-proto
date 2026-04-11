@@ -75,18 +75,25 @@ export function attachConnectionPorts(
     });
 
     portContainer.on("pointerleave", () => {
+      if (creator.isActive()) return;
       defaultShape.visible = true;
       hoverShape.visible = false;
     });
 
     portContainer.on("pointerdown", (e: FederatedPointerEvent) => {
       e.stopPropagation();
+      defaultShape.visible = false;
+      hoverShape.visible = true;
       const size = nodeSizeMap.get(node);
       if (!size) return;
       const p = getPortPositions(size.width, size.height)[side];
       const anchorX = node.x + p.x;
       const anchorY = node.y + p.y;
-      creator.start(node, side, anchorX, anchorY);
+      creator.start(node, side, anchorX, anchorY, () => {
+        // Reset to default state when edge creation ends
+        defaultShape.visible = true;
+        hoverShape.visible = false;
+      });
     });
 
     portsContainer.addChild(portContainer);

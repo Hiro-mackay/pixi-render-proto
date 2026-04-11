@@ -23,6 +23,7 @@ export class EdgeCreator {
   private sourceSide: Side | null = null;
   private sourceAnchor: { x: number; y: number } | null = null;
   private cursorWorld: { x: number; y: number } = { x: 0, y: 0 };
+  private onEnd: (() => void) | null = null;
 
   private ghostLine: Redrawable;
   private highlightGraphic: Redrawable;
@@ -52,11 +53,18 @@ export class EdgeCreator {
     this.onCreate = onCreate;
   }
 
-  start(node: Container, side: Side, anchorX: number, anchorY: number): void {
+  start(
+    node: Container,
+    side: Side,
+    anchorX: number,
+    anchorY: number,
+    onEnd?: () => void,
+  ): void {
     this.sourceNode = node;
     this.sourceSide = side;
     this.sourceAnchor = { x: anchorX, y: anchorY };
     this.cursorWorld = { x: anchorX, y: anchorY };
+    this.onEnd = onEnd ?? null;
     this.ghostLine.visible = true;
     this.viewport.pause = true;
     this.redraw();
@@ -99,15 +107,18 @@ export class EdgeCreator {
   }
 
   cancel(): void {
+    const cb = this.onEnd;
     this.sourceNode = null;
     this.sourceSide = null;
     this.sourceAnchor = null;
+    this.onEnd = null;
     this.ghostLine.clear();
     this.ghostLine.visible = false;
     this.highlightedNode = null;
     this.highlightGraphic.clear();
     this.highlightGraphic.visible = false;
     this.viewport.pause = false;
+    cb?.();
   }
 
   isActive(): boolean {
