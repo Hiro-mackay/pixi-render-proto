@@ -271,28 +271,32 @@ export function getSideAnchor(rect: Rect, target: { x: number; y: number }): Anc
   const dx = target.x - cx;
   const dy = target.y - cy;
 
-  if (dx === 0 && dy === 0) {
-    return { x: cx, y: cy, side: "right" };
-  }
-
-  // Find where the line from center toward target exits the rectangle
+  // Determine which side faces the target
   const halfW = rect.width / 2;
   const halfH = rect.height / 2;
   const scaleX = halfW / Math.max(Math.abs(dx), 0.0001);
   const scaleY = halfH / Math.max(Math.abs(dy), 0.0001);
-  const scale = Math.min(scaleX, scaleY);
-
-  const ax = cx + dx * scale;
-  const ay = cy + dy * scale;
 
   let side: Side;
-  if (scaleX < scaleY) {
+  if (dx === 0 && dy === 0) {
+    side = "right";
+  } else if (scaleX < scaleY) {
     side = dx > 0 ? "right" : "left";
   } else {
     side = dy > 0 ? "bottom" : "top";
   }
 
-  return { x: ax, y: ay, side };
+  // Snap to the fixed midpoint of the determined side
+  switch (side) {
+    case "top":
+      return { x: cx, y: rect.y, side };
+    case "right":
+      return { x: rect.x + rect.width, y: cy, side };
+    case "bottom":
+      return { x: cx, y: rect.y + rect.height, side };
+    case "left":
+      return { x: rect.x, y: cy, side };
+  }
 }
 
 function cubicBezierPoint(
