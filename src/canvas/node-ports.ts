@@ -59,6 +59,8 @@ export function attachConnectionPorts(
     portContainer.addChild(hoverShape);
 
     const updatePort = () => {
+      // Skip work when ports container is hidden (node not selected)
+      if (!portsContainer.visible) return;
       portContainer.scale.set(1 / viewState.scale);
       portContainer.alpha = viewState.scale < ANCHOR_HIDE_THRESHOLD ? 0 : 1;
       const size = elementSizeMap.get(node);

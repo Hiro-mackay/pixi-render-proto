@@ -41,6 +41,7 @@ function updateTextResolutions(container: Container, scale: number): void {
  * viewState.scale changes.
  */
 function walkRedraw(container: Container): void {
+  if (!container.visible) return;
   const node = container as Graphics & { __redraw?: () => void };
   if (typeof node.__redraw === "function") {
     node.__redraw();

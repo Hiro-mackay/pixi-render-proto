@@ -104,19 +104,11 @@ export function enableItemDrag(item: Container, ctx: DragContext): void {
       item.y = worldPos.y - dragOffset.y;
     }
 
-    // Real-time group membership: assign/remove as item moves
+    // Highlight candidate group (visual only, no state change)
     const cx = item.x + itemSize.width / 2;
     const cy = item.y + itemSize.height / 2;
     const candidate = findGroupAt(cachedCandidates, cx, cy);
-    const currentParent = getParentGroup(item);
-
-    if (candidate && candidate !== item && candidate !== currentParent) {
-      groupHighlight.show(candidate);
-      assignToGroup(item, candidate);
-    } else if (!candidate && currentParent) {
-      groupHighlight.hide();
-      removeFromGroup(item);
-    } else if (candidate && candidate !== item) {
+    if (candidate && candidate !== item) {
       groupHighlight.show(candidate);
     } else {
       groupHighlight.hide();
@@ -140,6 +132,17 @@ export function enableItemDrag(item: Container, ctx: DragContext): void {
     if (wasClick) {
       if (itemSize.width > 0) {
         selection.select(item, itemSize.width, itemSize.height);
+      }
+    } else {
+      // Assign/remove group membership on drop
+      const cx = item.x + itemSize.width / 2;
+      const cy = item.y + itemSize.height / 2;
+      const target = findGroupAt(cachedCandidates, cx, cy);
+      const currentParent = getParentGroup(item);
+      if (target && target !== currentParent) {
+        assignToGroup(item, target);
+      } else if (!target && currentParent) {
+        removeFromGroup(item);
       }
     }
 

@@ -195,7 +195,6 @@ export async function buildDemoScene(
 
     if (groupMetaMap.has(container)) {
       resizeGroup(container, width, height);
-      reconcileMembership();
       highlightMembers(container);
     } else {
       resizeNode(container, width, height);
@@ -211,6 +210,7 @@ export async function buildDemoScene(
   }, () => {
     memberHighlight.clear();
     memberHighlight.visible = false;
+    reconcileMembership();
   });
 
   selection.setDeleteEdgeHandler((edge) => {
