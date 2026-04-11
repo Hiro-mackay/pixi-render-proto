@@ -1,7 +1,7 @@
 import { Container, Graphics, Text, TextStyle, Sprite, Texture } from "pixi.js";
 import { viewState } from "./view-state";
 import type { Redrawable } from "./types";
-import { textResolution, nodeSizeMap, nodePortsMap } from "./types";
+import { textResolution, nodeSizeMap } from "./types";
 import { getPortPositions } from "./node-ports";
 
 export type NodeData = {
@@ -64,21 +64,10 @@ export function createNode(data: NodeData): Container {
   label.position.set(size.width / 2, data.icon ? 42 : 12);
   container.addChild(label);
 
-  // Hit area expands only when ports are visible (node selected).
-  // Otherwise stays tight to the node boundary to avoid blocking edges.
-  container.hitArea = {
-    contains: (x: number, y: number) => {
-      const ports = nodePortsMap.get(container);
-      const portsVisible = ports?.visible ?? false;
-      const margin = portsVisible ? (14 + 12) / viewState.scale : 0;
-      return (
-        x >= -margin &&
-        x <= size.width + margin &&
-        y >= -margin &&
-        y <= size.height + margin
-      );
-    },
-  };
+  // No custom hitArea — PixiJS auto-computes from visible children bounds.
+  // When ports are hidden: hit area = node body only.
+  // When ports are visible: hit area expands to include ports.
+  // This keeps the node tight and avoids blocking edge click targets.
 
   return container;
 }
