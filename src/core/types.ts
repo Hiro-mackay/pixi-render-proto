@@ -43,6 +43,7 @@ export interface GroupMeta {
   readonly label: string;
   readonly color: number;
   collapsed: boolean;
+  expandedHeight: number;
 }
 
 export interface CanvasElement {
