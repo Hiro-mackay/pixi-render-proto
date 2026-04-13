@@ -174,6 +174,69 @@ describe("ElementRegistry", () => {
     });
   });
 
+  describe("reconnectEdge", () => {
+    test("should reconnect source endpoint to a new node", () => {
+      registry.addElement("n1", makeNode("n1"));
+      registry.addElement("n2", makeNode("n2"));
+      registry.addElement("n3", makeNode("n3"));
+      registry.addEdge("e1", makeEdge("e1", "n1", "n2"));
+
+      registry.reconnectEdge("e1", "source", "n3", "bottom");
+
+      const edge = registry.getEdgeOrThrow("e1");
+      expect(edge.sourceId).toBe("n3");
+      expect(edge.sourceSide).toBe("bottom");
+      expect(edge.targetId).toBe("n2");
+
+      // Edge index should be updated
+      expect(registry.getEdgesForNode("n1")).toHaveLength(0);
+      expect(registry.getEdgesForNode("n3")).toHaveLength(1);
+      expect(registry.getEdgesForNode("n2")).toHaveLength(1);
+    });
+
+    test("should reconnect target endpoint to a new node", () => {
+      registry.addElement("n1", makeNode("n1"));
+      registry.addElement("n2", makeNode("n2"));
+      registry.addElement("n3", makeNode("n3"));
+      registry.addEdge("e1", makeEdge("e1", "n1", "n2"));
+
+      registry.reconnectEdge("e1", "target", "n3", "top");
+
+      const edge = registry.getEdgeOrThrow("e1");
+      expect(edge.sourceId).toBe("n1");
+      expect(edge.targetId).toBe("n3");
+      expect(edge.targetSide).toBe("top");
+
+      expect(registry.getEdgesForNode("n2")).toHaveLength(0);
+      expect(registry.getEdgesForNode("n3")).toHaveLength(1);
+    });
+
+    test("should throw when edge does not exist", () => {
+      expect(() => registry.reconnectEdge("ghost", "source", "n1", "top")).toThrow();
+    });
+
+    test("should throw when new node does not exist", () => {
+      registry.addElement("n1", makeNode("n1"));
+      registry.addElement("n2", makeNode("n2"));
+      registry.addEdge("e1", makeEdge("e1", "n1", "n2"));
+
+      expect(() => registry.reconnectEdge("e1", "source", "ghost", "top")).toThrow(/not found/);
+    });
+
+    test("should clear position cache after reconnect", () => {
+      registry.addElement("n1", makeNode("n1"));
+      registry.addElement("n2", makeNode("n2"));
+      registry.addElement("n3", makeNode("n3"));
+      registry.addEdge("e1", makeEdge("e1", "n1", "n2"));
+
+      const edge = registry.getEdgeOrThrow("e1");
+      edge._posCache = { srcX: 0, srcY: 0, srcW: 0, srcH: 0, tgtX: 0, tgtY: 0, tgtW: 0, tgtH: 0, scale: 1, selected: false };
+
+      registry.reconnectEdge("e1", "target", "n3", "top");
+      expect(edge._posCache).toBeUndefined();
+    });
+  });
+
   describe("re-add after removal", () => {
     test("should allow adding an element with the same id after removal", () => {
       registry.addElement("n1", makeNode("n1"));

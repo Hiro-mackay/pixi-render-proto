@@ -24,12 +24,17 @@ import { createGroupGraphics, preloadChevronTextures } from "./elements/group-re
 import { createEdgeGraphics, updateEdgeGraphics, removeEdgeGraphics } from "./elements/edge-renderer";
 import { createPortGraphics } from "./elements/port-renderer";
 import { SelectionState } from "./interaction/selection-state";
+import { EdgeCreator } from "./interaction/edge-creator";
 import { enableItemDrag } from "./interaction/drag-handler";
+import { enablePortDrag } from "./interaction/port-drag";
 import { enableResizeHandles } from "./interaction/resize-handles";
 import { KeyboardManager } from "./interaction/keyboard-manager";
 import { applyParentChange, updateVisibility } from "./hierarchy/group-ops";
 import { AssignCommand } from "./commands/assign-command";
 import { DeleteCommand } from "./commands/delete-command";
+import { AddEdgeCommand, RemoveEdgeCommand, type AddRemoveOps } from "./commands/add-remove-command";
+import { ReconnectEdgeCommand } from "./commands/edge-command";
+import { createReconnectHandles } from "./interaction/edge-reconnect";
 
 export interface CanvasEngine {
   readonly viewport: Viewport;
@@ -68,10 +73,14 @@ class CanvasEngineImpl implements CanvasEngine {
   private readonly history = new CommandHistory();
   private readonly edgeLineLayer = new Container();
   private readonly edgeLabelLayer = new Container();
+  private readonly ghostLayer = new Container();
   private readonly selectionLayer = new Container();
   private selection!: SelectionState;
   private keyboard!: KeyboardManager;
+  private edgeCreator!: EdgeCreator;
   private readonly dragCleanups = new Map<string, () => void>();
+  private readonly portDragCleanups = new Map<string, () => void>();
+  private reconnectCleanup: (() => void) | null = null;
   private resizeCleanup: (() => void) | null = null;
   private downPos = { x: 0, y: 0 };
   private downOnViewport = false;
@@ -82,9 +91,11 @@ class CanvasEngineImpl implements CanvasEngine {
     this.ctx = ctx;
     this.edgeLineLayer.label = "edge-line-layer";
     this.edgeLabelLayer.label = "edge-label-layer";
+    this.ghostLayer.label = "ghost-layer";
     this.selectionLayer.label = "selection-layer";
     ctx.viewport.addChild(this.edgeLineLayer);
     ctx.viewport.addChild(this.edgeLabelLayer);
+    ctx.viewport.addChild(this.ghostLayer);
 
     ctx.onZoom((scale) => {
       this.redraw.updateTextResolutions(scale);
@@ -111,10 +122,24 @@ class CanvasEngineImpl implements CanvasEngine {
 
     this.keyboard = new KeyboardManager(
       () => this.deleteSelected(),
-      () => this.clearSelection(),
+      () => this.handleEscape(),
       () => this.undo(),
       () => this.redo(),
     );
+
+    this.edgeCreator = new EdgeCreator(
+      this.ghostLayer, ctx.viewport, this.registry, this.getScale,
+      (event) => {
+        const edgeId = crypto.randomUUID();
+        this.history.execute(new AddEdgeCommand(edgeId, {
+          sourceId: event.sourceId, sourceSide: event.sourceSide,
+          targetId: event.targetId, targetSide: event.targetSide,
+        }, this.addRemoveOps));
+        this.afterCommand();
+      },
+    );
+    this.redraw.register(this.edgeCreator.getGhostLine());
+    this.redraw.register(this.edgeCreator.getHighlightGraphic());
 
     // Deselect on empty click (only when clicking directly on the viewport background)
     this.handleViewportPointerDown = (e) => {
@@ -143,6 +168,10 @@ class CanvasEngineImpl implements CanvasEngine {
   private onDragStateChange = (dragging: boolean): void => {
     this.keyboard.enabled = !dragging;
   };
+  private readonly addRemoveOps: AddRemoveOps = {
+    doAddEdge: (id, opts) => this.addEdge(id, opts),
+    doRemoveEdge: (id) => this.removeEdge(id),
+  };
 
   destroy(): void {
     if (this.destroyed) return;
@@ -150,7 +179,10 @@ class CanvasEngineImpl implements CanvasEngine {
     this.ctx?.viewport.off("pointerdown", this.handleViewportPointerDown);
     this.ctx?.viewport.off("pointerup", this.handleViewportPointerUp);
     for (const fn of this.dragCleanups.values()) fn();
+    for (const fn of this.portDragCleanups.values()) fn();
+    this.reconnectCleanup?.();
     this.resizeCleanup?.();
+    this.edgeCreator.destroy();
     this.keyboard.destroy();
     this.selection.destroy();
     this.redraw.clear();
@@ -176,6 +208,9 @@ class CanvasEngineImpl implements CanvasEngine {
     this.dragCleanups.set(id,
       enableItemDrag(element, this.getCtx().viewport, this.registry, this.history,
         this.selection, this.getScale, syncToContainer, this.onDragStateChange),
+    );
+    this.portDragCleanups.set(id,
+      enablePortDrag(element, this.getCtx().viewport, this.getScale, this.edgeCreator),
     );
   }
 
@@ -225,6 +260,12 @@ class CanvasEngineImpl implements CanvasEngine {
     this.redraw.register(gfx.line);
     if (gfx.labelPill) this.redraw.register(gfx.labelPill);
 
+    // Edge selection via click on hit area
+    gfx.hitLine.on("pointerdown", (e: FederatedPointerEvent) => {
+      e.stopPropagation();
+      this.selectEdge(id);
+    });
+
     // Ensure selection layer stays on top
     const vp = this.getCtx().viewport;
     vp.setChildIndex(this.selectionLayer, vp.children.length - 1);
@@ -234,6 +275,8 @@ class CanvasEngineImpl implements CanvasEngine {
     const element = this.registry.getElementOrThrow(id);
     this.dragCleanups.get(id)?.();
     this.dragCleanups.delete(id);
+    this.portDragCleanups.get(id)?.();
+    this.portDragCleanups.delete(id);
 
     // Detach children before removing a group to prevent orphaned parentGroupId refs
     if (element.type === "group") {
@@ -252,6 +295,7 @@ class CanvasEngineImpl implements CanvasEngine {
   removeEdge(id: string): void {
     const edge = this.registry.getEdge(id);
     if (!edge) return;
+    edge.hitLine.removeAllListeners();
     this.redraw.unregister(edge.line);
     const pill = edge.labelPill;
     if (pill) this.redraw.unregister(pill);
@@ -311,10 +355,19 @@ class CanvasEngineImpl implements CanvasEngine {
     if (ids.length > 1) {
       throw new Error("Multi-select is not yet supported (Phase 4). Pass a single id.");
     }
-    if (ids.length > 0) this.selection.select(ids[0]!);
+    const id = ids[0];
+    if (id !== undefined) {
+      this.reconnectCleanup?.();
+      this.reconnectCleanup = null;
+      this.selection.select(id);
+    }
   }
 
-  clearSelection(): void { this.selection.clear(); }
+  clearSelection(): void {
+    this.reconnectCleanup?.();
+    this.reconnectCleanup = null;
+    this.selection.clear();
+  }
 
   getSelection(): readonly string[] {
     const id = this.selection.getSelectedId();
@@ -335,7 +388,57 @@ class CanvasEngineImpl implements CanvasEngine {
 
   // --- Private ---
 
+  private selectEdge(edgeId: string): void {
+    // Destroy previous reconnect handles before creating new ones
+    this.reconnectCleanup?.();
+    this.reconnectCleanup = null;
+
+    this.selection.selectEdge(edgeId);
+
+    const edge = this.registry.getEdge(edgeId);
+    if (edge) {
+      this.reconnectCleanup = createReconnectHandles(
+        edge, this.selectionLayer, this.getCtx().viewport,
+        this.registry, this.getScale, this.ghostLayer,
+        (result) => {
+          // Destroy handles BEFORE executing command (which may re-enter selectEdge)
+          this.reconnectCleanup?.();
+          this.reconnectCleanup = null;
+
+          this.history.execute(new ReconnectEdgeCommand(
+            result.edgeId, result.endpoint, result.newNodeId, result.newSide,
+            this.registry,
+          ));
+          this.afterCommand();
+          // Re-select the edge to refresh handles with new positions
+          this.selectEdge(result.edgeId);
+        },
+      );
+    }
+
+    this.redraw.markAllDirty();
+    this.redraw.flush();
+  }
+
+  private handleEscape(): void {
+    if (this.edgeCreator.isActive()) {
+      this.edgeCreator.cancel();
+      // Also clear selection so the source node's ports hide
+      this.clearSelection();
+      return;
+    }
+    this.clearSelection();
+  }
+
   private deleteSelected(): void {
+    const edgeId = this.selection.getSelectedEdgeId();
+    if (edgeId) {
+      this.clearSelection();
+      this.history.execute(new RemoveEdgeCommand(edgeId, this.registry, this.addRemoveOps));
+      this.afterCommand();
+      return;
+    }
+
     const id = this.selection.getSelectedId();
     if (!id) return;
     this.clearSelection();

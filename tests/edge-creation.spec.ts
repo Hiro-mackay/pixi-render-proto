@@ -1,12 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
 
-const SCENE_LOAD_WAIT = 5_000;
-
 test.describe("Edge Creation UI", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
     await page.waitForSelector("canvas", { timeout: 10_000 });
-    await page.waitForTimeout(SCENE_LOAD_WAIT);
+    await waitForSceneReady(page);
   });
 
   test("selecting a node shows connection ports", async ({ page }) => {
@@ -48,44 +46,23 @@ test.describe("Edge Creation UI", () => {
     const box = await canvas.boundingBox();
     if (!box) throw new Error("Canvas not found");
 
-    // Use the same approach as the working dangling-edge test
-    const nodePos = await findOnScreenNode(page);
-    if (!nodePos) throw new Error("No on-screen node found");
+    const portInfo = await findSourcePortInfo(page);
+    if (!portInfo) throw new Error("No source node with port found");
 
-    // Find a second node to the right (target)
-    const targetPos = await page.evaluate(() => {
-      const app = (window as any).__PIXI_APP__;
-      if (!app?.stage) return null;
-      const screenW = app.renderer.width;
-      const screenH = app.renderer.height;
-      const nodes: { x: number; y: number }[] = [];
-      const walk = (c: any, d: number) => {
-        if (!c || d > 10) return;
-        if (typeof c.label === "string" && c.label.startsWith("node-")) {
-          const b = c.getBounds();
-          const cx = b.x + b.width / 2;
-          const cy = b.y + b.height / 2;
-          if (cx > screenW * 0.55 && cx < screenW - 50 && cy > 50 && cy < screenH - 50) {
-            nodes.push({ x: cx, y: cy });
-          }
-          return;
-        }
-        for (const ch of c.children ?? []) walk(ch, d + 1);
-      };
-      walk(app.stage, 0);
-      return nodes[0] ?? null;
-    });
+    const targetPos = await findTargetNode(page);
     if (!targetPos) throw new Error("No target node found");
 
     const edgesBefore = await countEdgeLines(page);
 
-    // Select source node
-    await page.mouse.click(box.x + nodePos.x, box.y + nodePos.y);
+    // Select source node to make ports visible
+    await page.mouse.click(
+      box.x + portInfo.nodeCenter.x, box.y + portInfo.nodeCenter.y,
+    );
     await page.waitForTimeout(400);
 
-    // Drag from approximate right port position to target
-    const portX = box.x + nodePos.x + 50;
-    const portY = box.y + nodePos.y;
+    // Drag from the exact right port position to target
+    const portX = box.x + portInfo.portScreen.x;
+    const portY = box.y + portInfo.portScreen.y;
 
     await page.mouse.move(portX, portY, { steps: 5 });
     await page.waitForTimeout(100);
@@ -137,6 +114,55 @@ test.describe("Edge Creation UI", () => {
     const edgesAfter = await countEdgeLines(page);
     // No edge should be created when dropping on empty space
     expect(edgesAfter).toBe(edgesBefore);
+  });
+
+  test("undo removes created edge, redo restores it", async ({ page }) => {
+    const canvas = page.locator("canvas");
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error("Canvas not found");
+
+    const portInfo = await findSourcePortInfo(page);
+    if (!portInfo) throw new Error("No source node with port found");
+
+    const targetPos = await findTargetNode(page);
+    if (!targetPos) throw new Error("No target node found");
+
+    const edgesBefore = await countEdgeLines(page);
+
+    // Select source node
+    await page.mouse.click(
+      box.x + portInfo.nodeCenter.x, box.y + portInfo.nodeCenter.y,
+    );
+    await page.waitForTimeout(400);
+
+    // Drag from exact port position to target
+    const portX = box.x + portInfo.portScreen.x;
+    const portY = box.y + portInfo.portScreen.y;
+    await page.mouse.move(portX, portY, { steps: 5 });
+    await page.waitForTimeout(100);
+    await page.mouse.down();
+    await page.mouse.move(box.x + targetPos.x, box.y + targetPos.y, { steps: 20 });
+    await page.waitForTimeout(200);
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+
+    const edgesAfterCreate = await countEdgeLines(page);
+    expect(edgesAfterCreate).toBe(edgesBefore + 1);
+
+    // Undo
+    const modifier = process.platform === "darwin" ? "Meta" : "Control";
+    await page.keyboard.press(`${modifier}+z`);
+    await page.waitForTimeout(400);
+
+    const edgesAfterUndo = await countEdgeLines(page);
+    expect(edgesAfterUndo).toBe(edgesBefore);
+
+    // Redo
+    await page.keyboard.press(`${modifier}+Shift+z`);
+    await page.waitForTimeout(400);
+
+    const edgesAfterRedo = await countEdgeLines(page);
+    expect(edgesAfterRedo).toBe(edgesBefore + 1);
   });
 });
 
@@ -197,8 +223,10 @@ async function countEdgeLines(page: Page): Promise<number> {
     const walk = (c: any, depth: number) => {
       if (!c || depth > 12) return;
       if (c.label === "edge-line-layer") {
-        // Each edge has 2 children (line + hitLine)
-        count = Math.floor((c.children?.length ?? 0) / 2);
+        // Count hitLines by cursor style (avoids child-count assumptions)
+        for (const child of c.children ?? []) {
+          if (child.cursor === "pointer") count++;
+        }
         return;
       }
       for (const child of c.children ?? []) walk(child, depth + 1);
@@ -206,4 +234,82 @@ async function countEdgeLines(page: Page): Promise<number> {
     walk(app.stage, 0);
     return count;
   });
+}
+
+async function findSourcePortInfo(page: Page): Promise<{ nodeCenter: { x: number; y: number }; portScreen: { x: number; y: number } } | null> {
+  return await page.evaluate(() => {
+    const app = (window as any).__PIXI_APP__;
+    if (!app?.stage) return null;
+    const screenW = app.renderer.width;
+    const screenH = app.renderer.height;
+    const results: { nodeCenter: { x: number; y: number }; portScreen: { x: number; y: number } }[] = [];
+    const walk = (c: any, d: number) => {
+      if (!c || d > 10) return;
+      if (typeof c.label === "string" && c.label.startsWith("node-")) {
+        const b = c.getBounds();
+        const cx = b.x + b.width / 2;
+        const cy = b.y + b.height / 2;
+        if (cx > 50 && cx < screenW * 0.45 && cy > 50 && cy < screenH - 50) {
+          const ports = c.children?.find((ch: any) => ch.label === "ports");
+          const rightPort = ports?.children?.find((ch: any) => ch.label === "right");
+          if (rightPort) {
+            const pb = rightPort.getBounds();
+            results.push({
+              nodeCenter: { x: cx, y: cy },
+              portScreen: { x: pb.x + pb.width / 2, y: pb.y + pb.height / 2 },
+            });
+          }
+        }
+        return;
+      }
+      for (const ch of c.children ?? []) walk(ch, d + 1);
+    };
+    walk(app.stage, 0);
+    return results[0] ?? null;
+  });
+}
+
+async function findTargetNode(page: Page): Promise<{ x: number; y: number } | null> {
+  return await page.evaluate(() => {
+    const app = (window as any).__PIXI_APP__;
+    if (!app?.stage) return null;
+    const screenW = app.renderer.width;
+    const screenH = app.renderer.height;
+    const nodes: { x: number; y: number }[] = [];
+    const walk = (c: any, d: number) => {
+      if (!c || d > 10) return;
+      if (typeof c.label === "string" && c.label.startsWith("node-")) {
+        const b = c.getBounds();
+        const cx = b.x + b.width / 2;
+        const cy = b.y + b.height / 2;
+        if (cx > screenW * 0.55 && cx < screenW - 50 && cy > 50 && cy < screenH - 50) {
+          nodes.push({ x: cx, y: cy });
+        }
+        return;
+      }
+      for (const ch of c.children ?? []) walk(ch, d + 1);
+    };
+    walk(app.stage, 0);
+    return nodes[0] ?? null;
+  });
+}
+
+async function waitForSceneReady(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      const app = (window as any).__PIXI_APP__;
+      if (!app?.stage) return false;
+      let hasNodes = false;
+      const walk = (c: any, d: number) => {
+        if (!c || d > 6) return;
+        if (typeof c.label === "string" && c.label.startsWith("node-")) { hasNodes = true; return; }
+        for (const ch of c.children ?? []) { if (hasNodes) return; walk(ch, d + 1); }
+      };
+      walk(app.stage, 0);
+      return hasNodes;
+    },
+    { timeout: 15_000 },
+  );
+  // One extra frame for rendering to settle
+  await page.waitForTimeout(200);
 }

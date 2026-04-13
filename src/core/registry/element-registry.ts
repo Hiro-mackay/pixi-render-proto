@@ -1,6 +1,14 @@
 import { Container } from "pixi.js";
-import type { CanvasEdge, CanvasElement } from "../types";
+import type { CanvasEdge, CanvasElement, Side } from "../types";
 import { EdgeIndex } from "./edge-index";
+
+/** Internal mutable view of CanvasEdge for reconnection within the registry. */
+interface MutableCanvasEdge extends Omit<CanvasEdge, "sourceId" | "sourceSide" | "targetId" | "targetSide"> {
+  sourceId: string;
+  sourceSide: Side;
+  targetId: string;
+  targetSide: Side;
+}
 
 export interface ReadonlyElementRegistry {
   getElement(id: string): CanvasElement | undefined;
@@ -18,7 +26,7 @@ export interface ReadonlyElementRegistry {
 
 export class ElementRegistry implements ReadonlyElementRegistry {
   private elements = new Map<string, CanvasElement>();
-  private edges = new Map<string, CanvasEdge>();
+  private edges = new Map<string, MutableCanvasEdge>();
   private containerToId = new WeakMap<Container, string>();
   private edgeIndex = new EdgeIndex();
   private childrenByGroup = new Map<string, Set<string>>();
@@ -106,7 +114,7 @@ export class ElementRegistry implements ReadonlyElementRegistry {
     if (!this.elements.has(edge.targetId)) {
       throw new Error(`Edge target "${edge.targetId}" not found`);
     }
-    this.edges.set(id, edge);
+    this.edges.set(id, edge as MutableCanvasEdge);
     this.edgeIndex.add(edge);
   }
 
@@ -136,6 +144,31 @@ export class ElementRegistry implements ReadonlyElementRegistry {
       if (edge) result.push(edge);
     }
     return result;
+  }
+
+  reconnectEdge(
+    id: string,
+    endpoint: "source" | "target",
+    newNodeId: string,
+    newSide: Side,
+  ): void {
+    const edge = this.edges.get(id);
+    if (!edge) throw new Error(`Edge "${id}" not found`);
+    if (!this.elements.has(newNodeId)) {
+      throw new Error(`Target node "${newNodeId}" not found`);
+    }
+    if (endpoint === "source") {
+      const oldNodeId = edge.sourceId;
+      this.edgeIndex.reconnect(edge.id, oldNodeId, newNodeId);
+      edge.sourceId = newNodeId;
+      edge.sourceSide = newSide;
+    } else {
+      const oldNodeId = edge.targetId;
+      this.edgeIndex.reconnect(edge.id, oldNodeId, newNodeId);
+      edge.targetId = newNodeId;
+      edge.targetSide = newSide;
+    }
+    edge._posCache = undefined;
   }
 
   getAllEdges(): ReadonlyMap<string, CanvasEdge> {

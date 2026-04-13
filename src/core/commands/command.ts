@@ -1,6 +1,7 @@
 export type CommandType =
   | "move" | "resize" | "drag"
   | "assign" | "delete"
+  | "add-remove" | "edge"
   | "batch";
 
 export interface Command {

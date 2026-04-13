@@ -17,6 +17,11 @@ export class EdgeIndex {
     return this.edgesByNode.get(nodeId);
   }
 
+  reconnect(edgeId: string, oldNodeId: string, newNodeId: string): void {
+    this.removeEntry(oldNodeId, edgeId);
+    this.addEntry(newNodeId, edgeId);
+  }
+
   deleteNode(nodeId: string): void {
     this.edgesByNode.delete(nodeId);
   }

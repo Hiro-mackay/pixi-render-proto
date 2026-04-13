@@ -17,11 +17,12 @@ const CORNER_COUNT = 4;
 
 export class SelectionState {
   private selectedId: string | null = null;
+  private selectedEdgeId: string | null = null;
   private outline: Redrawable | null = null;
   private handles: Graphics[] = [];
   private resizing = false;
 
-  getHandles(): Graphics[] {
+  getHandles(): readonly Graphics[] {
     return this.handles;
   }
 
@@ -34,7 +35,8 @@ export class SelectionState {
 
   select(id: string): void {
     if (this.selectedId === id) return;
-    this.clear();
+    this.clearEdge();
+    this.clearElement();
     const el = this.registry.getElement(id);
     if (!el) return;
     this.selectedId = id;
@@ -61,6 +63,11 @@ export class SelectionState {
   }
 
   clear(): void {
+    this.clearEdge();
+    this.clearElement();
+  }
+
+  private clearElement(): void {
     if (!this.selectedId) return;
     const el = this.registry.getElement(this.selectedId);
     if (el) {
@@ -80,6 +87,31 @@ export class SelectionState {
 
   getSelectedId(): string | null {
     return this.selectedId;
+  }
+
+  selectEdge(edgeId: string): void {
+    if (this.selectedEdgeId === edgeId) {
+      // Ensure selected flag is consistent even on re-select
+      const edge = this.registry.getEdge(edgeId);
+      if (edge) edge.selected = true;
+      return;
+    }
+    this.clear();
+    const edge = this.registry.getEdge(edgeId);
+    if (!edge) return;
+    this.selectedEdgeId = edgeId;
+    edge.selected = true;
+  }
+
+  getSelectedEdgeId(): string | null {
+    return this.selectedEdgeId;
+  }
+
+  private clearEdge(): void {
+    if (!this.selectedEdgeId) return;
+    const edge = this.registry.getEdge(this.selectedEdgeId);
+    if (edge) edge.selected = false;
+    this.selectedEdgeId = null;
   }
 
   update(): void {

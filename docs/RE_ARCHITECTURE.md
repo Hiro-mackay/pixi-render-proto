@@ -29,7 +29,7 @@
 
 ### 変更が必要なこと
 - **5つのグローバルWeakMap**（`elementSizeMap`, `nodePortsMap`, `groupMetaMap`, `groupParentMap`, `groupChildrenMap`）が `types.ts` に散在: モジュール間で調整なく共有されている。統一レジストリが必要
-- **selection.ts（632行）**: 選択アウトライン、8つのリサイズハンドル、2つのエンドポイントハンドル、リコネクションのステートマシンが1ファイルに混在
+- **selection.ts（632行）**: 選択アウトライン、4コーナーハンドル + 4辺境界線、2つのエンドポイントハンドル、リコネクションのステートマシンが1ファイルに混在
 - **demo-scene.ts（366行）**: レイヤー作成、ハンドラー接続、イベント設定がシーンデータと混在。エンジンをライブラリとして切り出せない
 - **walkRedraw O(n)**: ズームのたびに表示ツリー全体を走査。FPS劣化への寄与が推測されるが、プロファイリングなしでは未証明
 - **viewStateグローバルシングルトン**（`view-state.ts`）: 複数キャンバスインスタンスの併存を妨げる
@@ -72,7 +72,7 @@
 │   │   ├── interaction/
 │   │   │   ├── drag-handler.ts         # ノード+グループ統合ドラッグ
 │   │   │   ├── selection-state.ts      # 選択モデル + アウトライン
-│   │   │   ├── resize-handles.ts       # 8つのリサイズハンドル + ロジック
+│   │   │   ├── resize-handles.ts       # 4コーナーハンドル + 4辺境界線リサイズ
 │   │   │   ├── edge-creator.ts         # ポート間エッジ作成
 │   │   │   ├── edge-reconnect.ts       # エンドポイントドラッグによる再接続
 │   │   │   ├── multi-select.ts         # Shift+クリック + マーキー選択
@@ -594,7 +594,7 @@ interface EngineOptions {
 - `commands/move-command.ts`, `resize-command.ts`, `group-command.ts`
 - `interaction/selection-state.ts`: Set<string>モデル + アウトライン（選択操作はCommand不要）
 - `interaction/drag-handler.ts`: registryベースのドラッグ → MoveCommand生成
-- `interaction/resize-handles.ts`: 8つのハンドル → ResizeCommand生成
+- `interaction/resize-handles.ts`: 4コーナーハンドル + 4辺境界線（透明ヒットエリア） → ResizeCommand生成。上下左右のリサイズは個別のアンカーポイントではなく、辺に沿った透明な境界線をドラッグして行う
 - `interaction/keyboard-manager.ts`: キーボードショートカット一元管理
 - `hierarchy/group-ops.ts`（循環防止ガード付き）+ `hierarchy/membership.ts`
 - グループの折りたたみ/展開 → GroupCommand生成、空領域クリックでの選択解除
