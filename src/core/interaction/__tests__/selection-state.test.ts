@@ -116,6 +116,115 @@ describe("SelectionState", () => {
     expect(selection.getSelectedId()).toBeNull();
   });
 
+  describe("multi-select", () => {
+    test("should select multiple elements with selectMultiple", () => {
+      const n1 = makeNode("n1");
+      const n2 = makeNode("n2");
+      registry.addElement("n1", n1);
+      registry.addElement("n2", n2);
+
+      selection.selectMultiple(["n1", "n2"]);
+      expect(selection.getSelectedIds().size).toBe(2);
+      expect(selection.isSelected("n1")).toBe(true);
+      expect(selection.isSelected("n2")).toBe(true);
+    });
+
+    test("should return null from getSelectedId when multi-selected", () => {
+      const n1 = makeNode("n1");
+      const n2 = makeNode("n2");
+      registry.addElement("n1", n1);
+      registry.addElement("n2", n2);
+
+      selection.selectMultiple(["n1", "n2"]);
+      expect(selection.getSelectedId()).toBeNull();
+    });
+
+    test("should toggle adds and removes from selection", () => {
+      const n1 = makeNode("n1");
+      const n2 = makeNode("n2");
+      registry.addElement("n1", n1);
+      registry.addElement("n2", n2);
+
+      selection.select("n1");
+      selection.toggle("n2");
+      expect(selection.getSelectedIds().size).toBe(2);
+
+      selection.toggle("n1");
+      expect(selection.getSelectedIds().size).toBe(1);
+      expect(selection.isSelected("n2")).toBe(true);
+      expect(selection.isSelected("n1")).toBe(false);
+    });
+
+    test("should not fire onHandlesCreated when multi-selected", () => {
+      const n1 = makeNode("n1");
+      const n2 = makeNode("n2");
+      registry.addElement("n1", n1);
+      registry.addElement("n2", n2);
+
+      const callback = vi.fn();
+      const sel = new SelectionState(selectionLayer, registry, () => 1, callback);
+
+      sel.selectMultiple(["n1", "n2"]);
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    test("should hide ports in multi-select", () => {
+      const n1 = makeNode("n1");
+      const n2 = makeNode("n2");
+      registry.addElement("n1", n1);
+      registry.addElement("n2", n2);
+
+      selection.selectMultiple(["n1", "n2"]);
+
+      const ports1 = n1.container.children.find((c) => c.label === "ports");
+      const ports2 = n2.container.children.find((c) => c.label === "ports");
+      expect(ports1?.visible).toBe(false);
+      expect(ports2?.visible).toBe(false);
+    });
+
+    test("should show handles when toggle reduces to single selection", () => {
+      const n1 = makeNode("n1");
+      const n2 = makeNode("n2");
+      registry.addElement("n1", n1);
+      registry.addElement("n2", n2);
+
+      const callback = vi.fn();
+      const sel = new SelectionState(selectionLayer, registry, () => 1, callback);
+
+      sel.selectMultiple(["n1", "n2"]);
+      expect(callback).not.toHaveBeenCalled();
+
+      sel.toggle("n1");
+      expect(callback).toHaveBeenCalledOnce();
+      expect(sel.getSelectedId()).toBe("n2");
+    });
+
+    test("should clear all multi-selection on clear()", () => {
+      const n1 = makeNode("n1");
+      const n2 = makeNode("n2");
+      registry.addElement("n1", n1);
+      registry.addElement("n2", n2);
+
+      selection.selectMultiple(["n1", "n2"]);
+      selection.clear();
+      expect(selection.getSelectedIds().size).toBe(0);
+    });
+
+    test("should clear multi-selection when selecting a single element", () => {
+      const n1 = makeNode("n1");
+      const n2 = makeNode("n2");
+      const n3 = makeNode("n3");
+      registry.addElement("n1", n1);
+      registry.addElement("n2", n2);
+      registry.addElement("n3", n3);
+
+      selection.selectMultiple(["n1", "n2"]);
+      selection.select("n3");
+      expect(selection.getSelectedIds().size).toBe(1);
+      expect(selection.getSelectedId()).toBe("n3");
+    });
+  });
+
   describe("edge selection", () => {
     function makeEdge(id: string): CanvasEdge {
       return {

@@ -1,4 +1,5 @@
 import type { Command } from "./command";
+import type { AddElementOps } from "./add-remove-command";
 import type { CanvasElement, NodeOptions, GroupOptions, EdgeOptions } from "../types";
 import { COLLAPSED_HEIGHT } from "../types";
 import type { ElementRegistry } from "../registry/element-registry";
@@ -26,10 +27,7 @@ interface EdgeSnapshot {
   readonly opts: EdgeOptions;
 }
 
-export interface DeleteCommandOps {
-  readonly doRemove: (id: string) => void;
-  readonly doAddNode: (id: string, opts: NodeOptions) => void;
-  readonly doAddGroup: (id: string, opts: GroupOptions) => void;
+export interface DeleteCommandOps extends AddElementOps {
   readonly doAddEdge: (id: string, opts: EdgeOptions) => void;
   readonly onRestore?: (id: string) => void;
 }

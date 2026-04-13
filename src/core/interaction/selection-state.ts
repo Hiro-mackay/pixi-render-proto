@@ -16,9 +16,9 @@ const HANDLE_CURSORS = [
 const CORNER_COUNT = 4;
 
 export class SelectionState {
-  private selectedId: string | null = null;
+  private readonly selectedIds = new Set<string>();
   private selectedEdgeId: string | null = null;
-  private outline: Redrawable | null = null;
+  private readonly outlines = new Map<string, Redrawable>();
   private handles: Graphics[] = [];
   private resizing = false;
 
@@ -33,65 +33,67 @@ export class SelectionState {
     private readonly onHandlesCreated?: (handles: Graphics[]) => void,
   ) {}
 
+  // --- Element selection ---
+
   select(id: string): void {
-    if (this.selectedId === id) return;
+    if (this.selectedIds.size === 1 && this.selectedIds.has(id)) return;
     this.clearEdge();
-    this.clearElement();
-    const el = this.registry.getElement(id);
-    if (!el) return;
-    this.selectedId = id;
+    this.clearElements();
+    this.addToSelection(id);
+  }
 
-    const outline = new Graphics() as Redrawable;
-    outline.__redraw = () => {
-      const current = this.registry.getElement(id);
-      if (!current) return;
-      const s = this.getScale();
-      outline.clear();
-      outline.rect(current.x, current.y, current.width, current.height);
-      outline.stroke({ color: OUTLINE_COLOR, width: OUTLINE_WIDTH / s });
-    };
-    outline.__redraw();
-    this.selectionLayer.addChild(outline);
-    this.outline = outline;
+  selectMultiple(ids: readonly string[]): void {
+    this.clearEdge();
+    this.clearElements();
+    // Add all outlines first, then conditionally add handles for single selection
+    for (const id of ids) {
+      const el = this.registry.getElement(id);
+      if (!el) continue;
+      this.selectedIds.add(id);
+      this.createOutline(id);
+    }
+    if (this.selectedIds.size === 1) {
+      const id = this.selectedIds.values().next().value ?? null;
+      if (!id) return;
+      const el = this.registry.getElement(id);
+      if (!el) return;
+      this.createHandles(el.x, el.y, el.width, el.height);
+      const ports = el.container.children.find((c) => c.label === "ports");
+      if (ports) ports.visible = true;
+    }
+  }
 
-    this.createHandles(el.x, el.y, el.width, el.height);
-
-    const ports = el.container.children.find(
-      (c) => c.label === "ports",
-    );
-    if (ports) ports.visible = true;
+  toggle(id: string): void {
+    this.clearEdge();
+    if (this.selectedIds.has(id)) {
+      this.removeFromSelection(id);
+    } else {
+      this.addToSelection(id);
+    }
   }
 
   clear(): void {
     this.clearEdge();
-    this.clearElement();
-  }
-
-  private clearElement(): void {
-    if (!this.selectedId) return;
-    const el = this.registry.getElement(this.selectedId);
-    if (el) {
-      const ports = el.container.children.find(
-        (c) => c.label === "ports",
-      );
-      if (ports) ports.visible = false;
-    }
-    if (this.outline) {
-      this.outline.destroy();
-      this.outline = null;
-    }
-    for (const h of this.handles) h.destroy();
-    this.handles = [];
-    this.selectedId = null;
+    this.clearElements();
   }
 
   getSelectedId(): string | null {
-    return this.selectedId;
+    if (this.selectedIds.size !== 1) return null;
+    return this.selectedIds.values().next().value ?? null;
   }
+
+  getSelectedIds(): ReadonlySet<string> {
+    return this.selectedIds;
+  }
+
+  isSelected(id: string): boolean {
+    return this.selectedIds.has(id);
+  }
+
+  // --- Edge selection (single, mutually exclusive with elements) ---
 
   selectEdge(edgeId: string): void {
     if (this.selectedEdgeId === edgeId) {
-      // Ensure selected flag is consistent even on re-select
       const edge = this.registry.getEdge(edgeId);
       if (edge) edge.selected = true;
       return;
@@ -107,20 +109,17 @@ export class SelectionState {
     return this.selectedEdgeId;
   }
 
-  private clearEdge(): void {
-    if (!this.selectedEdgeId) return;
-    const edge = this.registry.getEdge(this.selectedEdgeId);
-    if (edge) edge.selected = false;
-    this.selectedEdgeId = null;
-  }
+  // --- State ---
 
   update(): void {
-    this.outline?.__redraw?.();
-    const el = this.selectedId
-      ? this.registry.getElement(this.selectedId)
-      : null;
-    if (!el) return;
-    this.positionHandles(el.x, el.y, el.width, el.height);
+    for (const outline of this.outlines.values()) {
+      outline.__redraw?.();
+    }
+    if (this.selectedIds.size === 1) {
+      const id = this.selectedIds.values().next().value;
+      const el = id ? this.registry.getElement(id) : null;
+      if (el) this.positionHandles(el.x, el.y, el.width, el.height);
+    }
   }
 
   destroy(): void {
@@ -135,10 +134,114 @@ export class SelectionState {
     this.resizing = v;
   }
 
+  // --- Internal: element selection management ---
+
+  private addToSelection(id: string): void {
+    const el = this.registry.getElement(id);
+    if (!el) return;
+
+    // If going from single to multi, remove handles + ports from the single element
+    if (this.selectedIds.size === 1) {
+      this.destroyHandles();
+      this.hidePortsForAll();
+    }
+
+    this.selectedIds.add(id);
+    this.createOutline(id);
+
+    if (this.selectedIds.size === 1) {
+      // Single selection: show handles + ports
+      this.createHandles(el.x, el.y, el.width, el.height);
+      const ports = el.container.children.find((c) => c.label === "ports");
+      if (ports) ports.visible = true;
+    }
+    // Multi-selection: outlines only, no handles or ports
+  }
+
+  private removeFromSelection(id: string): void {
+    if (!this.selectedIds.has(id)) return;
+
+    const wasSingle = this.selectedIds.size === 1;
+    this.selectedIds.delete(id);
+
+    // Remove outline
+    const outline = this.outlines.get(id);
+    if (outline) {
+      outline.destroy();
+      this.outlines.delete(id);
+    }
+
+    // Hide ports on the deselected element
+    const el = this.registry.getElement(id);
+    if (el) {
+      const ports = el.container.children.find((c) => c.label === "ports");
+      if (ports) ports.visible = false;
+    }
+
+    if (wasSingle) {
+      this.destroyHandles();
+    }
+
+    // If now single, add handles + ports for the remaining element
+    if (this.selectedIds.size === 1) {
+      const remainingId = this.selectedIds.values().next().value;
+      const remainingEl = remainingId ? this.registry.getElement(remainingId) : undefined;
+      if (remainingEl) {
+        this.createHandles(remainingEl.x, remainingEl.y, remainingEl.width, remainingEl.height);
+        const ports = remainingEl.container.children.find((c) => c.label === "ports");
+        if (ports) ports.visible = true;
+      }
+    }
+  }
+
+  private clearElements(): void {
+    if (this.selectedIds.size === 0) return;
+    this.hidePortsForAll();
+    this.destroyHandles();
+    for (const outline of this.outlines.values()) outline.destroy();
+    this.outlines.clear();
+    this.selectedIds.clear();
+  }
+
+  private clearEdge(): void {
+    if (!this.selectedEdgeId) return;
+    const edge = this.registry.getEdge(this.selectedEdgeId);
+    if (edge) edge.selected = false;
+    this.selectedEdgeId = null;
+  }
+
+  private hidePortsForAll(): void {
+    for (const id of this.selectedIds) {
+      const el = this.registry.getElement(id);
+      if (el) {
+        const ports = el.container.children.find((c) => c.label === "ports");
+        if (ports) ports.visible = false;
+      }
+    }
+  }
+
+  // --- Outline ---
+
+  private createOutline(id: string): void {
+    const outline = new Graphics() as Redrawable;
+    outline.__redraw = () => {
+      const el = this.registry.getElement(id);
+      if (!el) return;
+      const s = this.getScale();
+      outline.clear();
+      outline.rect(el.x, el.y, el.width, el.height);
+      outline.stroke({ color: OUTLINE_COLOR, width: OUTLINE_WIDTH / s });
+    };
+    outline.__redraw();
+    this.selectionLayer.addChild(outline);
+    this.outlines.set(id, outline);
+  }
+
+  // --- Handles (single selection only) ---
+
   private createHandles(
     x: number, y: number, w: number, h: number,
   ): void {
-    // 4 corner handles (visible squares)
     const corners = cornerPositions(x, y, w, h);
     for (let idx = 0; idx < CORNER_COUNT; idx++) {
       const [cx, cy] = corners[idx]!;
@@ -150,7 +253,6 @@ export class SelectionState {
       this.handles.push(handle);
     }
 
-    // 4 edge handles (transparent hit-lines along boundary)
     const edges = edgeRects(x, y, w, h, this.getScale());
     for (let idx = 0; idx < 4; idx++) {
       const handle = new Graphics();
@@ -162,6 +264,11 @@ export class SelectionState {
     }
 
     this.onHandlesCreated?.(this.handles);
+  }
+
+  private destroyHandles(): void {
+    for (const h of this.handles) h.destroy();
+    this.handles = [];
   }
 
   private positionHandles(

@@ -1,13 +1,19 @@
+export interface KeyboardCallbacks {
+  readonly onDelete: () => void;
+  readonly onEscape: () => void;
+  readonly onUndo: () => void;
+  readonly onRedo: () => void;
+  readonly onCopy: () => void;
+  readonly onPaste: () => void;
+  readonly onDuplicate: () => void;
+  readonly onSelectAll: () => void;
+}
+
 export class KeyboardManager {
   private readonly abort = new AbortController();
   private _enabled = true;
 
-  constructor(
-    private readonly onDelete: () => void,
-    private readonly onEscape: () => void,
-    private readonly onUndo: () => void,
-    private readonly onRedo: () => void,
-  ) {
+  constructor(private readonly cb: KeyboardCallbacks) {
     window.addEventListener(
       "keydown",
       (e: KeyboardEvent) => this.handleKey(e),
@@ -27,23 +33,14 @@ export class KeyboardManager {
     if (isEditableTarget(e.target)) return;
     const mod = e.metaKey || e.ctrlKey;
 
-    if (mod && e.shiftKey && e.key === "z") {
-      e.preventDefault();
-      this.onRedo();
-      return;
-    }
-    if (mod && e.key === "z") {
-      e.preventDefault();
-      this.onUndo();
-      return;
-    }
-    if (e.key === "Delete" || e.key === "Backspace") {
-      this.onDelete();
-      return;
-    }
-    if (e.key === "Escape") {
-      this.onEscape();
-    }
+    if (mod && e.shiftKey && e.key === "z") { e.preventDefault(); this.cb.onRedo(); return; }
+    if (mod && e.key === "z") { e.preventDefault(); this.cb.onUndo(); return; }
+    if (mod && e.key === "c") { e.preventDefault(); this.cb.onCopy(); return; }
+    if (mod && e.key === "v") { e.preventDefault(); this.cb.onPaste(); return; }
+    if (mod && e.key === "d") { e.preventDefault(); this.cb.onDuplicate(); return; }
+    if (mod && e.key === "a") { e.preventDefault(); this.cb.onSelectAll(); return; }
+    if (e.key === "Delete" || e.key === "Backspace") { this.cb.onDelete(); return; }
+    if (e.key === "Escape") { this.cb.onEscape(); }
   }
 }
 

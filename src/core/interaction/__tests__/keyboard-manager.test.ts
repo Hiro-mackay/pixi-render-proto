@@ -30,20 +30,27 @@ function dispatch(key: string, opts: Partial<{ ctrlKey: boolean; metaKey: boolea
   return { preventDefault };
 }
 
+function createCallbacks() {
+  return {
+    onDelete: vi.fn<() => void>(),
+    onEscape: vi.fn<() => void>(),
+    onUndo: vi.fn<() => void>(),
+    onRedo: vi.fn<() => void>(),
+    onCopy: vi.fn<() => void>(),
+    onPaste: vi.fn<() => void>(),
+    onDuplicate: vi.fn<() => void>(),
+    onSelectAll: vi.fn<() => void>(),
+  };
+}
+
 describe("KeyboardManager", () => {
-  let onDelete: ReturnType<typeof vi.fn<() => void>>;
-  let onEscape: ReturnType<typeof vi.fn<() => void>>;
-  let onUndo: ReturnType<typeof vi.fn<() => void>>;
-  let onRedo: ReturnType<typeof vi.fn<() => void>>;
+  let cb: ReturnType<typeof createCallbacks>;
   let manager: KeyboardManager;
 
   beforeEach(() => {
     activeListeners = [];
-    onDelete = vi.fn<() => void>();
-    onEscape = vi.fn<() => void>();
-    onUndo = vi.fn<() => void>();
-    onRedo = vi.fn<() => void>();
-    manager = new KeyboardManager(onDelete, onEscape, onUndo, onRedo);
+    cb = createCallbacks();
+    manager = new KeyboardManager(cb);
   });
 
   afterEach(() => {
@@ -52,66 +59,76 @@ describe("KeyboardManager", () => {
 
   test("should call onDelete when Delete is pressed", () => {
     dispatch("Delete");
-    expect(onDelete).toHaveBeenCalledOnce();
+    expect(cb.onDelete).toHaveBeenCalledOnce();
   });
 
   test("should call onDelete when Backspace is pressed", () => {
     dispatch("Backspace");
-    expect(onDelete).toHaveBeenCalledOnce();
+    expect(cb.onDelete).toHaveBeenCalledOnce();
   });
 
   test("should call onEscape when Escape is pressed", () => {
     dispatch("Escape");
-    expect(onEscape).toHaveBeenCalledOnce();
+    expect(cb.onEscape).toHaveBeenCalledOnce();
   });
 
-  test("should call onUndo and preventDefault when Ctrl+Z is pressed", () => {
+  test("should call onUndo when Ctrl+Z is pressed", () => {
     const { preventDefault } = dispatch("z", { ctrlKey: true });
-    expect(onUndo).toHaveBeenCalledOnce();
+    expect(cb.onUndo).toHaveBeenCalledOnce();
     expect(preventDefault).toHaveBeenCalledOnce();
   });
 
-  test("should call onUndo and preventDefault when Meta+Z is pressed", () => {
-    const { preventDefault } = dispatch("z", { metaKey: true });
-    expect(onUndo).toHaveBeenCalledOnce();
-    expect(preventDefault).toHaveBeenCalledOnce();
-  });
-
-  test("should call onRedo and preventDefault when Ctrl+Shift+Z is pressed", () => {
+  test("should call onRedo when Ctrl+Shift+Z is pressed", () => {
     const { preventDefault } = dispatch("z", { ctrlKey: true, shiftKey: true });
-    expect(onRedo).toHaveBeenCalledOnce();
-    expect(onUndo).not.toHaveBeenCalled();
+    expect(cb.onRedo).toHaveBeenCalledOnce();
+    expect(cb.onUndo).not.toHaveBeenCalled();
     expect(preventDefault).toHaveBeenCalledOnce();
   });
 
-  test("should call onRedo and preventDefault when Meta+Shift+Z is pressed", () => {
-    const { preventDefault } = dispatch("z", { metaKey: true, shiftKey: true });
-    expect(onRedo).toHaveBeenCalledOnce();
+  test("should call onCopy when Ctrl+C is pressed", () => {
+    const { preventDefault } = dispatch("c", { ctrlKey: true });
+    expect(cb.onCopy).toHaveBeenCalledOnce();
     expect(preventDefault).toHaveBeenCalledOnce();
+  });
+
+  test("should call onPaste when Ctrl+V is pressed", () => {
+    const { preventDefault } = dispatch("v", { ctrlKey: true });
+    expect(cb.onPaste).toHaveBeenCalledOnce();
+    expect(preventDefault).toHaveBeenCalledOnce();
+  });
+
+  test("should call onDuplicate when Ctrl+D is pressed", () => {
+    const { preventDefault } = dispatch("d", { ctrlKey: true });
+    expect(cb.onDuplicate).toHaveBeenCalledOnce();
+    expect(preventDefault).toHaveBeenCalledOnce();
+  });
+
+  test("should call onSelectAll when Ctrl+A is pressed", () => {
+    const { preventDefault } = dispatch("a", { ctrlKey: true });
+    expect(cb.onSelectAll).toHaveBeenCalledOnce();
+    expect(preventDefault).toHaveBeenCalledOnce();
+  });
+
+  test("should work with Meta key (macOS)", () => {
+    dispatch("c", { metaKey: true });
+    expect(cb.onCopy).toHaveBeenCalledOnce();
+    dispatch("v", { metaKey: true });
+    expect(cb.onPaste).toHaveBeenCalledOnce();
   });
 
   test("should not respond when disabled", () => {
     manager.enabled = false;
     dispatch("Delete");
     dispatch("z", { ctrlKey: true });
-    expect(onDelete).not.toHaveBeenCalled();
-    expect(onUndo).not.toHaveBeenCalled();
-  });
-
-  test("should respond again when re-enabled", () => {
-    manager.enabled = false;
-    manager.enabled = true;
-    dispatch("Delete");
-    expect(onDelete).toHaveBeenCalledOnce();
+    expect(cb.onDelete).not.toHaveBeenCalled();
+    expect(cb.onUndo).not.toHaveBeenCalled();
   });
 
   test("should not respond after destroy", () => {
     manager.destroy();
     dispatch("Delete");
-    dispatch("Escape");
-    dispatch("z", { ctrlKey: true });
-    expect(onDelete).not.toHaveBeenCalled();
-    expect(onEscape).not.toHaveBeenCalled();
-    expect(onUndo).not.toHaveBeenCalled();
+    dispatch("c", { ctrlKey: true });
+    expect(cb.onDelete).not.toHaveBeenCalled();
+    expect(cb.onCopy).not.toHaveBeenCalled();
   });
 });

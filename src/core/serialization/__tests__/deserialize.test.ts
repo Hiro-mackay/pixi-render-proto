@@ -1,0 +1,190 @@
+import { describe, test, expect, vi, beforeEach } from "vitest";
+import { deserializeScene, type DeserializeContext } from "../deserialize";
+import { serialize } from "../serialize";
+import { ElementRegistry } from "../../registry/element-registry";
+import { CommandHistory } from "../../commands/command";
+import { makeNode, makeGroup, makeEdge } from "../../commands/__tests__/helpers";
+import type { CanvasEngine } from "../../engine";
+import type { SceneData } from "../schema";
+
+function createMockEngine(registry: ElementRegistry): CanvasEngine {
+  return {
+    addNode: vi.fn((id, opts) => {
+      registry.addElement(id, makeNode(id, opts.x, opts.y, opts.width, opts.height));
+    }),
+    addGroup: vi.fn((id, opts) => {
+      registry.addElement(id, makeGroup(id, { x: opts.x, y: opts.y, width: opts.width, height: opts.height }));
+    }),
+    addEdge: vi.fn((id, opts) => {
+      registry.addEdge(id, makeEdge(id, opts.sourceId, opts.targetId));
+    }),
+    removeElement: vi.fn((id) => { registry.removeElement(id); }),
+    removeEdge: vi.fn((id) => { registry.removeEdge(id); }),
+    toggleCollapse: vi.fn(),
+    viewport: { moveCenter: vi.fn(), setZoom: vi.fn() },
+  } as unknown as CanvasEngine;
+}
+
+describe("deserializeScene", () => {
+  let registry: ElementRegistry;
+  let history: CommandHistory;
+  let engine: CanvasEngine;
+  let ctx: DeserializeContext;
+
+  beforeEach(() => {
+    registry = new ElementRegistry();
+    history = new CommandHistory();
+    engine = createMockEngine(registry);
+    ctx = { engine, registry, history };
+  });
+
+  test("should restore nodes and groups from serialized data", () => {
+    const data: SceneData = {
+      version: 1,
+      nodes: [{ id: "n1", x: 10, y: 20, width: 100, height: 50, label: "Node", color: 0x333 }],
+      groups: [{ id: "g1", x: 0, y: 0, width: 400, height: 300, label: "Group", color: 0x555, collapsed: false, expandedHeight: 300 }],
+      edges: [],
+      groupMemberships: [],
+    };
+
+    deserializeScene(data, ctx);
+
+    expect(registry.getElement("n1")).toBeDefined();
+    expect(registry.getElement("g1")).toBeDefined();
+  });
+
+  test("should restore edges", () => {
+    const data: SceneData = {
+      version: 1,
+      nodes: [
+        { id: "n1", x: 0, y: 0, width: 100, height: 50, label: "A", color: 0x333 },
+        { id: "n2", x: 200, y: 0, width: 100, height: 50, label: "B", color: 0x333 },
+      ],
+      groups: [],
+      edges: [{ id: "e1", sourceId: "n1", sourceSide: "right", targetId: "n2", targetSide: "left" }],
+      groupMemberships: [],
+    };
+
+    deserializeScene(data, ctx);
+
+    expect(registry.getEdge("e1")).toBeDefined();
+  });
+
+  test("should skip edges with missing endpoints", () => {
+    const data: SceneData = {
+      version: 1,
+      nodes: [{ id: "n1", x: 0, y: 0, width: 100, height: 50, label: "A", color: 0x333 }],
+      groups: [],
+      edges: [{ id: "e1", sourceId: "n1", sourceSide: "right", targetId: "missing", targetSide: "left" }],
+      groupMemberships: [],
+    };
+
+    deserializeScene(data, ctx);
+
+    expect(registry.getEdge("e1")).toBeUndefined();
+  });
+
+  test("should restore group memberships", () => {
+    const data: SceneData = {
+      version: 1,
+      nodes: [{ id: "n1", x: 0, y: 0, width: 100, height: 50, label: "A", color: 0x333 }],
+      groups: [{ id: "g1", x: 0, y: 0, width: 400, height: 300, label: "Group", color: 0x555, collapsed: false, expandedHeight: 300 }],
+      edges: [],
+      groupMemberships: [{ childId: "n1", groupId: "g1" }],
+    };
+
+    deserializeScene(data, ctx);
+
+    expect(registry.getElement("n1")?.parentGroupId).toBe("g1");
+  });
+
+  test("should restore collapsed state directly without toggleCollapse", () => {
+    const data: SceneData = {
+      version: 1,
+      nodes: [],
+      groups: [{ id: "g1", x: 0, y: 0, width: 400, height: 300, label: "Group", color: 0x555, collapsed: true, expandedHeight: 300 }],
+      edges: [],
+      groupMemberships: [],
+    };
+
+    deserializeScene(data, ctx);
+
+    const group = registry.getElement("g1");
+    expect(group?.type).toBe("group");
+    if (group?.type === "group") {
+      expect(group.meta.collapsed).toBe(true);
+      expect(group.meta.expandedHeight).toBe(300);
+    }
+    expect(engine.toggleCollapse).not.toHaveBeenCalled();
+  });
+
+  test("should clear history after deserialize", () => {
+    // Add a command to history first
+    history.execute({ type: "move", execute() {}, undo() {} });
+    expect(history.canUndo).toBe(true);
+
+    const data: SceneData = {
+      version: 1, nodes: [], groups: [], edges: [], groupMemberships: [],
+    };
+
+    deserializeScene(data, ctx);
+
+    expect(history.canUndo).toBe(false);
+  });
+
+  test("should throw on unknown version", () => {
+    const data = {
+      version: 99, nodes: [], groups: [], edges: [], groupMemberships: [],
+    } as unknown as SceneData;
+
+    expect(() => deserializeScene(data, ctx)).toThrow(/version/i);
+  });
+
+  test("should restore viewport position and zoom", () => {
+    const data: SceneData = {
+      version: 1, nodes: [], groups: [], edges: [], groupMemberships: [],
+      viewport: { x: 100, y: 200, zoom: 1.5 },
+    };
+
+    deserializeScene(data, ctx);
+
+    expect(engine.viewport.moveCenter).toHaveBeenCalledWith(100, 200);
+    expect(engine.viewport.setZoom).toHaveBeenCalledWith(1.5, true);
+  });
+
+  test("should not touch viewport when not provided", () => {
+    const data: SceneData = {
+      version: 1, nodes: [], groups: [], edges: [], groupMemberships: [],
+    };
+
+    deserializeScene(data, ctx);
+
+    expect(engine.viewport.moveCenter).not.toHaveBeenCalled();
+    expect(engine.viewport.setZoom).not.toHaveBeenCalled();
+  });
+
+  test("should round-trip via serialize -> deserialize", () => {
+    // Build a scene
+    registry.addElement("n1", makeNode("n1", 10, 20, 100, 50));
+    registry.addElement("g1", makeGroup("g1"));
+    registry.addElement("n2", makeNode("n2", 200, 20, 100, 50));
+    registry.setParentGroup("n1", "g1");
+    registry.addEdge("e1", makeEdge("e1", "n1", "n2"));
+
+    const serialized = serialize(registry);
+
+    // Deserialize into a fresh registry
+    const reg2 = new ElementRegistry();
+    const eng2 = createMockEngine(reg2);
+    const ctx2: DeserializeContext = { engine: eng2, registry: reg2, history: new CommandHistory() };
+
+    deserializeScene(serialized, ctx2);
+
+    const reserialized = serialize(reg2);
+
+    expect(reserialized.nodes).toHaveLength(serialized.nodes.length);
+    expect(reserialized.groups).toHaveLength(serialized.groups.length);
+    expect(reserialized.edges).toHaveLength(serialized.edges.length);
+    expect(reserialized.groupMemberships).toHaveLength(serialized.groupMemberships.length);
+  });
+});

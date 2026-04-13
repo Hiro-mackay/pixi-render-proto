@@ -23,45 +23,48 @@ export function enableItemDrag(
 ): () => void {
   let dragging = false;
   let movedDistance = 0;
-  let dragOffset = { x: 0, y: 0 };
   let downPos = { x: 0, y: 0 };
   let initialWorld = { x: 0, y: 0 };
+  let shiftHeld = false;
 
-  let cachedDescendants: CanvasElement[] = [];
+  // Drag participants: all elements that move together
+  let participants: CanvasElement[] = [];
   let cachedEdges: CanvasEdge[] = [];
-  let cachedExcludeIds: Set<string> = new Set();
-  let startPositions: Map<string, { x: number; y: number }> = new Map();
+  let cachedExcludeIds = new Set<string>();
+  let startPositions = new Map<string, { x: number; y: number }>();
   let startParentGroupId: string | null = null;
 
   const onPointerDown = (e: FederatedPointerEvent) => {
     if (selection.isResizing()) return;
     dragging = true;
     movedDistance = 0;
+    shiftHeld = e.shiftKey;
     element.container.cursor = "grabbing";
     viewport.pause = true;
     onDragStateChange?.(true);
 
-    if (element.type === "group") {
-      cachedDescendants = [...getDescendants(element.id, registry)];
-      const allIds = [element.id, ...cachedDescendants.map((d) => d.id)];
-      cachedExcludeIds = new Set(allIds);
-      cachedEdges = collectEdgesForIds(allIds, registry);
+    // Determine drag participants
+    const isMultiSelected = selection.getSelectedIds().size > 1 && selection.isSelected(element.id);
+    if (isMultiSelected) {
+      // Multi-drag: all selected elements + their descendants
+      participants = collectParticipants([...selection.getSelectedIds()], registry);
     } else {
-      cachedDescendants = [];
-      cachedExcludeIds = new Set();
-      cachedEdges = [...registry.getEdgesForNode(element.id)];
+      // Single drag: this element + descendants if group
+      participants = collectParticipants([element.id], registry);
     }
 
+    const allIds = participants.map((p) => p.id);
+    cachedExcludeIds = new Set(allIds);
+    cachedEdges = collectEdgesForIds(allIds, registry);
+
     startPositions = new Map();
-    startPositions.set(element.id, { x: element.x, y: element.y });
-    for (const d of cachedDescendants) {
-      startPositions.set(d.id, { x: d.x, y: d.y });
+    for (const p of participants) {
+      startPositions.set(p.id, { x: p.x, y: p.y });
     }
     startParentGroupId = element.parentGroupId;
 
     const world = viewport.toWorld(e.global.x, e.global.y);
     initialWorld = { x: world.x, y: world.y };
-    dragOffset = { x: world.x - element.x, y: world.y - element.y };
     downPos = { x: e.global.x, y: e.global.y };
     e.stopPropagation();
   };
@@ -77,21 +80,12 @@ export function enableItemDrag(
     const dx = world.x - initialWorld.x;
     const dy = world.y - initialWorld.y;
 
-    if (element.type === "group") {
-      const elStart = startPositions.get(element.id)!;
-      element.x = elStart.x + dx;
-      element.y = elStart.y + dy;
-      sync(element);
-      for (const child of cachedDescendants) {
-        const childStart = startPositions.get(child.id)!;
-        child.x = childStart.x + dx;
-        child.y = childStart.y + dy;
-        sync(child);
-      }
-    } else {
-      element.x = world.x - dragOffset.x;
-      element.y = world.y - dragOffset.y;
-      sync(element);
+    for (const p of participants) {
+      const start = startPositions.get(p.id);
+      if (!start) continue;
+      p.x = start.x + dx;
+      p.y = start.y + dy;
+      sync(p);
     }
 
     for (const edge of cachedEdges) {
@@ -108,16 +102,21 @@ export function enableItemDrag(
     onDragStateChange?.(false);
 
     if (movedDistance < CLICK_THRESHOLD_PX) {
+      // Restore original positions
       for (const [id, pos] of startPositions) {
         const el = registry.getElement(id);
         if (el) { el.x = pos.x; el.y = pos.y; sync(el); }
       }
-      selection.select(element.id);
+      // Click behavior
+      if (shiftHeld) {
+        selection.toggle(element.id);
+      } else {
+        selection.select(element.id);
+      }
     } else {
       const finalPositions = new Map<string, { x: number; y: number }>();
-      finalPositions.set(element.id, { x: element.x, y: element.y });
-      for (const desc of cachedDescendants) {
-        finalPositions.set(desc.id, { x: desc.x, y: desc.y });
+      for (const p of participants) {
+        finalPositions.set(p.id, { x: p.x, y: p.y });
       }
 
       const cx = element.x + element.width / 2;
@@ -132,7 +131,7 @@ export function enableItemDrag(
       ));
     }
 
-    cachedDescendants = [];
+    participants = [];
     cachedEdges = [];
     cachedExcludeIds = new Set();
     startPositions = new Map();
@@ -151,6 +150,27 @@ export function enableItemDrag(
     element.container.off("pointerup", onPointerUp);
     element.container.off("pointerupoutside", onPointerUp);
   };
+}
+
+function collectParticipants(ids: string[], registry: ElementRegistry): CanvasElement[] {
+  const seen = new Set<string>();
+  const result: CanvasElement[] = [];
+  for (const id of ids) {
+    if (seen.has(id)) continue;
+    const el = registry.getElement(id);
+    if (!el) continue;
+    seen.add(id);
+    result.push(el);
+    if (el.type === "group") {
+      for (const desc of getDescendants(el.id, registry)) {
+        if (!seen.has(desc.id)) {
+          seen.add(desc.id);
+          result.push(desc);
+        }
+      }
+    }
+  }
+  return result;
 }
 
 function collectEdgesForIds(ids: string[], registry: ElementRegistry): CanvasEdge[] {

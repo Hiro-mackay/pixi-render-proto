@@ -13,3 +13,10 @@ export type {
   BezierPoints,
   ElementSize,
 } from "./types";
+export type {
+  SceneData,
+  SerializedNode,
+  SerializedGroup,
+  SerializedEdge,
+  GroupMembership,
+} from "./serialization/schema";
