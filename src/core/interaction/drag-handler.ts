@@ -29,10 +29,11 @@ export function enableItemDrag(
 
   // Drag participants: all elements that move together
   let participants: CanvasElement[] = [];
+  let dragRoots: string[] = [];
   let cachedEdges: CanvasEdge[] = [];
   let cachedExcludeIds = new Set<string>();
   let startPositions = new Map<string, { x: number; y: number }>();
-  let startParentGroupId: string | null = null;
+  let startParentGroupIds = new Map<string, string | null>();
 
   const onPointerDown = (e: FederatedPointerEvent) => {
     if (selection.isResizing()) return;
@@ -46,11 +47,12 @@ export function enableItemDrag(
     // Determine drag participants
     const isMultiSelected = selection.getSelectedIds().size > 1 && selection.isSelected(element.id);
     if (isMultiSelected) {
-      // Multi-drag: all selected elements + their descendants
-      participants = collectParticipants([...selection.getSelectedIds()], registry);
+      // Filter to roots: exclude descendants whose ancestor is also selected
+      dragRoots = filterToRoots(selection.getSelectedIds(), registry);
+      participants = collectParticipants(dragRoots, registry);
     } else {
-      // Single drag: this element + descendants if group
-      participants = collectParticipants([element.id], registry);
+      dragRoots = [element.id];
+      participants = collectParticipants(dragRoots, registry);
     }
 
     const allIds = participants.map((p) => p.id);
@@ -61,7 +63,11 @@ export function enableItemDrag(
     for (const p of participants) {
       startPositions.set(p.id, { x: p.x, y: p.y });
     }
-    startParentGroupId = element.parentGroupId;
+    startParentGroupIds = new Map();
+    for (const rootId of dragRoots) {
+      const rootEl = registry.getElement(rootId);
+      if (rootEl) startParentGroupIds.set(rootId, rootEl.parentGroupId);
+    }
 
     const world = viewport.toWorld(e.global.x, e.global.y);
     initialWorld = { x: world.x, y: world.y };
@@ -119,22 +125,39 @@ export function enableItemDrag(
         finalPositions.set(p.id, { x: p.x, y: p.y });
       }
 
-      const cx = element.x + element.width / 2;
-      const cy = element.y + element.height / 2;
-      const target = findGroupAt({ x: cx, y: cy }, registry, cachedExcludeIds);
+      const sessionId = crypto.randomUUID();
 
-      history.execute(new DragCommand(
-        element.id, registry,
-        startPositions, finalPositions,
-        sync, crypto.randomUUID(),
-        startParentGroupId, target,
-      ));
+      if (dragRoots.length === 1) {
+        const rootId = dragRoots[0];
+        const rootEl = registry.getElement(rootId);
+        const cx = rootEl ? rootEl.x + rootEl.width / 2 : 0;
+        const cy = rootEl ? rootEl.y + rootEl.height / 2 : 0;
+        const target = findGroupAt({ x: cx, y: cy }, registry, cachedExcludeIds);
+        history.execute(new DragCommand(
+          rootId, registry, startPositions, finalPositions,
+          sync, sessionId, startParentGroupIds.get(rootId) ?? null, target,
+        ));
+      } else {
+        const commands = dragRoots.map((rootId) => {
+          const rootEl = registry.getElement(rootId);
+          const cx = rootEl ? rootEl.x + rootEl.width / 2 : 0;
+          const cy = rootEl ? rootEl.y + rootEl.height / 2 : 0;
+          const target = findGroupAt({ x: cx, y: cy }, registry, cachedExcludeIds);
+          return new DragCommand(
+            rootId, registry, startPositions, finalPositions,
+            sync, sessionId, startParentGroupIds.get(rootId) ?? null, target,
+          );
+        });
+        history.batch(commands);
+      }
     }
 
     participants = [];
+    dragRoots = [];
     cachedEdges = [];
     cachedExcludeIds = new Set();
     startPositions = new Map();
+    startParentGroupIds = new Map();
   };
 
   element.container.eventMode = "static";
@@ -150,6 +173,20 @@ export function enableItemDrag(
     element.container.off("pointerup", onPointerUp);
     element.container.off("pointerupoutside", onPointerUp);
   };
+}
+
+function filterToRoots(ids: ReadonlySet<string>, registry: ElementRegistry): string[] {
+  const roots: string[] = [];
+  for (const id of ids) {
+    let el = registry.getElement(id);
+    let ancestorSelected = false;
+    while (el?.parentGroupId) {
+      if (ids.has(el.parentGroupId)) { ancestorSelected = true; break; }
+      el = registry.getElement(el.parentGroupId);
+    }
+    if (!ancestorSelected) roots.push(id);
+  }
+  return roots;
 }
 
 function collectParticipants(ids: string[], registry: ElementRegistry): CanvasElement[] {
