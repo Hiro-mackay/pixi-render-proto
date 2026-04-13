@@ -1,4 +1,4 @@
-import type { Container } from "pixi.js";
+import { Container } from "pixi.js";
 import type { CanvasEdge, CanvasElement } from "../types";
 import { EdgeIndex } from "./edge-index";
 
@@ -34,18 +34,31 @@ export class ElementRegistry implements ReadonlyElementRegistry {
   removeElement(id: string): void {
     const element = this.getElementOrThrow(id);
 
+    // Fail fast if caller forgot to remove connected edges first
+    const connectedEdgeIds = this.edgeIndex.getEdgeIdsForNode(id);
+    if (connectedEdgeIds && connectedEdgeIds.size > 0) {
+      throw new Error(
+        `Cannot remove element "${id}": ${connectedEdgeIds.size} connected edge(s) remain. Remove edges first.`,
+      );
+    }
+
+    // Detach from parent group
     if (element.parentGroupId) {
       this.childrenByGroup.get(element.parentGroupId)?.delete(id);
     }
 
-    const connectedEdgeIds = this.edgeIndex.getEdgeIdsForNode(id);
-    if (connectedEdgeIds) {
-      for (const edgeId of [...connectedEdgeIds]) {
-        this.removeEdge(edgeId);
+    // Reset children's parentGroupId so they don't hold stale refs
+    const children = this.childrenByGroup.get(id);
+    if (children) {
+      for (const childId of children) {
+        const child = this.elements.get(childId);
+        if (child) child.parentGroupId = null;
       }
     }
+
     this.edgeIndex.deleteNode(id);
     this.childrenByGroup.delete(id);
+    this.containerToId.delete(element.container);
     this.elements.delete(id);
   }
 
@@ -87,6 +100,12 @@ export class ElementRegistry implements ReadonlyElementRegistry {
     if (this.edges.has(id)) {
       throw new Error(`Edge "${id}" already exists`);
     }
+    if (!this.elements.has(edge.sourceId)) {
+      throw new Error(`Edge source "${edge.sourceId}" not found`);
+    }
+    if (!this.elements.has(edge.targetId)) {
+      throw new Error(`Edge target "${edge.targetId}" not found`);
+    }
     this.edges.set(id, edge);
     this.edgeIndex.add(edge);
   }
@@ -125,6 +144,14 @@ export class ElementRegistry implements ReadonlyElementRegistry {
 
   setParentGroup(childId: string, groupId: string | null): void {
     const child = this.getElementOrThrow(childId);
+
+    if (groupId) {
+      const group = this.getElementOrThrow(groupId);
+      if (group.type !== "group") {
+        throw new Error(`Element "${groupId}" is not a group (type: "${group.type}")`);
+      }
+    }
+
     const oldGroupId = child.parentGroupId;
 
     if (oldGroupId) {
@@ -153,10 +180,4 @@ export class ElementRegistry implements ReadonlyElementRegistry {
     }
     return result;
   }
-}
-
-export function syncToContainer(element: CanvasElement): void {
-  element.container.x = element.x;
-  element.container.y = element.y;
-  element.container.visible = element.visible;
 }

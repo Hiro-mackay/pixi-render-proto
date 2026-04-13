@@ -1,5 +1,5 @@
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
-import { HEADER_HEIGHT } from "../elements/group-renderer";
+import { HEADER_HEIGHT } from "../types";
 
 export function findGroupAt(
   point: { x: number; y: number },
@@ -13,6 +13,8 @@ export function findGroupAt(
     if (!group.visible) continue;
     if (excludeIds?.has(group.id)) continue;
 
+    // Collapsed groups have height === HEADER_HEIGHT, so bodyTop === group.y + group.height
+    // and the body region has zero area — intentionally preventing drops into collapsed groups.
     const bodyTop = group.y + HEADER_HEIGHT;
     if (
       point.x < group.x ||

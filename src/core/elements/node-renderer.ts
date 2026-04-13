@@ -1,6 +1,6 @@
 import { Container, Graphics, Text, TextStyle, Sprite } from "pixi.js";
-import { TEXT_RESOLUTION } from "../types";
-import type { NodeMeta, Redrawable } from "../types";
+import { getTextResolution } from "../types";
+import type { NodeElement, Redrawable } from "../types";
 
 const NODE_STROKE_WIDTH = 1.5;
 const NODE_STROKE_COLOR = 0x4a5568;
@@ -17,55 +17,50 @@ const LABEL_STYLE = new TextStyle({
   align: "center",
 });
 
-interface NodeRenderData {
-  readonly id: string;
-  readonly meta: NodeMeta;
-  readonly x: number;
-  readonly y: number;
-  readonly width: number;
-  readonly height: number;
-}
-
 export function createNodeGraphics(
-  data: NodeRenderData,
+  element: NodeElement,
   getScale: () => number,
 ): Container {
   const container = new Container();
-  container.label = data.id;
-  container.position.set(data.x, data.y);
+  container.label = element.id;
+  container.position.set(element.x, element.y);
   container.eventMode = "static";
   container.cursor = "grab";
 
-  const meta = data.meta;
-  const color = meta.color ?? DEFAULT_NODE_COLOR;
-
   const bg: Redrawable = new Graphics();
-  const drawBg = () => {
-    bg.clear();
-    bg.roundRect(0, 0, data.width, data.height, NODE_CORNER_RADIUS);
-    bg.fill(color);
-    bg.stroke({ width: NODE_STROKE_WIDTH / getScale(), color: NODE_STROKE_COLOR });
-  };
-  drawBg();
-  bg.__redraw = drawBg;
   container.addChild(bg);
 
-  if (meta.icon) {
-    const iconSprite = new Sprite(meta.icon);
+  let iconSprite: Sprite | null = null;
+  if (element.meta.icon) {
+    iconSprite = new Sprite(element.meta.icon);
     iconSprite.width = ICON_SIZE;
     iconSprite.height = ICON_SIZE;
-    iconSprite.position.set((data.width - ICON_SIZE) / 2, 10);
     container.addChild(iconSprite);
   }
 
   const label = new Text({
-    text: meta.label,
-    style: LABEL_STYLE,
-    resolution: TEXT_RESOLUTION,
+    text: element.meta.label,
+    style: LABEL_STYLE.clone(),
+    resolution: getTextResolution(),
   });
   label.anchor.set(0.5, 0);
-  label.position.set(data.width / 2, meta.icon ? 42 : 12);
   container.addChild(label);
+
+  const drawBg = () => {
+    const color = element.meta.color ?? DEFAULT_NODE_COLOR;
+    bg.clear();
+    bg.roundRect(0, 0, element.width, element.height, NODE_CORNER_RADIUS);
+    bg.fill(color);
+    bg.stroke({ width: NODE_STROKE_WIDTH / getScale(), color: NODE_STROKE_COLOR });
+    if (iconSprite) {
+      iconSprite.position.set((element.width - ICON_SIZE) / 2, 10);
+    }
+    label.text = element.meta.label;
+    label.style.wordWrapWidth = Math.max(element.width - 16, 20);
+    label.position.set(element.width / 2, element.meta.icon ? 42 : 12);
+  };
+  drawBg();
+  bg.__redraw = drawBg;
 
   return container;
 }

@@ -1,28 +1,11 @@
-import { Container, Text } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
+import { MIN_ZOOM, MAX_ZOOM } from "./viewport-setup";
 
-const MIN_ZOOM = 0.02;
-const MAX_ZOOM = 16;
 const ZOOM_SENSITIVITY = 0.01;
-const MAX_TEXT_RESOLUTION = 8;
-
-function updateTextResolutions(root: Container, scale: number): void {
-  const dpr = window.devicePixelRatio || 1;
-  const targetRes = Math.min(Math.ceil(scale * dpr), MAX_TEXT_RESOLUTION);
-
-  const walk = (node: Container) => {
-    if (node instanceof Text && node.resolution !== targetRes) {
-      node.resolution = targetRes;
-    }
-    for (const child of node.children) {
-      if (child instanceof Container) walk(child);
-    }
-  };
-  walk(root);
-}
 
 export interface ZoomHandlerContext {
-  readonly onZoom: (callback: () => void) => void;
+  readonly onZoom: (callback: (scale: number) => void) => void;
+  readonly onPan: (callback: () => void) => void;
   readonly cleanup: () => void;
 }
 
@@ -30,8 +13,11 @@ export function setupZoomHandler(
   viewport: Viewport,
   canvasEl: HTMLCanvasElement,
 ): ZoomHandlerContext {
-  const zoomCallbacks: Array<() => void> = [];
+  const zoomCallbacks: Array<(scale: number) => void> = [];
+  const panCallbacks: Array<() => void> = [];
 
+  // TODO: passive: false blocks all wheel scroll on the canvas.
+  // Acceptable for full-screen canvas; revisit when embedding as a page component.
   const onWheel = (e: WheelEvent) => {
     e.preventDefault();
 
@@ -60,24 +46,30 @@ export function setupZoomHandler(
   };
   canvasEl.addEventListener("wheel", onWheel, { passive: false });
 
-  let lastQuantizedScale = 0;
+  let lastNotifiedScale = viewport.scale.x;
   const handleZoom = () => {
-    const quantized = Math.round(viewport.scale.x * 10) / 10;
-    if (quantized !== lastQuantizedScale) {
-      lastQuantizedScale = quantized;
-      updateTextResolutions(viewport, quantized);
-    }
-
-    for (const cb of zoomCallbacks) cb();
+    const scale = viewport.scale.x;
+    const quantized = Math.round(scale * 10) / 10;
+    if (quantized === Math.round(lastNotifiedScale * 10) / 10) return;
+    lastNotifiedScale = scale;
+    for (const cb of zoomCallbacks) cb(scale);
   };
   viewport.on("zoomed", handleZoom);
 
+  const handlePan = () => {
+    for (const cb of panCallbacks) cb();
+  };
+  viewport.on("moved", handlePan);
+
   return {
     onZoom: (callback) => { zoomCallbacks.push(callback); },
+    onPan: (callback) => { panCallbacks.push(callback); },
     cleanup: () => {
       zoomCallbacks.length = 0;
+      panCallbacks.length = 0;
       canvasEl.removeEventListener("wheel", onWheel);
       viewport.off("zoomed", handleZoom);
+      viewport.off("moved", handlePan);
     },
   };
 }

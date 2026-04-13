@@ -27,6 +27,11 @@ const PROTOCOL_LABELS = [
   "HTTPS :443", "gRPC :50051", "TCP :5432", "Redis :6379", "AMQP :5672",
 ] as const;
 
+const PROTOCOL_COLORS: Record<string, number> = {
+  "HTTPS :443": 0x3b82f6, "gRPC :50051": 0x06b6d4,
+  "TCP :5432": 0x10b981, "Redis :6379": 0xef4444, "AMQP :5672": 0xf59e0b,
+};
+
 const SIDES: Side[] = ["top", "right", "bottom", "left"];
 
 function mulberry32(seed: number): () => number {
@@ -82,18 +87,37 @@ export async function buildDemoScene(
     nodeIds.push(id);
   }
 
+  // Assign nodes to smallest enclosing group (sort by area ascending)
+  const groupsByArea = [...GROUP_DEFS].sort((a, b) => a.width * a.height - b.width * b.height);
+  for (let i = 0; i < NODE_COUNT; i++) {
+    const id = `node-${i}`;
+    const col = i % COLS;
+    const row = Math.floor(i / COLS);
+    const nx = col * GAP_X + 80;
+    const ny = row * GAP_Y + 60;
+
+    for (const g of groupsByArea) {
+      if (nx >= g.x && nx + NODE_W <= g.x + g.width && ny >= g.y && ny + NODE_H <= g.y + g.height) {
+        engine.assignToGroup(id, g.id);
+        break;
+      }
+    }
+  }
+
   const edgeCount = 80;
   for (let i = 0; i < edgeCount; i++) {
     const srcIdx = Math.floor(rng() * NODE_COUNT);
     let tgtIdx = Math.floor(rng() * NODE_COUNT);
     if (tgtIdx === srcIdx) tgtIdx = (tgtIdx + 1) % NODE_COUNT;
 
+    const label = rng() > 0.4 ? PROTOCOL_LABELS[Math.floor(rng() * PROTOCOL_LABELS.length)] : undefined;
     engine.addEdge(`e-${i}`, {
       sourceId: nodeIds[srcIdx]!,
       sourceSide: SIDES[Math.floor(rng() * 4)]!,
       targetId: nodeIds[tgtIdx]!,
       targetSide: SIDES[Math.floor(rng() * 4)]!,
-      label: rng() > 0.4 ? PROTOCOL_LABELS[Math.floor(rng() * PROTOCOL_LABELS.length)] : undefined,
+      label,
+      labelColor: label ? PROTOCOL_COLORS[label] : undefined,
     });
   }
 }

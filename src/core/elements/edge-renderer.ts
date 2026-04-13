@@ -1,8 +1,8 @@
 import { Graphics, Text, TextStyle } from "pixi.js";
 import type { Container } from "pixi.js";
-import { TEXT_RESOLUTION } from "../types";
+import { getTextResolution } from "../types";
 import type { CanvasEdge, Redrawable } from "../types";
-import type { ElementRegistry } from "../registry/element-registry";
+import type { ReadonlyElementRegistry } from "../registry/element-registry";
 import { computeBezierControlPoints, cubicBezierPoint, sideDirection } from "../geometry/bezier";
 import { getFixedSideAnchor } from "../geometry/anchor";
 
@@ -14,10 +14,6 @@ const HIT_STROKE_WIDTH = 10;
 const SELECTED_COLOR = 0x3b82f6;
 const SELECTED_STROKE_WIDTH = 2.5;
 const DEFAULT_LABEL_BG = 0x475569;
-const PROTOCOL_COLORS: Record<string, number> = {
-  "HTTPS :443": 0x3b82f6, "gRPC :50051": 0x06b6d4,
-  "TCP :5432": 0x10b981, "Redis :6379": 0xef4444, "AMQP :5672": 0xf59e0b,
-};
 const LABEL_STYLE = new TextStyle({
   fontFamily: "system-ui, -apple-system, sans-serif",
   fontSize: 9, fill: 0xffffff, fontWeight: "600", letterSpacing: 0.3,
@@ -47,7 +43,7 @@ export function createEdgeGraphics(
   if (label) {
     labelPill = new Graphics();
     labelParent.addChild(labelPill);
-    labelText = new Text({ text: label, style: LABEL_STYLE, resolution: TEXT_RESOLUTION });
+    labelText = new Text({ text: label, style: LABEL_STYLE.clone(), resolution: getTextResolution() });
     labelText.anchor.set(0.5, 0.5);
     labelParent.addChild(labelText);
   }
@@ -55,10 +51,15 @@ export function createEdgeGraphics(
   return { line, hitLine, labelPill, labelText };
 }
 
-function resolveVisibleElement(elementId: string, registry: ElementRegistry): string {
+function resolveVisibleElement(elementId: string, registry: ReadonlyElementRegistry): string | null {
+  const visited = new Set<string>();
   let el = registry.getElementOrThrow(elementId);
-  while (!el.visible && el.parentGroupId) el = registry.getElementOrThrow(el.parentGroupId);
-  return el.id;
+  while (!el.visible && el.parentGroupId) {
+    if (visited.has(el.parentGroupId)) return null;
+    visited.add(el.parentGroupId);
+    el = registry.getElementOrThrow(el.parentGroupId);
+  }
+  return el.visible ? el.id : null;
 }
 
 function setEdgeVisible(edge: CanvasEdge, visible: boolean): void {
@@ -66,21 +67,34 @@ function setEdgeVisible(edge: CanvasEdge, visible: boolean): void {
   edge.hitLine.visible = visible;
   if (edge.labelPill) edge.labelPill.visible = visible;
   if (edge.labelText) edge.labelText.visible = visible;
+  if (!visible) edge._posCache = undefined;
 }
 
 export function updateEdgeGraphics(
-  edge: CanvasEdge, registry: ElementRegistry, getScale: () => number,
+  edge: CanvasEdge, registry: ReadonlyElementRegistry, getScale: () => number,
 ): void {
   const srcVisId = resolveVisibleElement(edge.sourceId, registry);
   const tgtVisId = resolveVisibleElement(edge.targetId, registry);
-  if (srcVisId === tgtVisId && srcVisId !== edge.sourceId) {
+  if (!srcVisId || !tgtVisId || (srcVisId === tgtVisId && srcVisId !== edge.sourceId)) {
     setEdgeVisible(edge, false);
     return;
   }
-  setEdgeVisible(edge, true);
-
   const srcEl = registry.getElementOrThrow(srcVisId);
   const tgtEl = registry.getElementOrThrow(tgtVisId);
+  const scale = getScale();
+
+  const cache = edge._posCache;
+  if (cache &&
+      cache.srcX === srcEl.x && cache.srcY === srcEl.y &&
+      cache.srcW === srcEl.width && cache.srcH === srcEl.height &&
+      cache.tgtX === tgtEl.x && cache.tgtY === tgtEl.y &&
+      cache.tgtW === tgtEl.width && cache.tgtH === tgtEl.height &&
+      cache.scale === scale && cache.selected === edge.selected) {
+    return;
+  }
+
+  setEdgeVisible(edge, true);
+
   const start = getFixedSideAnchor(
     { x: srcEl.x, y: srcEl.y, width: srcEl.width, height: srcEl.height }, edge.sourceSide,
   );
@@ -90,7 +104,6 @@ export function updateEdgeGraphics(
   const cp = computeBezierControlPoints(
     start.x, start.y, start.side, end.x, end.y, end.side,
   );
-  const scale = getScale();
   const color = edge.selected ? SELECTED_COLOR : EDGE_COLOR;
   const alpha = edge.selected ? 1.0 : EDGE_ALPHA;
   const sw = (edge.selected ? SELECTED_STROKE_WIDTH : STROKE_WIDTH) / scale;
@@ -113,8 +126,7 @@ export function updateEdgeGraphics(
       0.5, start, { x: cp.cp1x, y: cp.cp1y }, { x: cp.cp2x, y: cp.cp2y }, end,
     );
     edge.labelText.position.set(mid.x, mid.y);
-    const bg = edge.label && edge.label in PROTOCOL_COLORS
-      ? PROTOCOL_COLORS[edge.label]! : DEFAULT_LABEL_BG;
+    const bg = edge.labelColor ?? DEFAULT_LABEL_BG;
     const b = edge.labelText.getLocalBounds();
     const w = b.width + 12, h = b.height + 5;
     edge.labelPill.clear();
@@ -122,6 +134,12 @@ export function updateEdgeGraphics(
     edge.labelPill.fill({ color: bg, alpha: 0.95 });
     edge.labelPill.stroke({ width: 0.5 / scale, color: 0x0f172a, alpha: 0.5 });
   }
+
+  edge._posCache = {
+    srcX: srcEl.x, srcY: srcEl.y, srcW: srcEl.width, srcH: srcEl.height,
+    tgtX: tgtEl.x, tgtY: tgtEl.y, tgtW: tgtEl.width, tgtH: tgtEl.height,
+    scale, selected: edge.selected,
+  };
 }
 
 function drawArrowHead(

@@ -48,6 +48,47 @@ describe("bezier control points", () => {
     expect(cp.cp2x).toBeCloseTo(200 - 200 * 0.25);
     expect(cp.cp2y).toBeCloseTo(100 - 100 * 0.25);
   });
+
+  test("should produce a U-curve when both sides are the same (right-right)", () => {
+    const cp = computeBezierControlPoints(0, 0, "right", 0, 200, "right");
+
+    // Both control points should extend to the right
+    expect(cp.cp1x).toBeGreaterThan(0);
+    expect(cp.cp2x).toBeGreaterThan(0);
+    // Control points must be displaced perpendicular to form a U-curve, not collapse
+    expect(cp.cp1y).not.toBe(0);
+    expect(cp.cp2y).not.toBe(200);
+    // Both should be displaced in the same perpendicular direction
+    const cp1Perp = cp.cp1y;
+    const cp2Perp = cp.cp2y - 200;
+    expect(Math.sign(cp1Perp)).toBe(Math.sign(cp2Perp));
+  });
+
+  test("should produce a U-curve when both sides are the same (top-top)", () => {
+    const cp = computeBezierControlPoints(0, 0, "top", 200, 0, "top");
+
+    // Both control points should extend upward
+    expect(cp.cp1y).toBeLessThan(0);
+    expect(cp.cp2y).toBeLessThan(0);
+    // Control points should be displaced horizontally
+    expect(cp.cp1x).not.toBe(0);
+    expect(cp.cp2x).not.toBe(200);
+  });
+
+  test("should handle zero-length edge (same start and end)", () => {
+    const cp = computeBezierControlPoints(100, 100, "right", 100, 100, "left");
+
+    // Should still produce valid offsets (minimum offsets apply)
+    expect(cp.cp1x).toBeGreaterThan(100);
+    expect(cp.cp2x).toBeLessThan(100);
+  });
+
+  test("should handle extremely close coordinates (1px apart)", () => {
+    const cp = computeBezierControlPoints(0, 0, "right", 1, 0, "left");
+
+    // Minimum forward offset should apply
+    expect(cp.cp1x).toBeGreaterThanOrEqual(30);
+  });
 });
 
 describe("bezier point evaluation", () => {
@@ -72,5 +113,20 @@ describe("bezier point evaluation", () => {
     const mid = cubicBezierPoint(0.5, start, start, end, end);
     expect(mid.x).toBeCloseTo(100);
     expect(mid.y).toBeCloseTo(50);
+  });
+
+  test("should clamp t values outside 0-1 range", () => {
+    const cp1 = { x: 50, y: 0 };
+    const cp2 = { x: 150, y: 100 };
+
+    const belowZero = cubicBezierPoint(-0.5, start, cp1, cp2, end);
+    const atZero = cubicBezierPoint(0, start, cp1, cp2, end);
+    expect(belowZero.x).toBeCloseTo(atZero.x);
+    expect(belowZero.y).toBeCloseTo(atZero.y);
+
+    const aboveOne = cubicBezierPoint(2.0, start, cp1, cp2, end);
+    const atOne = cubicBezierPoint(1, start, cp1, cp2, end);
+    expect(aboveOne.x).toBeCloseTo(atOne.x);
+    expect(aboveOne.y).toBeCloseTo(atOne.y);
   });
 });

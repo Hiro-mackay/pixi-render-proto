@@ -1,8 +1,13 @@
+import { Container, Text } from "pixi.js";
 import type { Redrawable } from "../types";
+import { hasRedraw } from "../types";
+
+const MAX_TEXT_RESOLUTION = 8;
 
 export class RedrawManager {
   private items = new Set<Redrawable>();
   private dirty = new Set<Redrawable>();
+  private textItems = new Set<Text>();
 
   register(item: Redrawable): void {
     this.items.add(item);
@@ -34,8 +39,35 @@ export class RedrawManager {
     this.dirty.clear();
   }
 
+  registerTree(container: Container): void {
+    this.walkTree(container, (r) => this.register(r), (t) => this.textItems.add(t));
+  }
+
+  unregisterTree(container: Container): void {
+    this.walkTree(container, (r) => this.unregister(r), (t) => this.textItems.delete(t));
+  }
+
+  updateTextResolutions(scale: number): void {
+    const dpr = typeof window !== "undefined" ? (window.devicePixelRatio || 1) : 1;
+    const targetRes = Math.min(Math.ceil(scale * dpr), MAX_TEXT_RESOLUTION);
+    for (const text of this.textItems) {
+      if (text.resolution !== targetRes) {
+        text.resolution = targetRes;
+      }
+    }
+  }
+
   clear(): void {
     this.items.clear();
     this.dirty.clear();
+    this.textItems.clear();
+  }
+
+  private walkTree(c: Container, fn: (r: Redrawable) => void, textFn: (t: Text) => void): void {
+    if (c instanceof Text) textFn(c);
+    if (hasRedraw(c)) fn(c as Redrawable);
+    for (const child of c.children) {
+      if (child instanceof Container) this.walkTree(child, fn, textFn);
+    }
   }
 }

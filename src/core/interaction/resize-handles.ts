@@ -10,6 +10,28 @@ import { updateEdgeGraphics } from "../elements/edge-renderer";
 const MIN_WIDTH = 60;
 const MIN_HEIGHT = 40;
 
+// Handle indices: 0-3 corners (NW, NE, SW, SE), 4-7 edges (N, E, S, W)
+type HandleAxis = "both" | "vertical" | "horizontal";
+type AnchorSide = "left" | "right" | "none";
+type AnchorVertical = "top" | "bottom" | "none";
+
+interface HandleMeta {
+  readonly axis: HandleAxis;
+  readonly anchorX: AnchorSide;
+  readonly anchorY: AnchorVertical;
+}
+
+const HANDLE_META: readonly HandleMeta[] = [
+  { axis: "both",       anchorX: "right", anchorY: "bottom" }, // NW
+  { axis: "both",       anchorX: "left",  anchorY: "bottom" }, // NE
+  { axis: "both",       anchorX: "right", anchorY: "top" },    // SW
+  { axis: "both",       anchorX: "left",  anchorY: "top" },    // SE
+  { axis: "vertical",   anchorX: "none",  anchorY: "bottom" }, // N
+  { axis: "horizontal", anchorX: "left",  anchorY: "none" },   // E
+  { axis: "vertical",   anchorX: "none",  anchorY: "top" },    // S
+  { axis: "horizontal", anchorX: "right", anchorY: "none" },   // W
+] as const;
+
 export function enableResizeHandles(
   handles: Container[],
   selection: SelectionState,
@@ -23,7 +45,9 @@ export function enableResizeHandles(
 
   for (let i = 0; i < handles.length; i++) {
     const handle = handles[i]!;
-    let anchor = { x: 0, y: 0 };
+    const meta = HANDLE_META[i]!;
+    let anchorX = 0;
+    let anchorY = 0;
     let active = false;
     let sessionId = "";
     let element: CanvasElement | null = null;
@@ -41,33 +65,35 @@ export function enableResizeHandles(
       selection.setResizing(true);
       viewport.pause = true;
 
-      type P = { x: number; y: number };
-      const corners: [P, P, P, P] = [
-        { x: element.x + element.width, y: element.y + element.height },
-        { x: element.x, y: element.y + element.height },
-        { x: element.x + element.width, y: element.y },
-        { x: element.x, y: element.y },
-      ];
-      anchor = corners[i as 0 | 1 | 2 | 3];
+      anchorX = resolveAnchorX(meta, element);
+      anchorY = resolveAnchorY(meta, element);
     };
 
     const onPointerMove = (e: FederatedPointerEvent) => {
       if (!active || !element) return;
 
       const world = viewport.toWorld(e.global.x, e.global.y);
-      const rawW = Math.abs(world.x - anchor.x);
-      const rawH = Math.abs(world.y - anchor.y);
-      const newW = Math.max(rawW, MIN_WIDTH);
-      const newH = Math.max(rawH, MIN_HEIGHT);
-      const newX = world.x >= anchor.x ? anchor.x : anchor.x - newW;
-      const newY = world.y >= anchor.y ? anchor.y : anchor.y - newH;
+
+      let newX = element.x;
+      let newY = element.y;
+      let newW = element.width;
+      let newH = element.height;
+
+      if (meta.axis === "both" || meta.axis === "horizontal") {
+        const rawW = Math.abs(world.x - anchorX);
+        newW = Math.max(rawW, MIN_WIDTH);
+        newX = world.x >= anchorX ? anchorX : anchorX - newW;
+      }
+      if (meta.axis === "both" || meta.axis === "vertical") {
+        const rawH = Math.abs(world.y - anchorY);
+        newH = Math.max(rawH, MIN_HEIGHT);
+        newY = world.y >= anchorY ? anchorY : anchorY - newH;
+      }
 
       element.x = newX;
       element.y = newY;
       element.width = newW;
       element.height = newH;
-      element.container.x = newX;
-      element.container.y = newY;
       sync(element);
       selection.update();
     };
@@ -78,14 +104,16 @@ export function enableResizeHandles(
       selection.setResizing(false);
       viewport.pause = false;
 
-      history.record(
-        new ResizeCommand(element, element.x, element.y, element.width, element.height, sync, sessionId,
-          startRect.x, startRect.y, startRect.w, startRect.h),
-      );
-
-      if (element.type === "group" && element.meta && "expandedHeight" in element.meta) {
-        (element.meta as { expandedHeight: number }).expandedHeight = element.height;
-      }
+      // Preview applies geometry during pointermove; execute() re-applies idempotently.
+      // This contract is verified by history-contract.test.ts.
+      history.execute(new ResizeCommand({
+        elementId: element.id, registry, sessionId, sync,
+        target: { x: element.x, y: element.y, width: element.width, height: element.height },
+        previous: {
+          x: startRect.x, y: startRect.y, width: startRect.w, height: startRect.h,
+          expandedHeight: element.type === "group" ? element.meta.expandedHeight : null,
+        },
+      }));
 
       for (const edge of registry.getEdgesForNode(element.id)) {
         updateEdgeGraphics(edge, registry, getScale);
@@ -109,4 +137,20 @@ export function enableResizeHandles(
   return () => {
     for (const fn of cleanups) fn();
   };
+}
+
+function resolveAnchorX(meta: HandleMeta, el: CanvasElement): number {
+  switch (meta.anchorX) {
+    case "left": return el.x;
+    case "right": return el.x + el.width;
+    case "none": return el.x;
+  }
+}
+
+function resolveAnchorY(meta: HandleMeta, el: CanvasElement): number {
+  switch (meta.anchorY) {
+    case "top": return el.y;
+    case "bottom": return el.y + el.height;
+    case "none": return el.y;
+  }
 }

@@ -1,13 +1,26 @@
+export type CommandType =
+  | "move" | "resize" | "drag"
+  | "assign" | "delete"
+  | "batch";
+
 export interface Command {
-  readonly type: string;
+  readonly type: CommandType;
+  /** Must be idempotent — redo calls execute() again on the same instance. */
   execute(): void;
   undo(): void;
   merge?(other: Command): Command | null;
 }
 
+const DEFAULT_MAX_HISTORY = 200;
+
 export class CommandHistory {
   private undoStack: Command[] = [];
   private redoStack: Command[] = [];
+  private readonly maxSize: number;
+
+  constructor(maxSize = DEFAULT_MAX_HISTORY) {
+    this.maxSize = maxSize;
+  }
 
   get canUndo(): boolean {
     return this.undoStack.length > 0;
@@ -21,8 +34,8 @@ export class CommandHistory {
     command.execute();
 
     const prev = this.undoStack[this.undoStack.length - 1];
-    if (prev?.merge) {
-      const merged = prev.merge(command);
+    if (prev) {
+      const merged = prev.merge?.(command) ?? null;
       if (merged) {
         this.undoStack[this.undoStack.length - 1] = merged;
         this.redoStack.length = 0;
@@ -31,6 +44,9 @@ export class CommandHistory {
     }
 
     this.undoStack.push(command);
+    if (this.undoStack.length > this.maxSize) {
+      this.undoStack.splice(0, this.undoStack.length - this.maxSize);
+    }
     this.redoStack.length = 0;
   }
 
@@ -49,23 +65,13 @@ export class CommandHistory {
   }
 
   batch(commands: readonly Command[]): void {
-    const executed: Command[] = [];
-    for (const cmd of commands) {
-      cmd.execute();
-      executed.push(cmd);
-    }
+    if (commands.length === 0) return;
     const batchCmd: Command = {
       type: "batch",
-      execute() { for (const c of executed) c.execute(); },
-      undo() { for (let i = executed.length - 1; i >= 0; i--) executed[i]!.undo(); },
+      execute() { for (const c of commands) c.execute(); },
+      undo() { for (let i = commands.length - 1; i >= 0; i--) commands[i]!.undo(); },
     };
-    this.undoStack.push(batchCmd);
-    this.redoStack.length = 0;
-  }
-
-  record(command: Command): void {
-    this.undoStack.push(command);
-    this.redoStack.length = 0;
+    this.execute(batchCmd);
   }
 
   clear(): void {

@@ -1,34 +1,6 @@
 import { describe, test, expect, beforeEach } from "vitest";
 import { ElementRegistry } from "../element-registry";
-import type { CanvasEdge, CanvasElement } from "../../types";
-
-function makeNode(id: string): CanvasElement {
-  return {
-    id, type: "node",
-    x: 0, y: 0, width: 100, height: 50,
-    visible: true, parentGroupId: null,
-    container: {} as never,
-    meta: { label: id, color: 0x000000 },
-  };
-}
-
-function makeGroup(id: string): CanvasElement {
-  return {
-    id, type: "group",
-    x: 0, y: 0, width: 400, height: 300,
-    visible: true, parentGroupId: null,
-    container: {} as never,
-    meta: { label: id, color: 0x000000, collapsed: false },
-  };
-}
-
-function makeEdge(id: string, sourceId: string, targetId: string): CanvasEdge {
-  return {
-    id, sourceId, sourceSide: "right", targetId, targetSide: "left",
-    label: null, line: {} as never, hitLine: {} as never,
-    labelPill: null, labelText: null, selected: false,
-  };
-}
+import { makeNode, makeGroup, makeEdge } from "../../commands/__tests__/helpers";
 
 describe("ElementRegistry", () => {
   let registry: ElementRegistry;
@@ -64,29 +36,37 @@ describe("ElementRegistry", () => {
     test("should throw when accessing a non-existent element", () => {
       expect(() => registry.getElementOrThrow("ghost")).toThrow();
     });
-  });
 
-  describe("deleting a node removes its connected edges", () => {
-    test("should clean up edges when source node is removed", () => {
-      registry.addElement("n1", makeNode("n1"));
+    test("should throw when adding edge with non-existent source", () => {
       registry.addElement("n2", makeNode("n2"));
-      registry.addEdge("e1", makeEdge("e1", "n1", "n2"));
-
-      registry.removeElement("n1");
-
-      expect(registry.getEdge("e1")).toBeUndefined();
-      expect(registry.getEdgesForNode("n2")).toEqual([]);
+      expect(() => registry.addEdge("e1", makeEdge("e1", "ghost", "n2"))).toThrow(/source/);
     });
 
-    test("should clean up edges when target node is removed", () => {
+    test("should throw when adding edge with non-existent target", () => {
+      registry.addElement("n1", makeNode("n1"));
+      expect(() => registry.addEdge("e1", makeEdge("e1", "n1", "ghost"))).toThrow(/target/);
+    });
+  });
+
+  describe("removeElement edge safety", () => {
+    test("should throw when connected edges remain", () => {
       registry.addElement("n1", makeNode("n1"));
       registry.addElement("n2", makeNode("n2"));
       registry.addEdge("e1", makeEdge("e1", "n1", "n2"));
 
-      registry.removeElement("n2");
+      expect(() => registry.removeElement("n1")).toThrow(/connected edge/);
+    });
 
-      expect(registry.getEdge("e1")).toBeUndefined();
-      expect(registry.getEdgesForNode("n1")).toEqual([]);
+    test("should allow removal after edges are explicitly removed", () => {
+      registry.addElement("n1", makeNode("n1"));
+      registry.addElement("n2", makeNode("n2"));
+      registry.addEdge("e1", makeEdge("e1", "n1", "n2"));
+
+      registry.removeEdge("e1");
+      registry.removeElement("n1");
+
+      expect(registry.getElement("n1")).toBeUndefined();
+      expect(registry.getEdgesForNode("n2")).toEqual([]);
     });
   });
 
@@ -156,6 +136,52 @@ describe("ElementRegistry", () => {
       const node = makeNode("n1");
       registry.addElement("n1", node);
       expect(registry.getIdByContainer(node.container)).toBe("n1");
+    });
+
+    test("should clear container mapping when element is removed", () => {
+      const node = makeNode("n1");
+      registry.addElement("n1", node);
+      registry.removeElement("n1");
+      expect(registry.getIdByContainer(node.container)).toBeUndefined();
+    });
+  });
+
+  describe("group removal invariants", () => {
+    test("should reset children parentGroupId when group is removed", () => {
+      registry.addElement("g1", makeGroup("g1"));
+      registry.addElement("n1", makeNode("n1"));
+      registry.addElement("n2", makeNode("n2"));
+      registry.setParentGroup("n1", "g1");
+      registry.setParentGroup("n2", "g1");
+
+      registry.removeElement("g1");
+
+      expect(registry.getElementOrThrow("n1").parentGroupId).toBeNull();
+      expect(registry.getElementOrThrow("n2").parentGroupId).toBeNull();
+    });
+  });
+
+  describe("setParentGroup validation", () => {
+    test("should throw when assigning to a non-existent group", () => {
+      registry.addElement("n1", makeNode("n1"));
+      expect(() => registry.setParentGroup("n1", "ghost")).toThrow();
+    });
+
+    test("should throw when assigning to a node instead of a group", () => {
+      registry.addElement("n1", makeNode("n1"));
+      registry.addElement("n2", makeNode("n2"));
+      expect(() => registry.setParentGroup("n1", "n2")).toThrow(/not a group/);
+    });
+  });
+
+  describe("re-add after removal", () => {
+    test("should allow adding an element with the same id after removal", () => {
+      registry.addElement("n1", makeNode("n1"));
+      registry.removeElement("n1");
+      registry.addElement("n1", makeNode("n1"));
+
+      expect(registry.getElement("n1")).toBeDefined();
+      expect(registry.getEdgesForNode("n1")).toEqual([]);
     });
   });
 });

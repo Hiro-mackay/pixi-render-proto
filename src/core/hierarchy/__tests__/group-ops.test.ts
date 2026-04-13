@@ -7,28 +7,10 @@ import {
   getDescendants,
   isDescendantOf,
   updateVisibility,
+  applyParentChange,
 } from "../group-ops";
-import type { CanvasElement, GroupMeta } from "../../types";
-
-function makeNode(id: string): CanvasElement {
-  return {
-    id, type: "node",
-    x: 100, y: 100, width: 100, height: 50,
-    visible: true, parentGroupId: null,
-    container: { x: 100, y: 100, visible: true } as never,
-    meta: { label: id, color: 0 },
-  };
-}
-
-function makeGroup(id: string): CanvasElement {
-  return {
-    id, type: "group",
-    x: 0, y: 0, width: 400, height: 300,
-    visible: true, parentGroupId: null,
-    container: { x: 0, y: 0, visible: true } as never,
-    meta: { label: id, color: 0, collapsed: false, expandedHeight: 300 } satisfies GroupMeta,
-  };
-}
+import type { GroupMeta } from "../../types";
+import { makeNode, makeGroup } from "../../commands/__tests__/helpers";
 
 describe("group hierarchy operations", () => {
   let registry: ElementRegistry;
@@ -83,6 +65,21 @@ describe("group hierarchy operations", () => {
       expect(desc.map((d) => d.id).sort()).toEqual(["g2", "n1", "n2"]);
     });
 
+    test("should terminate on circular parentGroupId", () => {
+      registry.addElement("gA", makeGroup("gA"));
+      registry.addElement("gB", makeGroup("gB"));
+      registry.addElement("n1", makeNode("n1"));
+
+      // Bypass canAssign to create a cycle via direct setParentGroup
+      registry.setParentGroup("gB", "gA");
+      registry.setParentGroup("gA", "gB");
+      assignToGroup("n1", "gA", registry);
+
+      // Should terminate without hanging
+      const desc = getDescendants("gA", registry);
+      expect(desc.length).toBeGreaterThan(0);
+    });
+
     test("should detect descendant relationships", () => {
       registry.addElement("g1", makeGroup("g1"));
       registry.addElement("g2", makeGroup("g2"));
@@ -133,6 +130,39 @@ describe("group hierarchy operations", () => {
       expect(registry.getElementOrThrow("gChild").visible).toBe(true);
       expect(registry.getElementOrThrow("n1").visible).toBe(false);
     });
+
+    test("should hide node when assigned to a collapsed group", () => {
+      registry.addElement("g1", makeGroup("g1"));
+      registry.addElement("n1", makeNode("n1"));
+
+      (registry.getElementOrThrow("g1").meta as GroupMeta).collapsed = true;
+
+      assignToGroup("n1", "g1", registry);
+      updateVisibility("g1", registry);
+
+      expect(registry.getElementOrThrow("n1").visible).toBe(false);
+    });
+
+    test("should recompute visibility when reparenting to collapsed ancestor", () => {
+      registry.addElement("gOuter", makeGroup("gOuter"));
+      registry.addElement("gInner", makeGroup("gInner"));
+      registry.addElement("n1", makeNode("n1"));
+
+      assignToGroup("gInner", "gOuter", registry);
+      assignToGroup("n1", "gInner", registry);
+
+      // Outer collapses: everything hidden
+      (registry.getElementOrThrow("gOuter").meta as GroupMeta).collapsed = true;
+      updateVisibility("gOuter", registry);
+      expect(registry.getElementOrThrow("n1").visible).toBe(false);
+
+      // Remove gInner (simulates group deletion reparenting children to gOuter)
+      registry.setParentGroup("n1", "gOuter");
+      updateVisibility("gOuter", registry);
+
+      // n1 should still be hidden because gOuter is collapsed
+      expect(registry.getElementOrThrow("n1").visible).toBe(false);
+    });
   });
 
   describe("group membership", () => {
@@ -155,6 +185,92 @@ describe("group hierarchy operations", () => {
       assignToGroup("gA", "gB", registry);
       // gA should NOT have gB as parent (cycle rejected)
       expect(registry.getElementOrThrow("gA").parentGroupId).toBeNull();
+    });
+
+    test("should return false when cyclic assignment is rejected", () => {
+      registry.addElement("gA", makeGroup("gA"));
+      registry.addElement("gB", makeGroup("gB"));
+      assignToGroup("gB", "gA", registry);
+
+      expect(assignToGroup("gA", "gB", registry)).toBe(false);
+    });
+
+    test("should return true on valid assignment", () => {
+      registry.addElement("g1", makeGroup("g1"));
+      registry.addElement("n1", makeNode("n1"));
+
+      expect(assignToGroup("n1", "g1", registry)).toBe(true);
+      expect(registry.getElementOrThrow("n1").parentGroupId).toBe("g1");
+    });
+  });
+
+  describe("isDescendantOf cycle safety", () => {
+    test("should not infinite loop on circular parentGroupId", () => {
+      registry.addElement("gA", makeGroup("gA"));
+      registry.addElement("gB", makeGroup("gB"));
+
+      // Bypass canAssign to create a cycle via direct setParentGroup
+      registry.setParentGroup("gB", "gA");
+      registry.setParentGroup("gA", "gB");
+
+      // Should terminate without hanging
+      expect(isDescendantOf("gA", "missing", registry)).toBe(false);
+    });
+  });
+
+  describe("applyParentChange", () => {
+    test("should call sync when assigning to a new parent", () => {
+      registry.addElement("g1", makeGroup("g1"));
+      registry.addElement("n1", makeNode("n1"));
+
+      const synced: string[] = [];
+      const sync = (el: { id: string }) => synced.push(el.id);
+
+      applyParentChange("n1", "g1", registry, sync);
+
+      expect(registry.getElementOrThrow("n1").parentGroupId).toBe("g1");
+      expect(synced).toContain("n1");
+    });
+
+    test("should call sync when removing from parent", () => {
+      registry.addElement("g1", makeGroup("g1"));
+      registry.addElement("n1", makeNode("n1"));
+      assignToGroup("n1", "g1", registry);
+
+      const synced: string[] = [];
+      const sync = (el: { id: string }) => synced.push(el.id);
+
+      applyParentChange("n1", null, registry, sync);
+
+      expect(registry.getElementOrThrow("n1").parentGroupId).toBeNull();
+      expect(synced).toContain("n1");
+    });
+
+    test("should no-op when assigning to the same parent", () => {
+      registry.addElement("g1", makeGroup("g1"));
+      registry.addElement("n1", makeNode("n1"));
+      assignToGroup("n1", "g1", registry);
+
+      const synced: string[] = [];
+      const sync = (el: { id: string }) => synced.push(el.id);
+
+      applyParentChange("n1", "g1", registry, sync);
+
+      expect(synced).toEqual([]);
+    });
+
+    test("should no-op when cyclic assignment is rejected", () => {
+      registry.addElement("gA", makeGroup("gA"));
+      registry.addElement("gB", makeGroup("gB"));
+      assignToGroup("gB", "gA", registry);
+
+      const synced: string[] = [];
+      const sync = (el: { id: string }) => synced.push(el.id);
+
+      applyParentChange("gA", "gB", registry, sync);
+
+      expect(registry.getElementOrThrow("gA").parentGroupId).toBeNull();
+      expect(synced).toEqual([]);
     });
   });
 });

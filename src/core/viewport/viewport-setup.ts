@@ -15,8 +15,8 @@ declare global {
 }
 
 const BG_COLOR = 0x1a1a2e;
-const MIN_ZOOM = 0.02;
-const MAX_ZOOM = 16;
+export const MIN_ZOOM = 0.02;
+export const MAX_ZOOM = 16;
 const WORLD_SIZE = 8000;
 const FPS_SAMPLE_INTERVAL = 30;
 
@@ -24,7 +24,8 @@ export interface ViewportContext {
   readonly app: Application;
   readonly viewport: Viewport;
   readonly getScale: () => number;
-  readonly onZoom: (callback: () => void) => void;
+  readonly onZoom: (callback: (scale: number) => void) => void;
+  readonly onPan: (callback: () => void) => void;
   readonly destroy: () => void;
 }
 
@@ -122,9 +123,10 @@ export async function initViewport(
     viewport,
     getScale: () => viewport.scale.x,
     onZoom: zoomHandler.onZoom,
+    onPan: zoomHandler.onPan,
     destroy: () => {
-      destroyAll();
       app.ticker.stop();
+      destroyAll();
       app.destroy(true, { children: true });
     },
   };

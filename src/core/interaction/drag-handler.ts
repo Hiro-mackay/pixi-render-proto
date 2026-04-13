@@ -2,9 +2,10 @@ import type { FederatedPointerEvent } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
 import type { CanvasEdge, CanvasElement } from "../types";
 import type { ElementRegistry } from "../registry/element-registry";
-import type { Command, CommandHistory } from "../commands/command";
+import type { CommandHistory } from "../commands/command";
 import type { SelectionState } from "./selection-state";
-import { getDescendants, assignToGroup, removeFromGroup } from "../hierarchy/group-ops";
+import { DragCommand } from "../commands/drag-command";
+import { getDescendants } from "../hierarchy/group-ops";
 import { findGroupAt } from "../hierarchy/membership";
 import { updateEdgeGraphics } from "../elements/edge-renderer";
 
@@ -18,11 +19,13 @@ export function enableItemDrag(
   selection: SelectionState,
   getScale: () => number,
   sync: (el: CanvasElement) => void,
+  onDragStateChange?: (dragging: boolean) => void,
 ): () => void {
   let dragging = false;
   let movedDistance = 0;
   let dragOffset = { x: 0, y: 0 };
   let downPos = { x: 0, y: 0 };
+  let initialWorld = { x: 0, y: 0 };
 
   let cachedDescendants: CanvasElement[] = [];
   let cachedEdges: CanvasEdge[] = [];
@@ -36,6 +39,7 @@ export function enableItemDrag(
     movedDistance = 0;
     element.container.cursor = "grabbing";
     viewport.pause = true;
+    onDragStateChange?.(true);
 
     if (element.type === "group") {
       cachedDescendants = [...getDescendants(element.id, registry)];
@@ -56,6 +60,7 @@ export function enableItemDrag(
     startParentGroupId = element.parentGroupId;
 
     const world = viewport.toWorld(e.global.x, e.global.y);
+    initialWorld = { x: world.x, y: world.y };
     dragOffset = { x: world.x - element.x, y: world.y - element.y };
     downPos = { x: e.global.x, y: e.global.y };
     e.stopPropagation();
@@ -69,26 +74,24 @@ export function enableItemDrag(
     }
 
     const world = viewport.toWorld(e.global.x, e.global.y);
+    const dx = world.x - initialWorld.x;
+    const dy = world.y - initialWorld.y;
 
     if (element.type === "group") {
-      const dx = world.x - dragOffset.x - element.x;
-      const dy = world.y - dragOffset.y - element.y;
-      element.x += dx;
-      element.y += dy;
-      element.container.x = element.x;
-      element.container.y = element.y;
+      const elStart = startPositions.get(element.id)!;
+      element.x = elStart.x + dx;
+      element.y = elStart.y + dy;
+      sync(element);
       for (const child of cachedDescendants) {
-        child.x += dx;
-        child.y += dy;
-        child.container.x = child.x;
-        child.container.y = child.y;
+        const childStart = startPositions.get(child.id)!;
+        child.x = childStart.x + dx;
+        child.y = childStart.y + dy;
+        sync(child);
       }
-      dragOffset = { x: world.x - element.x, y: world.y - element.y };
     } else {
       element.x = world.x - dragOffset.x;
       element.y = world.y - dragOffset.y;
-      element.container.x = element.x;
-      element.container.y = element.y;
+      sync(element);
     }
 
     for (const edge of cachedEdges) {
@@ -102,16 +105,15 @@ export function enableItemDrag(
     dragging = false;
     element.container.cursor = "grab";
     viewport.pause = false;
+    onDragStateChange?.(false);
 
     if (movedDistance < CLICK_THRESHOLD_PX) {
-      // Restore positions (no drag happened)
       for (const [id, pos] of startPositions) {
         const el = registry.getElement(id);
         if (el) { el.x = pos.x; el.y = pos.y; sync(el); }
       }
       selection.select(element.id);
     } else {
-      // Capture final positions (already applied during drag)
       const finalPositions = new Map<string, { x: number; y: number }>();
       finalPositions.set(element.id, { x: element.x, y: element.y });
       for (const desc of cachedDescendants) {
@@ -121,39 +123,13 @@ export function enableItemDrag(
       const cx = element.x + element.width / 2;
       const cy = element.y + element.height / 2;
       const target = findGroupAt({ x: cx, y: cy }, registry, cachedExcludeIds);
-      const oldParent = startParentGroupId;
-      const needsReparent = target !== oldParent;
 
-      // Already applied — just record for undo
-      const dragCommand: Command = {
-        type: "drag",
-        execute() {
-          for (const [id, pos] of finalPositions) {
-            const el = registry.getElement(id);
-            if (el) { el.x = pos.x; el.y = pos.y; sync(el); }
-          }
-          if (needsReparent) {
-            if (target) assignToGroup(element.id, target, registry);
-            else removeFromGroup(element.id, registry);
-          }
-        },
-        undo() {
-          for (const [id, pos] of startPositions) {
-            const el = registry.getElement(id);
-            if (el) { el.x = pos.x; el.y = pos.y; sync(el); }
-          }
-          if (needsReparent) {
-            if (oldParent) assignToGroup(element.id, oldParent, registry);
-            else removeFromGroup(element.id, registry);
-          }
-        },
-      };
-      history.record(dragCommand);
-
-      if (needsReparent) {
-        if (target) assignToGroup(element.id, target, registry);
-        else removeFromGroup(element.id, registry);
-      }
+      history.execute(new DragCommand(
+        element.id, registry,
+        startPositions, finalPositions,
+        sync, crypto.randomUUID(),
+        startParentGroupId, target,
+      ));
     }
 
     cachedDescendants = [];

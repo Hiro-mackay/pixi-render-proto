@@ -39,11 +39,6 @@ export function createPortGraphics(
     portContainer.label = side;
     portContainer.eventMode = "static";
     portContainer.cursor = "crosshair";
-    portContainer.hitArea = {
-      contains: (hx: number, hy: number) =>
-        hx * hx + hy * hy < HIT_RADIUS * HIT_RADIUS,
-    };
-
     const defaultShape: Redrawable = new Graphics()
       .circle(0, 0, PORT_RADIUS)
       .fill(PORT_DEFAULT_FILL)
@@ -62,6 +57,10 @@ export function createPortGraphics(
       portContainer.alpha = scale < ANCHOR_HIDE_THRESHOLD ? 0 : 1;
       const pos = getPortPosition(side, element.width, element.height, scale);
       portContainer.position.set(pos.x, pos.y);
+      const r = HIT_RADIUS * scale;
+      portContainer.hitArea = {
+        contains: (hx: number, hy: number) => hx * hx + hy * hy < r * r,
+      };
     };
 
     updatePort();

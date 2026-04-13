@@ -1,5 +1,15 @@
 import type { BezierPoints, Point, Side } from "../types";
 
+const FORWARD_RATIO = 0.4;
+const MIN_FORWARD_OFFSET = 30;
+const MAX_FORWARD_OFFSET = 200;
+const REVERSE_RATIO = 0.6;
+const REVERSE_BASE = 60;
+const MAX_REVERSE_OFFSET = 300;
+const SAME_SIDE_PERPENDICULAR_RATIO = 0.5;
+const SAME_SIDE_MIN_PERPENDICULAR = 40;
+const FALLBACK_RATIO = 0.25;
+
 export function sideDirection(side: Side): Point {
   switch (side) {
     case "right":
@@ -11,6 +21,12 @@ export function sideDirection(side: Side): Point {
     case "top":
       return { x: 0, y: -1 };
   }
+}
+
+function computeOffset(proj: number): number {
+  return proj > 0
+    ? Math.min(Math.max(proj * FORWARD_RATIO, MIN_FORWARD_OFFSET), MAX_FORWARD_OFFSET)
+    : Math.min(Math.abs(proj) * REVERSE_RATIO + REVERSE_BASE, MAX_REVERSE_OFFSET);
 }
 
 export function computeBezierControlPoints(
@@ -26,28 +42,37 @@ export function computeBezierControlPoints(
   const startDir = sideDirection(startSide);
 
   const startProj = dx * startDir.x + dy * startDir.y;
-  const startOffset =
-    startProj > 0
-      ? Math.min(Math.max(startProj * 0.4, 30), 200)
-      : Math.min(Math.abs(startProj) * 0.6 + 60, 300);
+  const startOffset = computeOffset(startProj);
 
-  const cp1x = startX + startDir.x * startOffset;
-  const cp1y = startY + startDir.y * startOffset;
+  let cp1x = startX + startDir.x * startOffset;
+  let cp1y = startY + startDir.y * startOffset;
 
   let cp2x: number;
   let cp2y: number;
   if (endSide) {
     const endDir = sideDirection(endSide);
     const endProj = -dx * endDir.x + -dy * endDir.y;
-    const endOffset =
-      endProj > 0
-        ? Math.min(Math.max(endProj * 0.4, 30), 200)
-        : Math.min(Math.abs(endProj) * 0.6 + 60, 300);
+    const endOffset = computeOffset(endProj);
     cp2x = endX + endDir.x * endOffset;
     cp2y = endY + endDir.y * endOffset;
+
+    // Same-side connections need perpendicular displacement to form a U-curve
+    if (startSide === endSide) {
+      const perpDist = Math.abs(dx * startDir.y - dy * startDir.x);
+      const perpOffset = Math.max(perpDist * SAME_SIDE_PERPENDICULAR_RATIO, SAME_SIDE_MIN_PERPENDICULAR);
+      const perpX = -startDir.y;
+      const perpY = startDir.x;
+      // Choose direction away from the midpoint between start and end
+      const midPerpProj = ((startX + endX) / 2 - startX) * perpX + ((startY + endY) / 2 - startY) * perpY;
+      const sign = midPerpProj >= 0 ? 1 : -1;
+      cp1x += perpX * perpOffset * sign;
+      cp1y += perpY * perpOffset * sign;
+      cp2x += perpX * perpOffset * sign;
+      cp2y += perpY * perpOffset * sign;
+    }
   } else {
-    cp2x = endX - dx * 0.25;
-    cp2y = endY - dy * 0.25;
+    cp2x = endX - dx * FALLBACK_RATIO;
+    cp2y = endY - dy * FALLBACK_RATIO;
   }
   return { cp1x, cp1y, cp2x, cp2y };
 }
@@ -59,13 +84,14 @@ export function cubicBezierPoint(
   p2: Point,
   p3: Point,
 ): Point {
-  const mt = 1 - t;
+  const ct = Math.max(0, Math.min(1, t));
+  const mt = 1 - ct;
   const mt2 = mt * mt;
   const mt3 = mt2 * mt;
-  const t2 = t * t;
-  const t3 = t2 * t;
+  const t2 = ct * ct;
+  const t3 = t2 * ct;
   return {
-    x: mt3 * p0.x + 3 * mt2 * t * p1.x + 3 * mt * t2 * p2.x + t3 * p3.x,
-    y: mt3 * p0.y + 3 * mt2 * t * p1.y + 3 * mt * t2 * p2.y + t3 * p3.y,
+    x: mt3 * p0.x + 3 * mt2 * ct * p1.x + 3 * mt * t2 * p2.x + t3 * p3.x,
+    y: mt3 * p0.y + 3 * mt2 * ct * p1.y + 3 * mt * t2 * p2.y + t3 * p3.y,
   };
 }

@@ -1,8 +1,8 @@
 import { describe, test, expect, beforeEach, vi } from "vitest";
 import { CommandHistory, type Command } from "../command";
 
-function makeCommand(type = "test"): Command {
-  return { type, execute: vi.fn(), undo: vi.fn() };
+function makeCommand(): Command {
+  return { type: "move", execute: vi.fn(), undo: vi.fn() };
 }
 
 function makeMergeableCommand(
@@ -52,8 +52,8 @@ describe("CommandHistory", () => {
 
     test("should undo commands in reverse order", () => {
       const order: string[] = [];
-      const cmd1: Command = { type: "a", execute() {}, undo() { order.push("a"); } };
-      const cmd2: Command = { type: "b", execute() {}, undo() { order.push("b"); } };
+      const cmd1: Command = { type: "move", execute() {}, undo() { order.push("a"); } };
+      const cmd2: Command = { type: "resize", execute() {}, undo() { order.push("b"); } };
       history.execute(cmd1);
       history.execute(cmd2);
       history.undo();
@@ -115,8 +115,8 @@ describe("CommandHistory", () => {
   describe("batch groups multiple commands as one undo unit", () => {
     test("should undo all batched commands together", () => {
       let value = 0;
-      const inc: Command = { type: "inc", execute() { value++; }, undo() { value--; } };
-      const dbl: Command = { type: "dbl", execute() { value *= 2; }, undo() { value /= 2; } };
+      const inc: Command = { type: "move", execute() { value++; }, undo() { value--; } };
+      const dbl: Command = { type: "resize", execute() { value *= 2; }, undo() { value /= 2; } };
 
       history.batch([inc, inc, dbl]);
       expect(value).toBe(4); // 0+1+1 = 2, *2 = 4

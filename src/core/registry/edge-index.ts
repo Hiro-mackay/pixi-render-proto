@@ -9,8 +9,8 @@ export class EdgeIndex {
   }
 
   remove(edge: CanvasEdge): void {
-    this.edgesByNode.get(edge.sourceId)?.delete(edge.id);
-    this.edgesByNode.get(edge.targetId)?.delete(edge.id);
+    this.removeEntry(edge.sourceId, edge.id);
+    this.removeEntry(edge.targetId, edge.id);
   }
 
   getEdgeIdsForNode(nodeId: string): ReadonlySet<string> | undefined {
@@ -19,6 +19,13 @@ export class EdgeIndex {
 
   deleteNode(nodeId: string): void {
     this.edgesByNode.delete(nodeId);
+  }
+
+  private removeEntry(nodeId: string, edgeId: string): void {
+    const set = this.edgesByNode.get(nodeId);
+    if (!set) return;
+    set.delete(edgeId);
+    if (set.size === 0) this.edgesByNode.delete(nodeId);
   }
 
   private addEntry(nodeId: string, edgeId: string): void {
