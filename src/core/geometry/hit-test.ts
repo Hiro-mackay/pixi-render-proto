@@ -24,3 +24,21 @@ export function findNodeAt(
   }
   return null;
 }
+
+/**
+ * Walk up the parent chain to find the nearest visible ancestor.
+ * Returns null if the element and all ancestors are hidden.
+ */
+export function resolveVisibleElement(
+  elementId: string,
+  registry: ReadonlyElementRegistry,
+): string | null {
+  const visited = new Set<string>();
+  let el = registry.getElementOrThrow(elementId);
+  while (!el.visible && el.parentGroupId) {
+    if (visited.has(el.parentGroupId)) return null;
+    visited.add(el.parentGroupId);
+    el = registry.getElementOrThrow(el.parentGroupId);
+  }
+  return el.visible ? el.id : null;
+}

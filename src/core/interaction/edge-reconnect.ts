@@ -5,7 +5,7 @@ import type { CanvasEdge, Side } from "../types";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
 import { getFixedSideAnchor, getNearestSide } from "../geometry/anchor";
 import { computeBezierControlPoints } from "../geometry/bezier";
-import { findNodeAt } from "../geometry/hit-test";
+import { findNodeAt, resolveVisibleElement } from "../geometry/hit-test";
 
 const HANDLE_RADIUS = 6;
 const HANDLE_HIT_RADIUS = 14;
@@ -245,7 +245,8 @@ function positionHandle(
 ): void {
   const nodeId = endpoint === "source" ? edge.sourceId : edge.targetId;
   const side = endpoint === "source" ? edge.sourceSide : edge.targetSide;
-  const el = registry.getElement(nodeId);
+  const visibleId = resolveVisibleElement(nodeId, registry);
+  const el = visibleId ? registry.getElement(visibleId) : registry.getElement(nodeId);
   if (!el) return;
   const anchor = getFixedSideAnchor(
     { x: el.x, y: el.y, width: el.width, height: el.height }, side,

@@ -159,12 +159,12 @@ export class ElementRegistry implements ReadonlyElementRegistry {
     }
     if (endpoint === "source") {
       const oldNodeId = edge.sourceId;
-      this.edgeIndex.reconnect(edge.id, oldNodeId, newNodeId);
+      this.edgeIndex.reconnect(edge.id, oldNodeId, newNodeId, edge.targetId);
       edge.sourceId = newNodeId;
       edge.sourceSide = newSide;
     } else {
       const oldNodeId = edge.targetId;
-      this.edgeIndex.reconnect(edge.id, oldNodeId, newNodeId);
+      this.edgeIndex.reconnect(edge.id, oldNodeId, newNodeId, edge.sourceId);
       edge.targetId = newNodeId;
       edge.targetSide = newSide;
     }

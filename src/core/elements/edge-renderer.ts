@@ -5,6 +5,7 @@ import type { CanvasEdge, Redrawable } from "../types";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
 import { computeBezierControlPoints, cubicBezierPoint, sideDirection } from "../geometry/bezier";
 import { getFixedSideAnchor } from "../geometry/anchor";
+import { resolveVisibleElement } from "../geometry/hit-test";
 
 const EDGE_COLOR = 0xa5b4cb;
 const EDGE_ALPHA = 0.75;
@@ -51,16 +52,6 @@ export function createEdgeGraphics(
   return { line, hitLine, labelPill, labelText };
 }
 
-function resolveVisibleElement(elementId: string, registry: ReadonlyElementRegistry): string | null {
-  const visited = new Set<string>();
-  let el = registry.getElementOrThrow(elementId);
-  while (!el.visible && el.parentGroupId) {
-    if (visited.has(el.parentGroupId)) return null;
-    visited.add(el.parentGroupId);
-    el = registry.getElementOrThrow(el.parentGroupId);
-  }
-  return el.visible ? el.id : null;
-}
 
 function setEdgeVisible(edge: CanvasEdge, visible: boolean): void {
   edge.line.visible = visible;

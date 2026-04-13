@@ -17,8 +17,17 @@ export class EdgeIndex {
     return this.edgesByNode.get(nodeId);
   }
 
-  reconnect(edgeId: string, oldNodeId: string, newNodeId: string): void {
-    this.removeEntry(oldNodeId, edgeId);
+  reconnect(
+    edgeId: string,
+    oldNodeId: string,
+    newNodeId: string,
+    otherEndpointNodeId: string,
+  ): void {
+    if (oldNodeId === newNodeId) return;
+    // Only remove from old node if the other endpoint doesn't still reference it
+    if (otherEndpointNodeId !== oldNodeId) {
+      this.removeEntry(oldNodeId, edgeId);
+    }
     this.addEntry(newNodeId, edgeId);
   }
 
