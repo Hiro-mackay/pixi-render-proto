@@ -133,6 +133,49 @@ describe("CanvasClipboard", () => {
     expect(added).toHaveLength(2);
   });
 
+  test("should hide children of collapsed group after paste", () => {
+    registry.addElement("g1", makeGroup("g1", { collapsed: true }));
+    registry.addElement("n1", makeNode("n1"));
+    registry.setParentGroup("n1", "g1");
+
+    clipboard.copy(new Set(["g1"]), registry);
+
+    const pasteRegistry = new ElementRegistry();
+    // Use Container with children array to satisfy syncElement/updateVisibility
+    const makeContainerMock = (x: number, y: number) =>
+      ({ x, y, visible: true, children: [] } as unknown as import("pixi.js").Container);
+
+    const elementOps: AddElementOps = {
+      doAddNode: (id, opts) => {
+        pasteRegistry.addElement(id, {
+          ...makeNode(id, opts.x, opts.y, opts.width, opts.height),
+          container: makeContainerMock(opts.x, opts.y),
+        });
+      },
+      doAddGroup: (id, opts) => {
+        pasteRegistry.addElement(id, {
+          ...makeGroup(id, { x: opts.x, y: opts.y, width: opts.width, height: opts.height }),
+          container: makeContainerMock(opts.x, opts.y),
+        });
+      },
+      doRemove: (id) => { pasteRegistry.removeElement(id); },
+    };
+    const edgeOps: AddRemoveOps = { doAddEdge: () => {}, doRemoveEdge: () => {} };
+
+    const ids = clipboard.paste(pasteRegistry, history, elementOps, edgeOps);
+
+    const pastedGroupId = ids.find((id) => pasteRegistry.getElement(id)?.type === "group");
+    expect(pastedGroupId).toBeDefined();
+    const pastedGroup = pasteRegistry.getElement(pastedGroupId!);
+    if (pastedGroup?.type === "group") {
+      expect(pastedGroup.meta.collapsed).toBe(true);
+    }
+
+    const children = pasteRegistry.getChildrenOf(pastedGroupId!);
+    expect(children).toHaveLength(1);
+    expect(children[0]!.visible).toBe(false);
+  });
+
   test("should not overwrite clipboard data on duplicate", () => {
     registry.addElement("n1", makeNode("n1"));
     registry.addElement("n2", makeNode("n2"));

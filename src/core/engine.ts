@@ -456,22 +456,22 @@ class CanvasEngineImpl implements CanvasEngine {
       return;
     }
 
-    const ids = [...this.selection.getSelectedIds()];
-    if (ids.length === 0) return;
+    const allIds = new Set(this.selection.getSelectedIds());
+    if (allIds.size === 0) return;
     this.clearSelection();
 
-    const [first] = ids;
-    if (ids.length === 1 && first) {
-      const restoreOps = { ...this.elementOps, onRestore: (eid: string) => this.selection.select(eid) };
-      this.history.execute(new DeleteCommand(first, this.registry, syncElement, restoreOps));
+    // Remove descendants whose ancestor is also selected (DeleteCommand handles them)
+    const roots = filterToRoots(allIds, this.registry);
+
+    const restored: string[] = [];
+    const restoreOps = {
+      ...this.elementOps,
+      onRestore: (eid: string) => { restored.push(eid); this.selection.selectMultiple(restored); },
+    };
+    if (roots.length === 1) {
+      this.history.execute(new DeleteCommand(roots[0]!, this.registry, syncElement, restoreOps));
     } else {
-      // Batch delete: onRestore re-selects all restored elements via selectMultiple
-      const restored: string[] = [];
-      const restoreOps = {
-        ...this.elementOps,
-        onRestore: (eid: string) => { restored.push(eid); this.selection.selectMultiple(restored); },
-      };
-      this.history.batch(ids.map((id) => new DeleteCommand(id, this.registry, syncElement, restoreOps)));
+      this.history.batch(roots.map((id) => new DeleteCommand(id, this.registry, syncElement, restoreOps)));
     }
     this.afterCommand();
   }
@@ -482,6 +482,21 @@ class CanvasEngineImpl implements CanvasEngine {
     this.redraw.flush();
   }
 
+}
+
+/** Remove IDs whose ancestor is also in the set (DeleteCommand handles descendants). */
+function filterToRoots(ids: ReadonlySet<string>, registry: ElementRegistry): string[] {
+  const roots: string[] = [];
+  for (const id of ids) {
+    let el = registry.getElement(id);
+    let ancestorSelected = false;
+    while (el?.parentGroupId) {
+      if (ids.has(el.parentGroupId)) { ancestorSelected = true; break; }
+      el = registry.getElement(el.parentGroupId);
+    }
+    if (!ancestorSelected) roots.push(id);
+  }
+  return roots;
 }
 
 export async function createCanvasEngine(

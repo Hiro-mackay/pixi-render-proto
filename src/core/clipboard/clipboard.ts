@@ -2,6 +2,8 @@ import type { ReadonlyElementRegistry, ElementRegistry } from "../registry/eleme
 import type { Command, CommandHistory } from "../commands/command";
 import type { SerializedNode, SerializedGroup, SerializedEdge, GroupMembership } from "../serialization/schema";
 import { AddNodeCommand, AddGroupCommand, AddEdgeCommand, type AddElementOps, type AddRemoveOps } from "../commands/add-remove-command";
+import { updateVisibility } from "../hierarchy/group-ops";
+import { syncElement } from "../registry/sync";
 
 interface ClipboardData {
   readonly nodes: readonly SerializedNode[];
@@ -87,12 +89,17 @@ export class CanvasClipboard {
     const commands: Command[] = [];
 
     // Groups first (parents before children for hierarchy)
+    const collapsedGroups: Array<{ newId: string; expandedHeight: number; height: number }> = [];
     for (const g of this.data.groups) {
-      commands.push(new AddGroupCommand(idMap.get(g.id)!, {
+      const newId = idMap.get(g.id)!;
+      commands.push(new AddGroupCommand(newId, {
         label: g.label, color: g.color,
         x: g.x + offset.x, y: g.y + offset.y,
-        width: g.width, height: g.height,
+        width: g.width, height: g.collapsed ? g.expandedHeight : g.height,
       }, elementOps));
+      if (g.collapsed) {
+        collapsedGroups.push({ newId, expandedHeight: g.expandedHeight, height: g.height });
+      }
     }
 
     // Nodes
@@ -120,6 +127,34 @@ export class CanvasClipboard {
           for (const m of memberships) {
             const newChildId = idMap.get(m.childId);
             if (newChildId) registry.setParentGroup(newChildId, null);
+          }
+        },
+      });
+    }
+
+    // Restore collapsed state AFTER memberships (children must exist as members first)
+    if (collapsedGroups.length > 0) {
+      commands.push({
+        type: "add-remove",
+        execute() {
+          for (const { newId, expandedHeight, height } of collapsedGroups) {
+            const el = registry.getElement(newId);
+            if (el?.type === "group") {
+              el.meta.expandedHeight = expandedHeight;
+              el.meta.collapsed = true;
+              el.height = height;
+              updateVisibility(newId, registry, syncElement);
+            }
+          }
+        },
+        undo() {
+          for (const { newId, expandedHeight } of collapsedGroups) {
+            const el = registry.getElement(newId);
+            if (el?.type === "group") {
+              el.meta.collapsed = false;
+              el.height = expandedHeight;
+              updateVisibility(newId, registry, syncElement);
+            }
           }
         },
       });
@@ -153,6 +188,7 @@ export class CanvasClipboard {
     elementOps: AddElementOps,
     edgeOps: AddRemoveOps,
   ): readonly string[] {
+    if (selectedIds.size === 0) return [];
     const saved = this.data;
     this.copy(selectedIds, registry);
     const result = this.paste(registry, history, elementOps, edgeOps);

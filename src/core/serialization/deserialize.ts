@@ -2,6 +2,8 @@ import type { CanvasEngine } from "../engine";
 import type { ElementRegistry } from "../registry/element-registry";
 import type { CommandHistory } from "../commands/command";
 import type { SceneData } from "./schema";
+import { updateVisibility } from "../hierarchy/group-ops";
+import { syncElement } from "../registry/sync";
 
 const CURRENT_VERSION = 1;
 
@@ -75,6 +77,13 @@ export function deserializeScene(data: SceneData, ctx: DeserializeContext): void
   for (const m of scene.groupMemberships) {
     if (ctx.registry.getElement(m.childId) && ctx.registry.getElement(m.groupId)) {
       ctx.registry.setParentGroup(m.childId, m.groupId);
+    }
+  }
+
+  // Recompute visibility for collapsed groups (setParentGroup doesn't update visibility)
+  for (const g of scene.groups) {
+    if (g.collapsed) {
+      updateVisibility(g.id, ctx.registry, syncElement);
     }
   }
 
