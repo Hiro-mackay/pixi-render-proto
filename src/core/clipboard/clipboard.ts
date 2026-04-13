@@ -143,6 +143,7 @@ export class CanvasClipboard {
               el.meta.expandedHeight = expandedHeight;
               el.meta.collapsed = true;
               el.height = height;
+              syncElement(el);
               updateVisibility(newId, registry, syncElement);
             }
           }
@@ -153,6 +154,7 @@ export class CanvasClipboard {
             if (el?.type === "group") {
               el.meta.collapsed = false;
               el.height = expandedHeight;
+              syncElement(el);
               updateVisibility(newId, registry, syncElement);
             }
           }
