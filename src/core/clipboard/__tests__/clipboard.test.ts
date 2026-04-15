@@ -189,4 +189,14 @@ describe("CanvasClipboard", () => {
 
     expect(added).toHaveLength(1);
   });
+
+  test("should clear clipboard data when copy is called with empty selection", () => {
+    registry.addElement("n1", makeNode("n1"));
+    clipboard.copy(new Set(["n1"]), registry);
+    expect(clipboard.isEmpty()).toBe(false);
+
+    // Empty selection (e.g. edge-only selection) clears stale data
+    clipboard.copy(new Set(), registry);
+    expect(clipboard.isEmpty()).toBe(true);
+  });
 });

@@ -410,14 +410,14 @@ class CanvasEngineImpl implements CanvasEngine {
 
   // --- Clipboard ---
 
-  copy(): void { this.clipboard.copy(this.selection.getSelectedIds(), this.registry); }
+  copy(): void { this.clipboard.copy(this.copyTargetIds(), this.registry); }
   paste(): void {
     const ids = this.clipboard.paste(this.registry, this.history, this.elementOps, this.addRemoveOps);
     if (ids.length > 0) { this.select(ids); this.afterCommand(); }
   }
   duplicate(): void {
     const ids = this.clipboard.duplicate(
-      this.selection.getSelectedIds(), this.registry, this.history, this.elementOps, this.addRemoveOps,
+      this.copyTargetIds(), this.registry, this.history, this.elementOps, this.addRemoveOps,
     );
     if (ids.length > 0) { this.select(ids); this.afterCommand(); }
   }
@@ -460,6 +460,18 @@ class CanvasEngineImpl implements CanvasEngine {
   }
 
   // --- Private ---
+
+  private copyTargetIds(): ReadonlySet<string> {
+    const elementIds = this.selection.getSelectedIds();
+    if (elementIds.size > 0) return elementIds;
+    // Edge-only selection: include both endpoint nodes so the edge is copied with them
+    const edgeId = this.selection.getSelectedEdgeId();
+    if (edgeId) {
+      const edge = this.registry.getEdge(edgeId);
+      if (edge) return new Set([edge.sourceId, edge.targetId]);
+    }
+    return elementIds;
+  }
 
   private afterCommand(): void {
     this.selection.update();
