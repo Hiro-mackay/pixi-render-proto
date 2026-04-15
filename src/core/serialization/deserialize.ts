@@ -50,8 +50,11 @@ export function deserializeScene(data: unknown, ctx: DeserializeContext): void {
   } catch (err) {
     // Rollback: clear partial import and restore previous scene
     clearScene(ctx);
-    try { applyScene(snapshot, ctx); }
-    catch { /* best-effort rollback */ }
+    try {
+      applyScene(snapshot, ctx);
+    } catch (rollbackErr) {
+      console.error("Rollback after failed import also failed:", rollbackErr);
+    }
     throw err;
   }
 

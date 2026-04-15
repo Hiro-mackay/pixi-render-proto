@@ -163,22 +163,30 @@ describe("deserializeScene", () => {
     expect(engine.viewport.setZoom).not.toHaveBeenCalled();
   });
 
-  test("should reject invalid scene data at validation boundary", () => {
+  test("should throw when scene data is null", () => {
     expect(() => deserializeScene(null, ctx)).toThrow();
+  });
+
+  test("should throw when nodes array is missing", () => {
     expect(() => deserializeScene({ version: 1 }, ctx)).toThrow(/nodes/);
+  });
+
+  test("should throw when edge label is not a string", () => {
     expect(() => deserializeScene({
       version: 1, nodes: [], groups: [], edges: [{ id: "e1", sourceId: "n1", sourceSide: "right", targetId: "n2", targetSide: "left", label: 42 }], groupMemberships: [],
     }, ctx)).toThrow(/label/);
+  });
+
+  test("should throw when edge labelColor is not a number", () => {
     expect(() => deserializeScene({
       version: 1, nodes: [], groups: [], edges: [{ id: "e1", sourceId: "n1", sourceSide: "right", targetId: "n2", targetSide: "left", labelColor: "red" }], groupMemberships: [],
     }, ctx)).toThrow(/labelColor/);
   });
 
   test("should rollback on partial import failure", () => {
-    // Pre-populate scene
     registry.addElement("existing", makeNode("existing", 0, 0, 100, 50));
 
-    // Craft data where the second node has a duplicate ID of a group, causing addNode to throw
+    // Mock engine that throws when it encounters the node id "n-bomb"
     const badEngine = {
       ...engine,
       addNode: vi.fn((id: string, opts: { x: number; y: number; width: number; height: number; label: string; color: number }) => {
