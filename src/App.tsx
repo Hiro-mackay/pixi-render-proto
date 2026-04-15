@@ -4,8 +4,8 @@ import { buildDemoScene } from "../examples/demo-scene";
 import type { CanvasEngine } from "./core";
 
 export function App() {
-  const handleReady = useCallback(async (engine: CanvasEngine) => {
-    await buildDemoScene(engine);
+  const handleReady = useCallback(async (engine: CanvasEngine, signal: AbortSignal) => {
+    await buildDemoScene(engine, signal);
   }, []);
 
   return (

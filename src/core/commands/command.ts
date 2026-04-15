@@ -1,6 +1,6 @@
 export type CommandType =
   | "move" | "resize" | "drag"
-  | "assign" | "delete"
+  | "assign" | "delete" | "collapse"
   | "add-remove" | "edge"
   | "batch";
 

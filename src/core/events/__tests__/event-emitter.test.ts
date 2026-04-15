@@ -30,22 +30,32 @@ describe("CanvasEventEmitter", () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  test("should suppress events when suppressed flag is true", () => {
+  test("should suppress events inside suppress() callback", () => {
     const emitter = new CanvasEventEmitter();
     const handler = vi.fn();
     emitter.on("element:move", handler);
-    emitter.suppressed = true;
-    emitter.emit("element:move", { id: "n1", x: 10, y: 20 });
+    emitter.suppress(() => {
+      emitter.emit("element:move", { id: "n1", x: 10, y: 20 });
+    });
     expect(handler).not.toHaveBeenCalled();
   });
 
-  test("should resume delivery after suppression ends", () => {
+  test("should resume delivery after suppress() completes", () => {
     const emitter = new CanvasEventEmitter();
     const handler = vi.fn();
     emitter.on("element:move", handler);
-    emitter.suppressed = true;
-    emitter.emit("element:move", { id: "n1", x: 0, y: 0 });
-    emitter.suppressed = false;
+    emitter.suppress(() => {
+      emitter.emit("element:move", { id: "n1", x: 0, y: 0 });
+    });
+    emitter.emit("element:move", { id: "n1", x: 10, y: 20 });
+    expect(handler).toHaveBeenCalledOnce();
+  });
+
+  test("should restore suppression even if callback throws", () => {
+    const emitter = new CanvasEventEmitter();
+    const handler = vi.fn();
+    emitter.on("element:move", handler);
+    expect(() => emitter.suppress(() => { throw new Error("boom"); })).toThrow("boom");
     emitter.emit("element:move", { id: "n1", x: 10, y: 20 });
     expect(handler).toHaveBeenCalledOnce();
   });

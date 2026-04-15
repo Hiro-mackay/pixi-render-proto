@@ -183,6 +183,18 @@ export class ElementRegistry implements ReadonlyElementRegistry {
       if (group.type !== "group") {
         throw new Error(`Element "${groupId}" is not a group (type: "${group.type}")`);
       }
+      // Cycle detection: walk up from target group to ensure child is not an ancestor
+      let cursor = group.parentGroupId;
+      while (cursor) {
+        if (cursor === childId) {
+          throw new Error(`Cannot assign "${childId}" to "${groupId}": would create a cycle`);
+        }
+        const ancestor = this.elements.get(cursor);
+        cursor = ancestor?.parentGroupId ?? null;
+      }
+      if (groupId === childId) {
+        throw new Error(`Cannot assign "${childId}" to itself`);
+      }
     }
 
     const oldGroupId = child.parentGroupId;

@@ -10,6 +10,8 @@ export type CanvasEventMap = {
   "edge:reconnect": { id: string; endpoint: "source" | "target"; newNodeId: string; newSide: Side };
   "group:collapse": { id: string };
   "group:expand": { id: string };
+  "element:add": { id: string; type: "node" | "group" };
+  "element:remove": { id: string };
   "group:membership": { childId: string; oldGroupId: string | null; newGroupId: string | null };
   "history:change": { canUndo: boolean; canRedo: boolean };
   "selection:change": { selectedIds: readonly string[] };
@@ -21,7 +23,12 @@ type Handler<E extends CanvasEventName> = (data: CanvasEventMap[E]) => void;
 
 export class CanvasEventEmitter {
   private readonly listeners = new Map<string, Set<Handler<never>>>();
-  suppressed = false;
+  private _suppressed = false;
+
+  suppress(fn: () => void): void {
+    this._suppressed = true;
+    try { fn(); } finally { this._suppressed = false; }
+  }
 
   on<E extends CanvasEventName>(event: E, handler: Handler<E>): () => void {
     let set = this.listeners.get(event);
@@ -34,7 +41,7 @@ export class CanvasEventEmitter {
   }
 
   emit<E extends CanvasEventName>(event: E, data: CanvasEventMap[E]): void {
-    if (this.suppressed) return;
+    if (this._suppressed) return;
     const set = this.listeners.get(event);
     if (!set) return;
     for (const handler of set) {

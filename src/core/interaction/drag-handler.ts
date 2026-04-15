@@ -4,6 +4,7 @@ import type { CanvasEdge, CanvasElement } from "../types";
 import type { ElementRegistry } from "../registry/element-registry";
 import type { CommandHistory } from "../commands/command";
 import type { SelectionState } from "./selection-state";
+import type { ViewportPauseController } from "../viewport/pause-controller";
 import { DragCommand } from "../commands/drag-command";
 import { getDescendants } from "../hierarchy/group-ops";
 import { findGroupAt } from "../hierarchy/membership";
@@ -26,6 +27,7 @@ export function enableItemDrag(
   sync: (el: CanvasElement) => void,
   onDragStateChange?: (dragging: boolean) => void,
   gridSize?: number,
+  pauseCtrl?: ViewportPauseController,
 ): () => void {
   let dragging = false;
   let movedDistance = 0;
@@ -47,7 +49,7 @@ export function enableItemDrag(
     movedDistance = 0;
     shiftHeld = e.shiftKey;
     element.container.cursor = "grabbing";
-    viewport.pause = true;
+    pauseCtrl ? pauseCtrl.acquire() : (viewport.pause = true);
     onDragStateChange?.(true);
 
     // Determine drag participants
@@ -110,7 +112,7 @@ export function enableItemDrag(
     if (!dragging) return;
     dragging = false;
     element.container.cursor = "grab";
-    viewport.pause = false;
+    pauseCtrl ? pauseCtrl.release() : (viewport.pause = false);
     onDragStateChange?.(false);
 
     if (movedDistance < CLICK_THRESHOLD_PX) {

@@ -6,6 +6,7 @@ import type { ReadonlyElementRegistry } from "../registry/element-registry";
 import { getFixedSideAnchor, getNearestSide } from "../geometry/anchor";
 import { computeBezierControlPoints } from "../geometry/bezier";
 import { findNodeAt, resolveVisibleElement } from "../geometry/hit-test";
+import type { ViewportPauseController } from "../viewport/pause-controller";
 
 const HANDLE_RADIUS = 6;
 const HANDLE_HIT_RADIUS = 14;
@@ -30,6 +31,7 @@ export function createReconnectHandles(
   getScale: () => number,
   ghostLayer: Container,
   onReconnect: (result: ReconnectResult) => void,
+  pauseCtrl?: ViewportPauseController,
 ): () => void {
   const sourceHandle = createEndpointHandle(getScale);
   const targetHandle = createEndpointHandle(getScale);
@@ -67,7 +69,7 @@ export function createReconnectHandles(
     if (!fixedEl) return;
 
     dragging = true;
-    viewport.pause = true;
+    pauseCtrl ? pauseCtrl.acquire() : (viewport.pause = true);
 
     const anchor = getFixedSideAnchor(
       { x: fixedEl.x, y: fixedEl.y, width: fixedEl.width, height: fixedEl.height },
@@ -137,7 +139,7 @@ export function createReconnectHandles(
     detachDragListeners?.();
     dragging = false;
     highlightedNodeId = null;
-    viewport.pause = false;
+    pauseCtrl ? pauseCtrl.release() : (viewport.pause = false);
     ghostLine.clear();
     ghostLine.visible = false;
     highlight.clear();

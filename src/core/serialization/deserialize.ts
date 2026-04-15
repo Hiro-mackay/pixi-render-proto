@@ -2,6 +2,7 @@ import type { CanvasEngine } from "../engine";
 import type { ElementRegistry } from "../registry/element-registry";
 import type { CommandHistory } from "../commands/command";
 import type { SceneData } from "./schema";
+import { validateSceneData } from "./validate";
 import { updateVisibility } from "../hierarchy/group-ops";
 import { syncElement } from "../registry/sync";
 
@@ -35,12 +36,14 @@ export interface DeserializeContext {
   readonly history: CommandHistory;
 }
 
-export function deserializeScene(data: SceneData, ctx: DeserializeContext): void {
-  if (data.version > CURRENT_VERSION) {
-    throw new Error(`Unknown scene version: ${data.version}. Max supported: ${CURRENT_VERSION}`);
+export function deserializeScene(data: unknown, ctx: DeserializeContext): void {
+  const validated = validateSceneData(data);
+
+  if (validated.version > CURRENT_VERSION) {
+    throw new Error(`Unknown scene version: ${validated.version}. Max supported: ${CURRENT_VERSION}`);
   }
 
-  const scene = data.version < CURRENT_VERSION ? migrate(data) : data;
+  const scene = validated.version < CURRENT_VERSION ? migrate(validated) : validated;
 
   // Clear existing scene
   for (const id of [...ctx.registry.getAllEdges().keys()]) {

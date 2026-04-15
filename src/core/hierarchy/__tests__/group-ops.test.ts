@@ -65,19 +65,13 @@ describe("group hierarchy operations", () => {
       expect(desc.map((d) => d.id).sort()).toEqual(["g2", "n1", "n2"]);
     });
 
-    test("should terminate on circular parentGroupId", () => {
+    test("should throw on circular parentGroupId", () => {
       registry.addElement("gA", makeGroup("gA"));
       registry.addElement("gB", makeGroup("gB"));
-      registry.addElement("n1", makeNode("n1"));
 
-      // Bypass canAssign to create a cycle via direct setParentGroup
       registry.setParentGroup("gB", "gA");
-      registry.setParentGroup("gA", "gB");
-      assignToGroup("n1", "gA", registry);
-
-      // Should terminate without hanging
-      const desc = getDescendants("gA", registry);
-      expect(desc.length).toBeGreaterThan(0);
+      // Creating A→B when B→A already exists would form a cycle
+      expect(() => registry.setParentGroup("gA", "gB")).toThrow("cycle");
     });
 
     test("should detect descendant relationships", () => {
@@ -205,16 +199,12 @@ describe("group hierarchy operations", () => {
   });
 
   describe("isDescendantOf cycle safety", () => {
-    test("should not infinite loop on circular parentGroupId", () => {
+    test("should prevent cycle creation in setParentGroup", () => {
       registry.addElement("gA", makeGroup("gA"));
       registry.addElement("gB", makeGroup("gB"));
 
-      // Bypass canAssign to create a cycle via direct setParentGroup
       registry.setParentGroup("gB", "gA");
-      registry.setParentGroup("gA", "gB");
-
-      // Should terminate without hanging
-      expect(isDescendantOf("gA", "missing", registry)).toBe(false);
+      expect(() => registry.setParentGroup("gA", "gB")).toThrow("cycle");
     });
   });
 

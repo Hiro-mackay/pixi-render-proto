@@ -12,6 +12,7 @@ import { createReconnectHandles, type ReconnectResult } from "./interaction/edge
 import type { CanvasEventEmitter } from "./events/event-emitter";
 import type { Container } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
+import type { ViewportPauseController } from "./viewport/pause-controller";
 
 export interface EngineActionDeps {
   readonly registry: ElementRegistry;
@@ -31,6 +32,7 @@ export interface EngineActionDeps {
   readonly afterCommand: () => void;
   readonly clearSelection: () => void;
   readonly select: (ids: readonly string[]) => void;
+  readonly pauseCtrl?: ViewportPauseController;
 }
 
 export function createAddRemoveOps(deps: EngineActionDeps): AddRemoveOps {
@@ -70,6 +72,7 @@ export function selectEdge(
         deps.afterCommand();
         selectEdge(r.edgeId, deps, reconnectCleanup);
       },
+      deps.pauseCtrl,
     );
   }
   deps.redraw.markAllDirty();

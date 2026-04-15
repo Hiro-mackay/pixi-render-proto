@@ -3,6 +3,7 @@ import type { Viewport } from "pixi-viewport";
 import type { CanvasElement } from "../types";
 import type { ElementRegistry } from "../registry/element-registry";
 import type { CommandHistory } from "../commands/command";
+import type { ViewportPauseController } from "../viewport/pause-controller";
 import { ResizeCommand } from "../commands/resize-command";
 import type { SelectionState } from "./selection-state";
 import { updateEdgeGraphics } from "../elements/edge-renderer";
@@ -46,6 +47,7 @@ export function enableResizeHandles(
   getScale: () => number,
   sync: (el: CanvasElement) => void,
   gridSize?: number,
+  pauseCtrl?: ViewportPauseController,
 ): () => void {
   const cleanups: (() => void)[] = [];
 
@@ -69,7 +71,7 @@ export function enableResizeHandles(
       active = true;
       sessionId = crypto.randomUUID();
       selection.setResizing(true);
-      viewport.pause = true;
+      pauseCtrl ? pauseCtrl.acquire() : (viewport.pause = true);
 
       anchorX = resolveAnchorX(meta, element);
       anchorY = resolveAnchorY(meta, element);
@@ -110,7 +112,7 @@ export function enableResizeHandles(
       if (!active || !element) return;
       active = false;
       selection.setResizing(false);
-      viewport.pause = false;
+      pauseCtrl ? pauseCtrl.release() : (viewport.pause = false);
 
       // Preview applies geometry during pointermove; execute() re-applies idempotently.
       // This contract is verified by history-contract.test.ts.

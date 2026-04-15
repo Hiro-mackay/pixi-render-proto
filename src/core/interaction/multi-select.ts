@@ -3,15 +3,12 @@ import type { FederatedPointerEvent } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
 import type { SelectionState } from "./selection-state";
+import type { ViewportPauseController } from "../viewport/pause-controller";
 
 const MARQUEE_COLOR = 0x3b82f6;
 const MARQUEE_FILL_ALPHA = 0.08;
 const MARQUEE_STROKE_ALPHA = 0.5;
 const DRAG_THRESHOLD = 5;
-
-// Note: viewport.pause is shared with drag-handler, edge-creator, edge-reconnect.
-// In practice these never overlap (drag starts on elements, marquee on background),
-// but a refcount wrapper should be introduced if new subsystems are added.
 
 export function enableMarqueeSelect(
   viewport: Viewport,
@@ -19,6 +16,7 @@ export function enableMarqueeSelect(
   selection: SelectionState,
   getScale: () => number,
   onClearSelection: () => void,
+  pauseCtrl?: ViewportPauseController,
 ): () => void {
   const marquee = new Graphics();
   marquee.visible = false;
@@ -45,7 +43,7 @@ export function enableMarqueeSelect(
     if (!active && dist >= DRAG_THRESHOLD) {
       active = true;
       marquee.visible = true;
-      viewport.pause = true;
+      pauseCtrl ? pauseCtrl.acquire() : (viewport.pause = true);
     }
     if (!active) return;
 
@@ -70,7 +68,7 @@ export function enableMarqueeSelect(
       active = false;
       marquee.clear();
       marquee.visible = false;
-      viewport.pause = false;
+      pauseCtrl ? pauseCtrl.release() : (viewport.pause = false);
 
       const world = viewport.toWorld(e.global.x, e.global.y);
       const x1 = Math.min(startWorld.x, world.x);

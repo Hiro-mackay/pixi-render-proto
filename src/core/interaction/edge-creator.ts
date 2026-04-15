@@ -6,6 +6,7 @@ import type { ReadonlyElementRegistry } from "../registry/element-registry";
 import { computeBezierControlPoints } from "../geometry/bezier";
 import { getFixedSideAnchor, getNearestSide } from "../geometry/anchor";
 import { findNodeAt } from "../geometry/hit-test";
+import type { ViewportPauseController } from "../viewport/pause-controller";
 
 const GHOST_COLOR = 0x3b82f6;
 const GHOST_STROKE_WIDTH = 1.5;
@@ -30,13 +31,17 @@ export class EdgeCreator {
   private readonly ghostLine: Redrawable;
   private readonly highlightGraphic: Redrawable;
 
+  private readonly pauseCtrl?: ViewportPauseController;
+
   constructor(
     ghostLayer: Container,
     private readonly viewport: Viewport,
     private readonly registry: ReadonlyElementRegistry,
     private readonly getScale: () => number,
     private readonly onEdgeCreated: (event: EdgeCreatedEvent) => void,
+    pauseCtrl?: ViewportPauseController,
   ) {
+    this.pauseCtrl = pauseCtrl;
     this.ghostLine = new Graphics() as Redrawable;
     this.ghostLine.visible = false;
     ghostLayer.addChild(this.ghostLine);
@@ -62,7 +67,7 @@ export class EdgeCreator {
     this.sourceAnchor = { x: anchorX, y: anchorY };
     this.cursorWorld = { x: anchorX, y: anchorY };
     this.ghostLine.visible = true;
-    this.viewport.pause = true;
+    this.pauseCtrl ? this.pauseCtrl.acquire() : (this.viewport.pause = true);
     this.redraw();
   }
 
@@ -115,7 +120,7 @@ export class EdgeCreator {
     this.ghostLine.visible = false;
     this.highlightGraphic.clear();
     this.highlightGraphic.visible = false;
-    this.viewport.pause = false;
+    this.pauseCtrl ? this.pauseCtrl.release() : (this.viewport.pause = false);
   }
 
   isActive(): boolean {

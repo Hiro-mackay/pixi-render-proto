@@ -34,11 +34,13 @@ export function resolveVisibleElement(
   registry: ReadonlyElementRegistry,
 ): string | null {
   const visited = new Set<string>();
-  let el = registry.getElementOrThrow(elementId);
+  let el = registry.getElement(elementId);
+  if (!el) return null;
   while (!el.visible && el.parentGroupId) {
     if (visited.has(el.parentGroupId)) return null;
     visited.add(el.parentGroupId);
-    el = registry.getElementOrThrow(el.parentGroupId);
+    el = registry.getElement(el.parentGroupId);
+    if (!el) return null;
   }
   return el.visible ? el.id : null;
 }

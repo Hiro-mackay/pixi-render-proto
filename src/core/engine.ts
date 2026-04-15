@@ -5,7 +5,6 @@ import type {
   GroupMeta, GroupElement, GroupOptions,
   NodeMeta, NodeElement, NodeOptions,
 } from "./types";
-import { COLLAPSED_HEIGHT } from "./types";
 import { initViewport, type ViewportContext } from "./viewport/viewport-setup";
 import { ElementRegistry, type ReadonlyElementRegistry } from "./registry/element-registry";
 import { syncToContainer, syncElement } from "./registry/sync";
@@ -24,8 +23,9 @@ import { enablePortDrag } from "./interaction/port-drag";
 import { enableResizeHandles } from "./interaction/resize-handles";
 import { enableMarqueeSelect } from "./interaction/multi-select";
 import { KeyboardManager } from "./interaction/keyboard-manager";
-import { applyParentChange, updateVisibility } from "./hierarchy/group-ops";
+import { applyParentChange } from "./hierarchy/group-ops";
 import { AssignCommand } from "./commands/assign-command";
+import { CollapseCommand } from "./commands/collapse-command";
 import { AddEdgeCommand, type AddRemoveOps } from "./commands/add-remove-command";
 import type { SceneData } from "./serialization/schema";
 import { serialize as serializeScene } from "./serialization/serialize";
@@ -33,6 +33,7 @@ import { deserializeScene } from "./serialization/deserialize";
 import { CanvasClipboard } from "./clipboard/clipboard";
 import { CanvasEventEmitter, type CanvasEventName, type CanvasEventMap } from "./events/event-emitter";
 import { setViewportZoom, centerViewportOn, fitViewportToContent } from "./viewport/view-control";
+import { ViewportPauseController } from "./viewport/pause-controller";
 import {
   selectEdge as doSelectEdge, handleEscape as doHandleEscape,
   deleteSelected as doDeleteSelected,
@@ -83,6 +84,15 @@ export interface CanvasEngine {
 
 const DEFAULT_NODE_COLOR = 0x2d3748;
 
+function assertFinite(value: number, name: string): void {
+  if (!Number.isFinite(value)) throw new Error(`${name} must be a finite number, got ${value}`);
+}
+
+function assertPositive(value: number, name: string): void {
+  assertFinite(value, name);
+  if (value <= 0) throw new Error(`${name} must be positive, got ${value}`);
+}
+
 class CanvasEngineImpl implements CanvasEngine {
   private ctx: ViewportContext | null;
   private destroyed = false;
@@ -106,10 +116,12 @@ class CanvasEngineImpl implements CanvasEngine {
   private readonly addRemoveOps: AddRemoveOps;
   private readonly elementOps: ReturnType<typeof createElementOps>;
   private readonly gridSize: number | undefined;
+  private readonly pauseCtrl: ViewportPauseController;
 
   constructor(ctx: ViewportContext, options: EngineOptions) {
     this.ctx = ctx;
     this.gridSize = options.gridSize;
+    this.pauseCtrl = new ViewportPauseController(ctx.viewport);
     this.edgeLineLayer.label = "edge-line-layer";
     this.edgeLabelLayer.label = "edge-label-layer";
     this.ghostLayer.label = "ghost-layer";
@@ -131,7 +143,7 @@ class CanvasEngineImpl implements CanvasEngine {
         this.resizeCleanup?.();
         this.resizeCleanup = enableResizeHandles(
           handles, this.selection, ctx.viewport,
-          this.registry, this.history, this.getScale, syncElement, this.gridSize,
+          this.registry, this.history, this.getScale, syncElement, this.gridSize, this.pauseCtrl,
         );
       },
     );
@@ -163,13 +175,14 @@ class CanvasEngineImpl implements CanvasEngine {
         this.events.emit("edge:create", { id: edgeId });
         this.afterCommand();
       },
+      this.pauseCtrl,
     );
     this.redraw.register(this.edgeCreator.getGhostLine());
     this.redraw.register(this.edgeCreator.getHighlightGraphic());
 
     this.marqueeCleanup = enableMarqueeSelect(
       ctx.viewport, this.registry, this.selection, this.getScale,
-      () => this.clearSelection(),
+      () => this.clearSelection(), this.pauseCtrl,
     );
   }
 
@@ -187,6 +200,7 @@ class CanvasEngineImpl implements CanvasEngine {
       afterCommand: () => this.afterCommand(),
       clearSelection: () => this.clearSelection(),
       select: (ids) => this.select(ids),
+      pauseCtrl: this.pauseCtrl,
     };
   }
 
@@ -220,6 +234,8 @@ class CanvasEngineImpl implements CanvasEngine {
   // --- CRUD ---
 
   addNode(id: string, opts: NodeOptions): void {
+    assertFinite(opts.x, "x"); assertFinite(opts.y, "y");
+    assertPositive(opts.width, "width"); assertPositive(opts.height, "height");
     const meta: NodeMeta = { label: opts.label, color: opts.color ?? DEFAULT_NODE_COLOR, icon: opts.icon };
     const element = {
       id, type: "node" as const, x: opts.x, y: opts.y, width: opts.width, height: opts.height,
@@ -232,14 +248,17 @@ class CanvasEngineImpl implements CanvasEngine {
     this.redraw.registerTree(element.container);
     this.dragCleanups.set(id,
       enableItemDrag(element, this.getCtx().viewport, this.registry, this.history,
-        this.selection, this.getScale, syncToContainer, this.onDragStateChange, this.gridSize),
+        this.selection, this.getScale, syncToContainer, this.onDragStateChange, this.gridSize, this.pauseCtrl),
     );
     this.portDragCleanups.set(id,
       enablePortDrag(element, this.getCtx().viewport, this.getScale, this.edgeCreator),
     );
+    this.events.emit("element:add", { id, type: "node" });
   }
 
   addGroup(id: string, opts: GroupOptions): void {
+    assertFinite(opts.x, "x"); assertFinite(opts.y, "y");
+    assertPositive(opts.width, "width"); assertPositive(opts.height, "height");
     const meta: GroupMeta = { label: opts.label, color: opts.color, collapsed: false, expandedHeight: opts.height };
     const element = {
       id, type: "group" as const, x: opts.x, y: opts.y, width: opts.width, height: opts.height,
@@ -255,8 +274,9 @@ class CanvasEngineImpl implements CanvasEngine {
     }
     this.dragCleanups.set(id,
       enableItemDrag(element, this.getCtx().viewport, this.registry, this.history,
-        this.selection, this.getScale, syncToContainer, this.onDragStateChange, this.gridSize),
+        this.selection, this.getScale, syncToContainer, this.onDragStateChange, this.gridSize, this.pauseCtrl),
     );
+    this.events.emit("element:add", { id, type: "group" });
   }
 
   addEdge(id: string, opts: EdgeOptions): void {
@@ -298,6 +318,7 @@ class CanvasEngineImpl implements CanvasEngine {
     element.container.removeFromParent();
     element.container.destroy({ children: true });
     this.registry.removeElement(id);
+    this.events.emit("element:remove", { id });
   }
 
   removeEdge(id: string): void {
@@ -313,12 +334,14 @@ class CanvasEngineImpl implements CanvasEngine {
   // --- Mutations ---
 
   moveElement(id: string, x: number, y: number): void {
+    assertFinite(x, "x"); assertFinite(y, "y");
     this.history.execute(new MoveCommand(id, this.registry, x, y, syncToContainer, crypto.randomUUID()));
     this.events.emit("element:move", { id, x, y });
     this.afterCommand();
   }
 
   resizeElement(id: string, width: number, height: number): void {
+    assertPositive(width, "width"); assertPositive(height, "height");
     const el = this.registry.getElementOrThrow(id);
     this.history.execute(new ResizeCommand({
       elementId: id, registry: this.registry,
@@ -346,14 +369,11 @@ class CanvasEngineImpl implements CanvasEngine {
   }
 
   toggleCollapse(groupId: string): void {
-    const group = this.registry.getElementOrThrow(groupId);
-    if (group.type !== "group") throw new Error(`Element "${groupId}" is not a group`);
-    const { meta } = group;
-    if (meta.collapsed) { meta.collapsed = false; group.height = meta.expandedHeight; }
-    else { meta.expandedHeight = group.height; meta.collapsed = true; group.height = COLLAPSED_HEIGHT; }
-    syncElement(group);
-    updateVisibility(groupId, this.registry, syncElement);
-    this.events.emit(meta.collapsed ? "group:collapse" : "group:expand", { id: groupId });
+    this.history.execute(new CollapseCommand(groupId, this.registry, syncElement));
+    const group = this.registry.getElement(groupId);
+    if (group?.type === "group") {
+      this.events.emit(group.meta.collapsed ? "group:collapse" : "group:expand", { id: groupId });
+    }
     this.afterCommand();
   }
 
@@ -407,9 +427,9 @@ class CanvasEngineImpl implements CanvasEngine {
 
   deserialize(data: SceneData): void {
     this.clearSelection();
-    this.events.suppressed = true;
-    deserializeScene(data, { engine: this, registry: this.registry, history: this.history });
-    this.events.suppressed = false;
+    this.events.suppress(() => {
+      deserializeScene(data, { engine: this, registry: this.registry, history: this.history });
+    });
     this.afterCommand();
   }
 
@@ -422,7 +442,10 @@ class CanvasEngineImpl implements CanvasEngine {
   toDataURL(type?: "image/png" | "image/jpeg"): string {
     const ctx = this.getCtx();
     const canvas = ctx.app.renderer.extract.canvas(ctx.app.stage);
-    return (canvas as HTMLCanvasElement).toDataURL(type ?? "image/png");
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      throw new Error("toDataURL requires an HTMLCanvasElement (not available in OffscreenCanvas environments)");
+    }
+    return canvas.toDataURL(type ?? "image/png");
   }
 
   // --- Events ---
