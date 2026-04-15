@@ -3,16 +3,12 @@ import type { Container } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
 import type { Redrawable, Side } from "../types";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
-import { computeBezierControlPoints } from "../geometry/bezier";
-import { getFixedSideAnchor, getNearestSide } from "../geometry/anchor";
+import { getNearestSide } from "../geometry/anchor";
 import { findNodeAt } from "../geometry/hit-test";
+import { drawHighlight, drawGhostLine } from "./ghost-graphics";
 import type { ViewportPauseController } from "../viewport/pause-controller";
 
 const GHOST_COLOR = 0x3b82f6;
-const GHOST_STROKE_WIDTH = 1.5;
-const GHOST_ENDPOINT_RADIUS = 4;
-const HIGHLIGHT_PAD = 4;
-const HIGHLIGHT_STROKE_WIDTH = 2.5;
 
 export interface EdgeCreatedEvent {
   readonly sourceId: string;
@@ -139,69 +135,13 @@ export class EdgeCreator {
   }
 
   private updateHighlight(): void {
-    this.highlightGraphic.clear();
-    if (!this.highlightedNodeId) {
-      this.highlightGraphic.visible = false;
-      return;
-    }
-    const el = this.registry.getElement(this.highlightedNodeId);
-    if (!el) {
-      this.highlightGraphic.visible = false;
-      return;
-    }
-    const scale = this.getScale();
-    const pad = HIGHLIGHT_PAD / scale;
-    const strokeW = HIGHLIGHT_STROKE_WIDTH / scale;
-    this.highlightGraphic.roundRect(
-      el.x - pad, el.y - pad,
-      el.width + pad * 2, el.height + pad * 2,
-      10,
-    );
-    this.highlightGraphic.stroke({ width: strokeW, color: GHOST_COLOR, alpha: 0.8 });
-    this.highlightGraphic.visible = true;
+    const el = this.highlightedNodeId ? this.registry.getElement(this.highlightedNodeId) ?? null : null;
+    drawHighlight(this.highlightGraphic, el, this.getScale(), GHOST_COLOR);
   }
 
   private redraw(): void {
-    if (!this.sourceAnchor || !this.sourceSide) {
-      this.ghostLine.clear();
-      return;
-    }
-
-    const scale = this.getScale();
-    const strokeWidth = GHOST_STROKE_WIDTH / scale;
-
-    let endX = this.cursorWorld.x;
-    let endY = this.cursorWorld.y;
-    let endSide: Side | null = null;
-
-    if (this.highlightedNodeId) {
-      const el = this.registry.getElement(this.highlightedNodeId);
-      if (el) {
-        const side = getNearestSide(
-          { x: el.x, y: el.y, width: el.width, height: el.height },
-          this.cursorWorld,
-        );
-        const anchor = getFixedSideAnchor(
-          { x: el.x, y: el.y, width: el.width, height: el.height },
-          side,
-        );
-        endX = anchor.x;
-        endY = anchor.y;
-        endSide = side;
-      }
-    }
-
-    const { cp1x, cp1y, cp2x, cp2y } = computeBezierControlPoints(
-      this.sourceAnchor.x, this.sourceAnchor.y, this.sourceSide,
-      endX, endY, endSide,
-    );
-
-    this.ghostLine.clear();
-    this.ghostLine.moveTo(this.sourceAnchor.x, this.sourceAnchor.y);
-    this.ghostLine.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
-    this.ghostLine.stroke({ width: strokeWidth, color: GHOST_COLOR, alpha: 0.9 });
-
-    this.ghostLine.circle(endX, endY, GHOST_ENDPOINT_RADIUS / scale);
-    this.ghostLine.fill({ color: GHOST_COLOR, alpha: 0.9 });
+    if (!this.sourceAnchor || !this.sourceSide) { this.ghostLine.clear(); return; }
+    const snapTarget = this.highlightedNodeId ? this.registry.getElement(this.highlightedNodeId) ?? null : null;
+    drawGhostLine(this.ghostLine, this.sourceAnchor, this.sourceSide, this.cursorWorld, snapTarget, this.getScale(), GHOST_COLOR);
   }
 }

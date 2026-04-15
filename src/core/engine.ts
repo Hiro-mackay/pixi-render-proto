@@ -26,7 +26,10 @@ import { KeyboardManager } from "./interaction/keyboard-manager";
 import { applyParentChange } from "./hierarchy/group-ops";
 import { AssignCommand } from "./commands/assign-command";
 import { CollapseCommand } from "./commands/collapse-command";
-import { AddEdgeCommand, type AddRemoveOps } from "./commands/add-remove-command";
+import { DeleteCommand, type DeleteCommandOps } from "./commands/delete-command";
+import { AddEdgeCommand, RemoveEdgeCommand, type AddRemoveOps } from "./commands/add-remove-command";
+import { ReconnectEdgeCommand } from "./commands/edge-command";
+import { createReconnectHandles, type ReconnectResult } from "./interaction/edge-reconnect";
 import type { SceneData } from "./serialization/schema";
 import { serialize as serializeScene } from "./serialization/serialize";
 import { deserializeScene } from "./serialization/deserialize";
@@ -34,51 +37,37 @@ import { CanvasClipboard } from "./clipboard/clipboard";
 import { CanvasEventEmitter, type CanvasEventName, type CanvasEventMap } from "./events/event-emitter";
 import { setViewportZoom, centerViewportOn, fitViewportToContent } from "./viewport/view-control";
 import { ViewportPauseController } from "./viewport/pause-controller";
-import {
-  selectEdge as doSelectEdge, handleEscape as doHandleEscape,
-  deleteSelected as doDeleteSelected,
-  createAddRemoveOps, createElementOps,
-  type EngineActionDeps,
-} from "./engine-actions";
 
 export interface CanvasEngine {
   readonly viewport: Viewport;
   readonly scale: number;
   readonly registry: ReadonlyElementRegistry;
   destroy(): void;
-  // CRUD
   addNode(id: string, opts: NodeOptions): void;
   addGroup(id: string, opts: GroupOptions): void;
   addEdge(id: string, opts: EdgeOptions): void;
   removeElement(id: string): void;
   removeEdge(id: string): void;
-  // Mutations
   moveElement(id: string, x: number, y: number): void;
   resizeElement(id: string, width: number, height: number): void;
   assignToGroup(childId: string, groupId: string): void;
   removeFromGroup(childId: string): void;
   toggleCollapse(groupId: string): void;
-  // Selection
   select(ids: readonly string[]): void;
   selectAll(): void;
   clearSelection(): void;
   getSelection(): readonly string[];
-  // Undo/Redo
   undo(): void;
   redo(): void;
-  // Clipboard
   copy(): void;
   paste(): void;
   duplicate(): void;
-  // Serialization
   serialize(): SceneData;
   deserialize(data: SceneData): void;
-  // View control
   setZoom(scale: number): void;
   centerOn(x: number, y: number): void;
   fitToContent(padding?: number): void;
   toDataURL(type?: "image/png" | "image/jpeg"): string;
-  // Events
   on<E extends CanvasEventName>(event: E, handler: (data: CanvasEventMap[E]) => void): () => void;
 }
 
@@ -116,12 +105,12 @@ class CanvasEngineImpl implements CanvasEngine {
   private edgeCreator!: EdgeCreator;
   private readonly dragCleanups = new Map<string, () => void>();
   private readonly portDragCleanups = new Map<string, () => void>();
-  private reconnectCleanup: { current: (() => void) | null } = { current: null };
+  private reconnectCleanup: (() => void) | null = null;
   private resizeCleanup: (() => void) | null = null;
   private marqueeCleanup: (() => void) | null = null;
   private readonly clipboard = new CanvasClipboard();
   private readonly addRemoveOps: AddRemoveOps;
-  private readonly elementOps: ReturnType<typeof createElementOps>;
+  private readonly elementOps: DeleteCommandOps;
   private readonly gridSize: number | undefined;
   private readonly pauseCtrl: ViewportPauseController;
 
@@ -161,13 +150,20 @@ class CanvasEngineImpl implements CanvasEngine {
     });
     ctx.viewport.addChild(this.selectionLayer);
 
-    const deps = this.actionDeps();
-    this.addRemoveOps = createAddRemoveOps(deps);
-    this.elementOps = createElementOps(deps);
+    this.addRemoveOps = {
+      doAddEdge: (id, opts) => this.addEdge(id, opts),
+      doRemoveEdge: (id) => this.removeEdge(id),
+    };
+    this.elementOps = {
+      doAddNode: (id, opts) => this.addNode(id, opts),
+      doAddGroup: (id, opts) => this.addGroup(id, opts),
+      doAddEdge: (id, opts) => this.addEdge(id, opts),
+      doRemove: (id) => this.removeElement(id),
+    };
 
     this.keyboard = new KeyboardManager({
-      onDelete: () => doDeleteSelected(deps, this.addRemoveOps, this.elementOps),
-      onEscape: () => doHandleEscape(this.edgeCreator, deps),
+      onDelete: () => this.deleteSelected(),
+      onEscape: () => this.handleEscape(),
       onUndo: () => this.undo(),
       onRedo: () => this.redo(),
       onCopy: () => this.copy(),
@@ -197,24 +193,6 @@ class CanvasEngineImpl implements CanvasEngine {
     );
   }
 
-  private actionDeps(): EngineActionDeps {
-    return {
-      registry: this.registry, history: this.history, selection: this.selection,
-      redraw: this.redraw, events: this.events,
-      selectionLayer: this.selectionLayer, ghostLayer: this.ghostLayer,
-      viewport: this.getCtx().viewport, getScale: this.getScale,
-      addNode: (id, opts) => this.addNode(id, opts),
-      addGroup: (id, opts) => this.addGroup(id, opts),
-      addEdge: (id, opts) => this.addEdge(id, opts),
-      removeElement: (id) => this.removeElement(id),
-      removeEdge: (id) => this.removeEdge(id),
-      afterCommand: () => this.afterCommand(),
-      clearSelection: () => this.clearSelection(),
-      select: (ids) => this.select(ids),
-      pauseCtrl: this.pauseCtrl,
-    };
-  }
-
   private getCtx(): ViewportContext {
     if (this.destroyed || !this.ctx) throw new Error("CanvasEngine has been destroyed");
     return this.ctx;
@@ -231,7 +209,7 @@ class CanvasEngineImpl implements CanvasEngine {
     this.marqueeCleanup?.();
     for (const fn of this.dragCleanups.values()) fn();
     for (const fn of this.portDragCleanups.values()) fn();
-    this.reconnectCleanup.current?.();
+    this.reconnectCleanup?.();
     this.resizeCleanup?.();
     this.edgeCreator.destroy();
     this.keyboard.destroy();
@@ -317,7 +295,7 @@ class CanvasEngineImpl implements CanvasEngine {
     if (gfx.labelPill) this.redraw.register(gfx.labelPill);
     gfx.hitLine.on("pointerdown", (e: FederatedPointerEvent) => {
       e.stopPropagation();
-      doSelectEdge(id, this.actionDeps(), this.reconnectCleanup);
+      this.selectEdge(id);
     });
     const vp = this.getCtx().viewport;
     vp.setChildIndex(this.selectionLayer, vp.children.length - 1);
@@ -401,7 +379,7 @@ class CanvasEngineImpl implements CanvasEngine {
   // --- Selection ---
 
   select(ids: readonly string[]): void {
-    this.reconnectCleanup.current?.(); this.reconnectCleanup.current = null;
+    this.reconnectCleanup?.(); this.reconnectCleanup = null;
     const [first] = ids;
     if (!first) { this.selection.clear(); }
     else if (ids.length === 1) { this.selection.select(first); }
@@ -411,7 +389,7 @@ class CanvasEngineImpl implements CanvasEngine {
   selectAll(): void { this.select([...this.registry.getAllElements().keys()]); }
 
   clearSelection(): void {
-    this.reconnectCleanup.current?.(); this.reconnectCleanup.current = null;
+    this.reconnectCleanup?.(); this.reconnectCleanup = null;
     this.selection.clear();
   }
 
@@ -475,10 +453,62 @@ class CanvasEngineImpl implements CanvasEngine {
 
   // --- Private ---
 
+  private selectEdge(edgeId: string): void {
+    this.reconnectCleanup?.();
+    this.reconnectCleanup = null;
+    this.selection.selectEdge(edgeId);
+    const edge = this.registry.getEdge(edgeId);
+    if (edge) {
+      this.reconnectCleanup = createReconnectHandles({
+        edge, layer: this.selectionLayer, viewport: this.getCtx().viewport,
+        registry: this.registry, getScale: this.getScale, ghostLayer: this.ghostLayer,
+        onReconnect: (r: ReconnectResult) => {
+          this.reconnectCleanup?.();
+          this.reconnectCleanup = null;
+          this.history.execute(new ReconnectEdgeCommand(r.edgeId, r.endpoint, r.newNodeId, r.newSide, this.registry));
+          this.events.emit("edge:reconnect", { id: r.edgeId, endpoint: r.endpoint, newNodeId: r.newNodeId, newSide: r.newSide });
+          this.afterCommand();
+          this.selectEdge(r.edgeId);
+        },
+        pauseCtrl: this.pauseCtrl,
+      });
+    }
+    this.redraw.markAllDirty();
+    this.redraw.flush();
+  }
+
+  private handleEscape(): void {
+    if (this.edgeCreator.isActive()) { this.edgeCreator.cancel(); this.clearSelection(); return; }
+    this.clearSelection();
+  }
+
+  private deleteSelected(): void {
+    const edgeId = this.selection.getSelectedEdgeId();
+    if (edgeId) {
+      this.clearSelection();
+      this.history.execute(new RemoveEdgeCommand(edgeId, this.registry, this.addRemoveOps));
+      this.afterCommand();
+      return;
+    }
+    const ids = [...this.selection.getSelectedIds()];
+    if (ids.length === 0) return;
+    this.clearSelection();
+    const restored: string[] = [];
+    const restoreOps: DeleteCommandOps = {
+      ...this.elementOps,
+      onRestore: (eid: string) => { restored.push(eid); this.selection.selectMultiple(restored); },
+    };
+    if (ids.length === 1) {
+      this.history.execute(new DeleteCommand(ids[0]!, this.registry, syncElement, restoreOps));
+    } else {
+      this.history.batch(ids.map((id) => new DeleteCommand(id, this.registry, syncElement, restoreOps)));
+    }
+    this.afterCommand();
+  }
+
   private copyTargetIds(): ReadonlySet<string> {
     const elementIds = this.selection.getSelectedIds();
     if (elementIds.size > 0) return elementIds;
-    // Edge-only selection: include both endpoint nodes so the edge is copied with them
     const edgeId = this.selection.getSelectedEdgeId();
     if (edgeId) {
       const edge = this.registry.getEdge(edgeId);

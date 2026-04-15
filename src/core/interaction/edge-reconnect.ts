@@ -4,17 +4,13 @@ import type { Viewport } from "pixi-viewport";
 import type { CanvasEdge, Side } from "../types";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
 import { getFixedSideAnchor, getNearestSide } from "../geometry/anchor";
-import { computeBezierControlPoints } from "../geometry/bezier";
 import { findNodeAt, resolveVisibleElement } from "../geometry/hit-test";
+import { drawHighlight, drawGhostLine } from "./ghost-graphics";
 import type { ViewportPauseController } from "../viewport/pause-controller";
 
 const HANDLE_RADIUS = 6;
 const HANDLE_HIT_RADIUS = 14;
 const HANDLE_COLOR = 0x3b82f6;
-const GHOST_STROKE_WIDTH = 1.5;
-const GHOST_ENDPOINT_RADIUS = 4;
-const HIGHLIGHT_PAD = 4;
-const HIGHLIGHT_STROKE_WIDTH = 2.5;
 
 export interface ReconnectResult {
   readonly edgeId: string;
@@ -157,55 +153,13 @@ export function createReconnectHandles(opts: ReconnectHandleOptions): () => void
   }
 
   function updateHighlightGraphic() {
-    highlight.clear();
-    if (!highlightedNodeId) {
-      highlight.visible = false;
-      return;
-    }
-    const el = registry.getElement(highlightedNodeId);
-    if (!el) { highlight.visible = false; return; }
-    const scale = getScale();
-    const pad = HIGHLIGHT_PAD / scale;
-    const strokeW = HIGHLIGHT_STROKE_WIDTH / scale;
-    highlight.roundRect(el.x - pad, el.y - pad, el.width + pad * 2, el.height + pad * 2, 10);
-    highlight.stroke({ width: strokeW, color: HANDLE_COLOR, alpha: 0.8 });
-    highlight.visible = true;
+    const el = highlightedNodeId ? registry.getElement(highlightedNodeId) : null;
+    drawHighlight(highlight, el ?? null, getScale(), HANDLE_COLOR);
   }
 
   function redrawGhostLine() {
-    const scale = getScale();
-    let endX = cursorWorld.x;
-    let endY = cursorWorld.y;
-    let endSide: Side | null = null;
-
-    if (highlightedNodeId) {
-      const el = registry.getElement(highlightedNodeId);
-      if (el) {
-        const side = getNearestSide(
-          { x: el.x, y: el.y, width: el.width, height: el.height },
-          cursorWorld,
-        );
-        const anchor = getFixedSideAnchor(
-          { x: el.x, y: el.y, width: el.width, height: el.height },
-          side,
-        );
-        endX = anchor.x;
-        endY = anchor.y;
-        endSide = side;
-      }
-    }
-
-    const { cp1x, cp1y, cp2x, cp2y } = computeBezierControlPoints(
-      fixedAnchor.x, fixedAnchor.y, fixedSide,
-      endX, endY, endSide,
-    );
-
-    ghostLine.clear();
-    ghostLine.moveTo(fixedAnchor.x, fixedAnchor.y);
-    ghostLine.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
-    ghostLine.stroke({ width: GHOST_STROKE_WIDTH / scale, color: HANDLE_COLOR, alpha: 0.9 });
-    ghostLine.circle(endX, endY, GHOST_ENDPOINT_RADIUS / scale);
-    ghostLine.fill({ color: HANDLE_COLOR, alpha: 0.9 });
+    const snapTarget = highlightedNodeId ? registry.getElement(highlightedNodeId) ?? null : null;
+    drawGhostLine(ghostLine, fixedAnchor, fixedSide, cursorWorld, snapTarget, getScale(), HANDLE_COLOR);
   }
 
   sourceHandle.on("pointerdown", (e: FederatedPointerEvent) => startDrag("source", e));
