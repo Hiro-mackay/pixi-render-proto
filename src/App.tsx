@@ -5,7 +5,9 @@ import type { CanvasEngine } from "./core";
 
 export function App() {
   const handleReady = useCallback(async (engine: CanvasEngine, signal: AbortSignal) => {
-    await buildDemoScene(engine, signal);
+    const params = new URLSearchParams(window.location.search);
+    const nodeCount = Number(params.get("nodes")) || undefined;
+    await buildDemoScene(engine, signal, nodeCount);
   }, []);
 
   return (

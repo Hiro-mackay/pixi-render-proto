@@ -58,6 +58,7 @@ const GROUP_DEFS = [
 export async function buildDemoScene(
   engine: CanvasEngine,
   signal?: AbortSignal,
+  nodeCount = NODE_COUNT,
 ): Promise<void> {
   const textures: Texture[] = await Promise.all(
     ICON_PATHS.map((path) => Assets.load<Texture>(path)),
@@ -71,7 +72,7 @@ export async function buildDemoScene(
   }
 
   const nodeIds: string[] = [];
-  for (let i = 0; i < NODE_COUNT; i++) {
+  for (let i = 0; i < nodeCount; i++) {
     const id = `node-${i}`;
     const col = i % COLS;
     const row = Math.floor(i / COLS);
@@ -89,7 +90,7 @@ export async function buildDemoScene(
 
   // Assign nodes to smallest enclosing group (sort by area ascending)
   const groupsByArea = [...GROUP_DEFS].sort((a, b) => a.width * a.height - b.width * b.height);
-  for (let i = 0; i < NODE_COUNT; i++) {
+  for (let i = 0; i < nodeCount; i++) {
     const id = `node-${i}`;
     const col = i % COLS;
     const row = Math.floor(i / COLS);
@@ -104,11 +105,11 @@ export async function buildDemoScene(
     }
   }
 
-  const edgeCount = 80;
+  const edgeCount = Math.floor(nodeCount * 0.4);
   for (let i = 0; i < edgeCount; i++) {
-    const srcIdx = Math.floor(rng() * NODE_COUNT);
-    let tgtIdx = Math.floor(rng() * NODE_COUNT);
-    if (tgtIdx === srcIdx) tgtIdx = (tgtIdx + 1) % NODE_COUNT;
+    const srcIdx = Math.floor(rng() * nodeCount);
+    let tgtIdx = Math.floor(rng() * nodeCount);
+    if (tgtIdx === srcIdx) tgtIdx = (tgtIdx + 1) % nodeCount;
 
     const label = rng() > 0.4 ? PROTOCOL_LABELS[Math.floor(rng() * PROTOCOL_LABELS.length)] : undefined;
     engine.addEdge(`e-${i}`, {
