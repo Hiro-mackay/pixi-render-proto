@@ -11,6 +11,11 @@ import { updateEdgeGraphics } from "../elements/edge-renderer";
 
 const CLICK_THRESHOLD_PX = 5;
 
+function snapToGrid(value: number, gridSize: number | undefined): number {
+  if (!gridSize) return value;
+  return Math.round(value / gridSize) * gridSize;
+}
+
 export function enableItemDrag(
   element: CanvasElement,
   viewport: Viewport,
@@ -20,6 +25,7 @@ export function enableItemDrag(
   getScale: () => number,
   sync: (el: CanvasElement) => void,
   onDragStateChange?: (dragging: boolean) => void,
+  gridSize?: number,
 ): () => void {
   let dragging = false;
   let movedDistance = 0;
@@ -89,8 +95,8 @@ export function enableItemDrag(
     for (const p of participants) {
       const start = startPositions.get(p.id);
       if (!start) continue;
-      p.x = start.x + dx;
-      p.y = start.y + dy;
+      p.x = snapToGrid(start.x + dx, gridSize);
+      p.y = snapToGrid(start.y + dy, gridSize);
       sync(p);
     }
 
@@ -127,15 +133,15 @@ export function enableItemDrag(
 
       const sessionId = crypto.randomUUID();
 
-      if (dragRoots.length === 1) {
-        const rootId = dragRoots[0];
-        const rootEl = registry.getElement(rootId);
+      const firstRoot = dragRoots[0];
+      if (dragRoots.length === 1 && firstRoot) {
+        const rootEl = registry.getElement(firstRoot);
         const cx = rootEl ? rootEl.x + rootEl.width / 2 : 0;
         const cy = rootEl ? rootEl.y + rootEl.height / 2 : 0;
         const target = findGroupAt({ x: cx, y: cy }, registry, cachedExcludeIds);
         history.execute(new DragCommand(
-          rootId, registry, startPositions, finalPositions,
-          sync, sessionId, startParentGroupIds.get(rootId) ?? null, target,
+          firstRoot, registry, startPositions, finalPositions,
+          sync, sessionId, startParentGroupIds.get(firstRoot) ?? null, target,
         ));
       } else {
         const commands = dragRoots.map((rootId) => {

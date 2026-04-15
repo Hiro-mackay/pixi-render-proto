@@ -32,6 +32,11 @@ const HANDLE_META: readonly HandleMeta[] = [
   { axis: "horizontal", anchorX: "right", anchorY: "none" },   // W
 ] as const;
 
+function snapToGrid(value: number, gridSize: number | undefined): number {
+  if (!gridSize) return value;
+  return Math.round(value / gridSize) * gridSize;
+}
+
 export function enableResizeHandles(
   handles: Container[],
   selection: SelectionState,
@@ -40,6 +45,7 @@ export function enableResizeHandles(
   history: CommandHistory,
   getScale: () => number,
   sync: (el: CanvasElement) => void,
+  gridSize?: number,
 ): () => void {
   const cleanups: (() => void)[] = [];
 
@@ -80,14 +86,16 @@ export function enableResizeHandles(
       let newH = element.height;
 
       if (meta.axis === "both" || meta.axis === "horizontal") {
-        const rawW = Math.abs(world.x - anchorX);
+        const snappedX = snapToGrid(world.x, gridSize);
+        const rawW = Math.abs(snappedX - anchorX);
         newW = Math.max(rawW, MIN_WIDTH);
-        newX = world.x >= anchorX ? anchorX : anchorX - newW;
+        newX = snappedX >= anchorX ? anchorX : anchorX - newW;
       }
       if (meta.axis === "both" || meta.axis === "vertical") {
-        const rawH = Math.abs(world.y - anchorY);
+        const snappedY = snapToGrid(world.y, gridSize);
+        const rawH = Math.abs(snappedY - anchorY);
         newH = Math.max(rawH, MIN_HEIGHT);
-        newY = world.y >= anchorY ? anchorY : anchorY - newH;
+        newY = snappedY >= anchorY ? anchorY : anchorY - newH;
       }
 
       element.x = newX;

@@ -1,6 +1,7 @@
 export { createCanvasEngine } from "./engine";
 export type { CanvasEngine } from "./engine";
 export type { ReadonlyElementRegistry } from "./registry/element-registry";
+export type { CanvasEventMap, CanvasEventName } from "./events/event-emitter";
 export type {
   EngineOptions,
   NodeOptions,

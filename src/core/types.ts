@@ -108,6 +108,7 @@ export interface CanvasEdge {
 export interface EngineOptions {
   readonly debug?: boolean;
   readonly signal?: AbortSignal;
+  readonly gridSize?: number;
 }
 
 // --- CRUD option types ---
