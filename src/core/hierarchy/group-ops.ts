@@ -1,5 +1,5 @@
 import type { CanvasElement } from "../types";
-import type { ElementRegistry } from "../registry/element-registry";
+import type { ElementRegistry, ReadonlyElementRegistry } from "../registry/element-registry";
 
 export function canAssign(childId: string, groupId: string, registry: ElementRegistry): boolean {
   if (childId === groupId) return false;
@@ -28,7 +28,7 @@ export function isDescendantOf(elementId: string, ancestorId: string, registry: 
   return false;
 }
 
-export function getDescendants(groupId: string, registry: ElementRegistry): readonly CanvasElement[] {
+export function getDescendants(groupId: string, registry: ReadonlyElementRegistry): readonly CanvasElement[] {
   const result: CanvasElement[] = [];
   const visited = new Set<string>();
   const collect = (gid: string) => {

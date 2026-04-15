@@ -7,6 +7,7 @@ import type { ViewportPauseController } from "../viewport/pause-controller";
 import { ResizeCommand } from "../commands/resize-command";
 import type { SelectionState } from "./selection-state";
 import { updateEdgeGraphics } from "../elements/edge-renderer";
+import { snapToGrid } from "../geometry/snap";
 
 const MIN_WIDTH = 60;
 const MIN_HEIGHT = 40;
@@ -32,11 +33,6 @@ const HANDLE_META: readonly HandleMeta[] = [
   { axis: "vertical",   anchorX: "none",  anchorY: "top" },    // S
   { axis: "horizontal", anchorX: "right", anchorY: "none" },   // W
 ] as const;
-
-function snapToGrid(value: number, gridSize: number | undefined): number {
-  if (!gridSize) return value;
-  return Math.round(value / gridSize) * gridSize;
-}
 
 export function enableResizeHandles(
   handles: Container[],

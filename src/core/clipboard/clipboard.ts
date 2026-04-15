@@ -2,7 +2,7 @@ import type { ReadonlyElementRegistry, ElementRegistry } from "../registry/eleme
 import type { Command, CommandHistory } from "../commands/command";
 import type { SerializedNode, SerializedGroup, SerializedEdge, GroupMembership } from "../serialization/schema";
 import { AddNodeCommand, AddGroupCommand, AddEdgeCommand, type AddElementOps, type AddRemoveOps } from "../commands/add-remove-command";
-import { updateVisibility } from "../hierarchy/group-ops";
+import { getDescendants, updateVisibility } from "../hierarchy/group-ops";
 import { syncElement } from "../registry/sync";
 
 interface ClipboardData {
@@ -27,7 +27,7 @@ export class CanvasClipboard {
       if (!el) continue;
       collected.add(id);
       if (el.type === "group") {
-        collectDescendants(id, registry, collected);
+        for (const desc of getDescendants(id, registry)) collected.add(desc.id);
       }
     }
 
@@ -203,16 +203,3 @@ export class CanvasClipboard {
   }
 }
 
-function collectDescendants(
-  groupId: string,
-  registry: ReadonlyElementRegistry,
-  out: Set<string>,
-): void {
-  for (const child of registry.getChildrenOf(groupId)) {
-    if (out.has(child.id)) continue;
-    out.add(child.id);
-    if (child.type === "group") {
-      collectDescendants(child.id, registry, out);
-    }
-  }
-}

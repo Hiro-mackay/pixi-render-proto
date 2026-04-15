@@ -10,12 +10,9 @@ import { getDescendants } from "../hierarchy/group-ops";
 import { findGroupAt } from "../hierarchy/membership";
 import { updateEdgeGraphics } from "../elements/edge-renderer";
 
-const CLICK_THRESHOLD_PX = 5;
+import { snapToGrid } from "../geometry/snap";
 
-function snapToGrid(value: number, gridSize: number | undefined): number {
-  if (!gridSize) return value;
-  return Math.round(value / gridSize) * gridSize;
-}
+const CLICK_THRESHOLD_PX = 5;
 
 export function enableItemDrag(
   element: CanvasElement,

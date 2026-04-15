@@ -35,7 +35,10 @@ export class CanvasEventEmitter {
       this.listeners.set(event, set);
     }
     set.add(handler as Handler<never>);
-    return () => { set.delete(handler as Handler<never>); };
+    return () => {
+      set.delete(handler as Handler<never>);
+      if (set.size === 0) this.listeners.delete(event);
+    };
   }
 
   emit<E extends CanvasEventName>(event: E, data: CanvasEventMap[E]): void {

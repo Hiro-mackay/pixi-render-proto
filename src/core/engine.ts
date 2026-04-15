@@ -144,7 +144,7 @@ class CanvasEngineImpl implements CanvasEngine {
         this.resizeCleanup = enableResizeHandles(
           handles, this.selection, ctx.viewport,
           this.registry, this.history, this.getScale, syncElement, this.gridSize, this.pauseCtrl,
-          (id, width, height) => { this.events.emit("element:resize", { id, width, height }); this.afterCommand(); },
+          this.emitResizedElement,
         );
       },
     );
@@ -252,7 +252,7 @@ class CanvasEngineImpl implements CanvasEngine {
     this.dragCleanups.set(id,
       enableItemDrag(element, this.getCtx().viewport, this.registry, this.history,
         this.selection, this.getScale, syncToContainer, this.onDragStateChange, this.gridSize, this.pauseCtrl,
-        (movedIds) => { for (const mid of movedIds) { const el = this.registry.getElement(mid); if (el) this.events.emit("element:move", { id: mid, x: el.x, y: el.y }); } this.afterCommand(); }),
+        this.emitMovedElements),
     );
     this.portDragCleanups.set(id,
       enablePortDrag(element, this.getCtx().viewport, this.getScale, this.edgeCreator),
@@ -279,7 +279,7 @@ class CanvasEngineImpl implements CanvasEngine {
     this.dragCleanups.set(id,
       enableItemDrag(element, this.getCtx().viewport, this.registry, this.history,
         this.selection, this.getScale, syncToContainer, this.onDragStateChange, this.gridSize, this.pauseCtrl,
-        (movedIds) => { for (const mid of movedIds) { const el = this.registry.getElement(mid); if (el) this.events.emit("element:move", { id: mid, x: el.x, y: el.y }); } this.afterCommand(); }),
+        this.emitMovedElements),
     );
     this.events.emit("element:add", { id, type: "group" });
   }
@@ -472,6 +472,19 @@ class CanvasEngineImpl implements CanvasEngine {
     }
     return elementIds;
   }
+
+  private emitMovedElements = (movedIds: string[]): void => {
+    for (const mid of movedIds) {
+      const el = this.registry.getElement(mid);
+      if (el) this.events.emit("element:move", { id: mid, x: el.x, y: el.y });
+    }
+    this.afterCommand();
+  };
+
+  private emitResizedElement = (id: string, width: number, height: number): void => {
+    this.events.emit("element:resize", { id, width, height });
+    this.afterCommand();
+  };
 
   private afterCommand(): void {
     this.selection.update();
