@@ -23,16 +23,19 @@ export interface ReconnectResult {
   readonly newSide: Side;
 }
 
-export function createReconnectHandles(
-  edge: CanvasEdge,
-  layer: Container,
-  viewport: Viewport,
-  registry: ReadonlyElementRegistry,
-  getScale: () => number,
-  ghostLayer: Container,
-  onReconnect: (result: ReconnectResult) => void,
-  pauseCtrl?: ViewportPauseController,
-): () => void {
+export interface ReconnectHandleOptions {
+  readonly edge: CanvasEdge;
+  readonly layer: Container;
+  readonly viewport: Viewport;
+  readonly registry: ReadonlyElementRegistry;
+  readonly getScale: () => number;
+  readonly ghostLayer: Container;
+  readonly onReconnect: (result: ReconnectResult) => void;
+  readonly pauseCtrl?: ViewportPauseController;
+}
+
+export function createReconnectHandles(opts: ReconnectHandleOptions): () => void {
+  const { edge, layer, viewport, registry, getScale, ghostLayer, onReconnect, pauseCtrl } = opts;
   const sourceHandle = createEndpointHandle(getScale);
   const targetHandle = createEndpointHandle(getScale);
   layer.addChild(sourceHandle);

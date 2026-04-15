@@ -61,10 +61,10 @@ export function selectEdge(
   deps.selection.selectEdge(edgeId);
   const edge = deps.registry.getEdge(edgeId);
   if (edge) {
-    reconnectCleanup.current = createReconnectHandles(
-      edge, deps.selectionLayer, deps.viewport,
-      deps.registry, deps.getScale, deps.ghostLayer,
-      (r: ReconnectResult) => {
+    reconnectCleanup.current = createReconnectHandles({
+      edge, layer: deps.selectionLayer, viewport: deps.viewport,
+      registry: deps.registry, getScale: deps.getScale, ghostLayer: deps.ghostLayer,
+      onReconnect: (r: ReconnectResult) => {
         reconnectCleanup.current?.();
         reconnectCleanup.current = null;
         deps.history.execute(new ReconnectEdgeCommand(r.edgeId, r.endpoint, r.newNodeId, r.newSide, deps.registry));
@@ -72,8 +72,8 @@ export function selectEdge(
         deps.afterCommand();
         selectEdge(r.edgeId, deps, reconnectCleanup);
       },
-      deps.pauseCtrl,
-    );
+      pauseCtrl: deps.pauseCtrl,
+    });
   }
   deps.redraw.markAllDirty();
   deps.redraw.flush();

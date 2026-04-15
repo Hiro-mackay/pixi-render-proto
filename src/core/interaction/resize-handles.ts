@@ -34,18 +34,22 @@ const HANDLE_META: readonly HandleMeta[] = [
   { axis: "horizontal", anchorX: "right", anchorY: "none" },   // W
 ] as const;
 
-export function enableResizeHandles(
-  handles: Container[],
-  selection: SelectionState,
-  viewport: Viewport,
-  registry: ElementRegistry,
-  history: CommandHistory,
-  getScale: () => number,
-  sync: (el: CanvasElement) => void,
-  gridSize?: number,
-  pauseCtrl?: ViewportPauseController,
-  onResizeEnd?: (id: string, width: number, height: number) => void,
-): () => void {
+export interface ResizeHandleOptions {
+  readonly handles: Container[];
+  readonly selection: SelectionState;
+  readonly viewport: Viewport;
+  readonly registry: ElementRegistry;
+  readonly history: CommandHistory;
+  readonly getScale: () => number;
+  readonly sync: (el: CanvasElement) => void;
+  readonly gridSize?: number;
+  readonly pauseCtrl?: ViewportPauseController;
+  readonly onResizeEnd?: (id: string, width: number, height: number) => void;
+}
+
+export function enableResizeHandles(opts: ResizeHandleOptions): () => void {
+  const { handles, selection, viewport, registry, history, getScale, sync,
+    gridSize, pauseCtrl, onResizeEnd } = opts;
   const cleanups: (() => void)[] = [];
 
   for (let i = 0; i < handles.length; i++) {

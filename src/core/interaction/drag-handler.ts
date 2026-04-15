@@ -14,19 +14,23 @@ import { snapToGrid } from "../geometry/snap";
 
 const CLICK_THRESHOLD_PX = 5;
 
-export function enableItemDrag(
-  element: CanvasElement,
-  viewport: Viewport,
-  registry: ElementRegistry,
-  history: CommandHistory,
-  selection: SelectionState,
-  getScale: () => number,
-  sync: (el: CanvasElement) => void,
-  onDragStateChange?: (dragging: boolean) => void,
-  gridSize?: number,
-  pauseCtrl?: ViewportPauseController,
-  onDragEnd?: (movedIds: string[]) => void,
-): () => void {
+export interface ItemDragOptions {
+  readonly element: CanvasElement;
+  readonly viewport: Viewport;
+  readonly registry: ElementRegistry;
+  readonly history: CommandHistory;
+  readonly selection: SelectionState;
+  readonly getScale: () => number;
+  readonly sync: (el: CanvasElement) => void;
+  readonly onDragStateChange?: (dragging: boolean) => void;
+  readonly gridSize?: number;
+  readonly pauseCtrl?: ViewportPauseController;
+  readonly onDragEnd?: (movedIds: string[]) => void;
+}
+
+export function enableItemDrag(opts: ItemDragOptions): () => void {
+  const { element, viewport, registry, history, selection, getScale, sync,
+    onDragStateChange, gridSize, pauseCtrl, onDragEnd } = opts;
   let dragging = false;
   let movedDistance = 0;
   let downPos = { x: 0, y: 0 };

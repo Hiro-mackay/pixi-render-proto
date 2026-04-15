@@ -141,11 +141,12 @@ class CanvasEngineImpl implements CanvasEngine {
       this.selectionLayer, this.registry, this.getScale,
       (handles) => {
         this.resizeCleanup?.();
-        this.resizeCleanup = enableResizeHandles(
-          handles, this.selection, ctx.viewport,
-          this.registry, this.history, this.getScale, syncElement, this.gridSize, this.pauseCtrl,
-          this.emitResizedElement,
-        );
+        this.resizeCleanup = enableResizeHandles({
+          handles, selection: this.selection, viewport: ctx.viewport,
+          registry: this.registry, history: this.history, getScale: this.getScale,
+          sync: syncElement, gridSize: this.gridSize, pauseCtrl: this.pauseCtrl,
+          onResizeEnd: this.emitResizedElement,
+        });
       },
     );
     this.selection.setOnSelectionChange((selectedIds) => {
@@ -250,9 +251,12 @@ class CanvasEngineImpl implements CanvasEngine {
     this.getCtx().viewport.addChild(element.container);
     this.redraw.registerTree(element.container);
     this.dragCleanups.set(id,
-      enableItemDrag(element, this.getCtx().viewport, this.registry, this.history,
-        this.selection, this.getScale, syncToContainer, this.onDragStateChange, this.gridSize, this.pauseCtrl,
-        this.emitMovedElements),
+      enableItemDrag({
+        element, viewport: this.getCtx().viewport, registry: this.registry, history: this.history,
+        selection: this.selection, getScale: this.getScale, sync: syncToContainer,
+        onDragStateChange: this.onDragStateChange, gridSize: this.gridSize,
+        pauseCtrl: this.pauseCtrl, onDragEnd: this.emitMovedElements,
+      }),
     );
     this.portDragCleanups.set(id,
       enablePortDrag(element, this.getCtx().viewport, this.getScale, this.edgeCreator),
@@ -277,9 +281,12 @@ class CanvasEngineImpl implements CanvasEngine {
       toggleBtn.on("pointerdown", (e) => { e.stopPropagation(); this.toggleCollapse(id); });
     }
     this.dragCleanups.set(id,
-      enableItemDrag(element, this.getCtx().viewport, this.registry, this.history,
-        this.selection, this.getScale, syncToContainer, this.onDragStateChange, this.gridSize, this.pauseCtrl,
-        this.emitMovedElements),
+      enableItemDrag({
+        element, viewport: this.getCtx().viewport, registry: this.registry, history: this.history,
+        selection: this.selection, getScale: this.getScale, sync: syncToContainer,
+        onDragStateChange: this.onDragStateChange, gridSize: this.gridSize,
+        pauseCtrl: this.pauseCtrl, onDragEnd: this.emitMovedElements,
+      }),
     );
     this.events.emit("element:add", { id, type: "group" });
   }
