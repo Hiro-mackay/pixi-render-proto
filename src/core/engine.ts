@@ -144,6 +144,7 @@ class CanvasEngineImpl implements CanvasEngine {
         this.resizeCleanup = enableResizeHandles(
           handles, this.selection, ctx.viewport,
           this.registry, this.history, this.getScale, syncElement, this.gridSize, this.pauseCtrl,
+          (id, width, height) => { this.events.emit("element:resize", { id, width, height }); this.afterCommand(); },
         );
       },
     );
@@ -248,7 +249,8 @@ class CanvasEngineImpl implements CanvasEngine {
     this.redraw.registerTree(element.container);
     this.dragCleanups.set(id,
       enableItemDrag(element, this.getCtx().viewport, this.registry, this.history,
-        this.selection, this.getScale, syncToContainer, this.onDragStateChange, this.gridSize, this.pauseCtrl),
+        this.selection, this.getScale, syncToContainer, this.onDragStateChange, this.gridSize, this.pauseCtrl,
+        (movedIds) => { for (const mid of movedIds) { const el = this.registry.getElement(mid); if (el) this.events.emit("element:move", { id: mid, x: el.x, y: el.y }); } this.afterCommand(); }),
     );
     this.portDragCleanups.set(id,
       enablePortDrag(element, this.getCtx().viewport, this.getScale, this.edgeCreator),
@@ -274,7 +276,8 @@ class CanvasEngineImpl implements CanvasEngine {
     }
     this.dragCleanups.set(id,
       enableItemDrag(element, this.getCtx().viewport, this.registry, this.history,
-        this.selection, this.getScale, syncToContainer, this.onDragStateChange, this.gridSize, this.pauseCtrl),
+        this.selection, this.getScale, syncToContainer, this.onDragStateChange, this.gridSize, this.pauseCtrl,
+        (movedIds) => { for (const mid of movedIds) { const el = this.registry.getElement(mid); if (el) this.events.emit("element:move", { id: mid, x: el.x, y: el.y }); } this.afterCommand(); }),
     );
     this.events.emit("element:add", { id, type: "group" });
   }

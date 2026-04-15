@@ -28,6 +28,7 @@ export function enableItemDrag(
   onDragStateChange?: (dragging: boolean) => void,
   gridSize?: number,
   pauseCtrl?: ViewportPauseController,
+  onDragEnd?: (movedIds: string[]) => void,
 ): () => void {
   let dragging = false;
   let movedDistance = 0;
@@ -158,6 +159,7 @@ export function enableItemDrag(
         });
         history.batch(commands);
       }
+      onDragEnd?.(dragRoots);
     }
 
     participants = [];

@@ -6,7 +6,7 @@ export const CanvasContext = createContext<CanvasEngine | null>(null);
 interface CanvasProviderProps {
   readonly children?: ReactNode;
   readonly options?: Omit<EngineOptions, "signal">;
-  readonly onReady?: (engine: CanvasEngine, signal: AbortSignal) => void;
+  readonly onReady?: (engine: CanvasEngine, signal: AbortSignal) => void | Promise<void>;
 }
 
 export function CanvasProvider({ children, options, onReady }: CanvasProviderProps) {
@@ -21,18 +21,20 @@ export function CanvasProvider({ children, options, onReady }: CanvasProviderPro
     const ac = new AbortController();
     let eng: CanvasEngine | undefined;
 
-    createCanvasEngine(container, { ...options, signal: ac.signal })
-      .then((e) => {
-        if (ac.signal.aborted) { e.destroy(); return; }
-        eng = e;
-        setEngine(e);
-        onReady?.(e, ac.signal);
-      })
-      .catch((err: unknown) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        if (err instanceof Error) setInitError(err);
-        else setInitError(new Error(String(err)));
-      });
+    (async () => {
+      const e = await createCanvasEngine(container, { ...options, signal: ac.signal });
+      if (ac.signal.aborted) { e.destroy(); return; }
+      eng = e;
+      setEngine(e);
+      if (onReady) {
+        await onReady(e, ac.signal);
+      }
+    })().catch((err: unknown) => {
+      if (ac.signal.aborted) return;
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      if (err instanceof Error) setInitError(err);
+      else setInitError(new Error(String(err)));
+    });
 
     return () => {
       ac.abort();
@@ -41,7 +43,6 @@ export function CanvasProvider({ children, options, onReady }: CanvasProviderPro
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- engine created once
 
-  // Throw during render so Error Boundaries can catch it
   if (initError) throw initError;
 
   return (

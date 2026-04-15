@@ -48,6 +48,7 @@ export function enableResizeHandles(
   sync: (el: CanvasElement) => void,
   gridSize?: number,
   pauseCtrl?: ViewportPauseController,
+  onResizeEnd?: (id: string, width: number, height: number) => void,
 ): () => void {
   const cleanups: (() => void)[] = [];
 
@@ -128,6 +129,7 @@ export function enableResizeHandles(
       for (const edge of registry.getEdgesForNode(element.id)) {
         updateEdgeGraphics(edge, registry, getScale);
       }
+      onResizeEnd?.(element.id, element.width, element.height);
       element = null;
     };
 

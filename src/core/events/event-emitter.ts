@@ -1,8 +1,6 @@
 import type { Side } from "../types";
 
 export type CanvasEventMap = {
-  "element:select": { ids: readonly string[] };
-  "element:deselect": { ids: readonly string[] };
   "element:move": { id: string; x: number; y: number };
   "element:resize": { id: string; width: number; height: number };
   "edge:create": { id: string };
