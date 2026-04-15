@@ -1,4 +1,5 @@
 import type { Command } from "./command";
+import type { EventDescriptor } from "../events/event-emitter";
 import type { ElementRegistry } from "../registry/element-registry";
 import type { CanvasElement } from "../types";
 import { COLLAPSED_HEIGHT } from "../types";
@@ -46,5 +47,11 @@ export class CollapseCommand implements Command {
     group.height = this.prevHeight;
     this.sync(group);
     updateVisibility(this.groupId, this.registry, this.sync);
+  }
+
+  getDomainEvents(): readonly EventDescriptor[] {
+    const group = this.registry.getElement(this.groupId);
+    if (group?.type !== "group") return [];
+    return [{ event: group.meta.collapsed ? "group:collapse" : "group:expand", data: { id: this.groupId } }];
   }
 }

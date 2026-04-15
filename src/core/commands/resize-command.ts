@@ -1,6 +1,7 @@
 import type { CanvasElement } from "../types";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
 import type { Command } from "./command";
+import type { EventDescriptor } from "../events/event-emitter";
 
 export interface ResizeRect {
   readonly x: number;
@@ -57,6 +58,11 @@ export class ResizeCommand implements Command {
 
   undo(): void {
     this.applyRect(this.oldRect, this.oldExpandedHeight);
+  }
+
+  getDomainEvents(): readonly EventDescriptor[] {
+    const el = this.registry.getElementOrThrow(this.elementId);
+    return [{ event: "element:resize", data: { id: this.elementId, width: el.width, height: el.height } }];
   }
 
   merge(other: Command): Command | null {

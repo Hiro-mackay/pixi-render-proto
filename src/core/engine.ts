@@ -98,7 +98,14 @@ class CanvasEngineImpl implements CanvasEngine {
   private destroyed = false;
   readonly registry = new ElementRegistry();
   private readonly redraw = new RedrawManager();
-  private readonly history = new CommandHistory();
+  private readonly history = new CommandHistory(200, (cmd, direction) => {
+    const domainEvents = cmd.getDomainEvents?.(direction);
+    if (domainEvents) {
+      for (const { event, data } of domainEvents) {
+        this.events.emit(event, data);
+      }
+    }
+  });
   private readonly events = new CanvasEventEmitter();
   private readonly edgeLineLayer = new Container();
   private readonly edgeLabelLayer = new Container();

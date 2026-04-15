@@ -17,6 +17,10 @@ export type CanvasEventMap = {
 
 export type CanvasEventName = keyof CanvasEventMap;
 
+export type EventDescriptor = {
+  [E in CanvasEventName]: { readonly event: E; readonly data: CanvasEventMap[E] };
+}[CanvasEventName];
+
 type Handler<E extends CanvasEventName> = (data: CanvasEventMap[E]) => void;
 
 export class CanvasEventEmitter {

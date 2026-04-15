@@ -1,6 +1,7 @@
 import type { CanvasElement } from "../types";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
 import type { Command } from "./command";
+import type { EventDescriptor } from "../events/event-emitter";
 
 export class MoveCommand implements Command {
   readonly type = "move";
@@ -34,6 +35,11 @@ export class MoveCommand implements Command {
     el.x = this.oldX;
     el.y = this.oldY;
     this.sync(el);
+  }
+
+  getDomainEvents(): readonly EventDescriptor[] {
+    const el = this.registry.getElementOrThrow(this.elementId);
+    return [{ event: "element:move", data: { id: this.elementId, x: el.x, y: el.y } }];
   }
 
   merge(other: Command): Command | null {

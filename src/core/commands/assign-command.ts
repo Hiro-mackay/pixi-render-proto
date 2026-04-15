@@ -1,4 +1,5 @@
 import type { Command } from "./command";
+import type { EventDescriptor } from "../events/event-emitter";
 import type { CanvasElement } from "../types";
 import type { ElementRegistry } from "../registry/element-registry";
 import { applyParentChange } from "../hierarchy/group-ops";
@@ -22,5 +23,16 @@ export class AssignCommand implements Command {
 
   undo(): void {
     applyParentChange(this.childId, this.oldParent, this.registry, this.sync);
+  }
+
+  getDomainEvents(direction: "execute" | "undo"): readonly EventDescriptor[] {
+    return [{
+      event: "group:membership",
+      data: {
+        childId: this.childId,
+        oldGroupId: direction === "execute" ? this.oldParent : this.newParent,
+        newGroupId: direction === "execute" ? this.newParent : this.oldParent,
+      },
+    }];
   }
 }

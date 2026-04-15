@@ -1,3 +1,5 @@
+import type { EventDescriptor } from "../events/event-emitter";
+
 export type CommandType =
   | "move" | "resize" | "drag"
   | "assign" | "delete" | "collapse"
@@ -6,21 +8,25 @@ export type CommandType =
 
 export interface Command {
   readonly type: CommandType;
-  /** Must be idempotent — redo calls execute() again on the same instance. */
   execute(): void;
   undo(): void;
   merge?(other: Command): Command | null;
+  getDomainEvents?(direction: "execute" | "undo"): readonly EventDescriptor[];
 }
 
 const DEFAULT_MAX_HISTORY = 200;
+
+type CommandAppliedCallback = (cmd: Command, direction: "execute" | "undo") => void;
 
 export class CommandHistory {
   private undoStack: Command[] = [];
   private redoStack: Command[] = [];
   private readonly maxSize: number;
+  private readonly onCommandApplied?: CommandAppliedCallback;
 
-  constructor(maxSize = DEFAULT_MAX_HISTORY) {
+  constructor(maxSize = DEFAULT_MAX_HISTORY, onCommandApplied?: CommandAppliedCallback) {
     this.maxSize = maxSize;
+    this.onCommandApplied = onCommandApplied;
   }
 
   get canUndo(): boolean {
@@ -56,6 +62,7 @@ export class CommandHistory {
     if (!command) return;
     command.undo();
     this.redoStack.push(command);
+    this.onCommandApplied?.(command, "undo");
   }
 
   redo(): void {
@@ -63,6 +70,7 @@ export class CommandHistory {
     if (!command) return;
     command.execute();
     this.undoStack.push(command);
+    this.onCommandApplied?.(command, "execute");
   }
 
   batch(commands: readonly Command[]): void {
@@ -71,6 +79,9 @@ export class CommandHistory {
       type: "batch",
       execute() { for (const c of commands) c.execute(); },
       undo() { for (let i = commands.length - 1; i >= 0; i--) commands[i]!.undo(); },
+      getDomainEvents(direction) {
+        return commands.flatMap((c) => c.getDomainEvents?.(direction) ?? []);
+      },
     };
     this.execute(batchCmd);
   }
