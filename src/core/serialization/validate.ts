@@ -90,6 +90,12 @@ function validateEdge(e: unknown): void {
   if (!isString(o["targetId"])) throw new Error(`Edge "${o["id"]}": targetId must be a string`);
   if (!isSide(o["sourceSide"])) throw new Error(`Edge "${o["id"]}": sourceSide must be top/right/bottom/left`);
   if (!isSide(o["targetSide"])) throw new Error(`Edge "${o["id"]}": targetSide must be top/right/bottom/left`);
+  if (o["label"] !== undefined && o["label"] !== null && !isString(o["label"])) {
+    throw new Error(`Edge "${o["id"]}": label must be a string or undefined`);
+  }
+  if (o["labelColor"] !== undefined && o["labelColor"] !== null && !isFiniteNumber(o["labelColor"])) {
+    throw new Error(`Edge "${o["id"]}": labelColor must be a finite number or undefined`);
+  }
 }
 
 function validateMembership(m: unknown): void {

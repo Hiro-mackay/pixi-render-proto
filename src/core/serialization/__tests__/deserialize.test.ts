@@ -163,6 +163,48 @@ describe("deserializeScene", () => {
     expect(engine.viewport.setZoom).not.toHaveBeenCalled();
   });
 
+  test("should reject invalid scene data at validation boundary", () => {
+    expect(() => deserializeScene(null, ctx)).toThrow();
+    expect(() => deserializeScene({ version: 1 }, ctx)).toThrow(/nodes/);
+    expect(() => deserializeScene({
+      version: 1, nodes: [], groups: [], edges: [{ id: "e1", sourceId: "n1", sourceSide: "right", targetId: "n2", targetSide: "left", label: 42 }], groupMemberships: [],
+    }, ctx)).toThrow(/label/);
+    expect(() => deserializeScene({
+      version: 1, nodes: [], groups: [], edges: [{ id: "e1", sourceId: "n1", sourceSide: "right", targetId: "n2", targetSide: "left", labelColor: "red" }], groupMemberships: [],
+    }, ctx)).toThrow(/labelColor/);
+  });
+
+  test("should rollback on partial import failure", () => {
+    // Pre-populate scene
+    registry.addElement("existing", makeNode("existing", 0, 0, 100, 50));
+
+    // Craft data where the second node has a duplicate ID of a group, causing addNode to throw
+    const badEngine = {
+      ...engine,
+      addNode: vi.fn((id: string, opts: { x: number; y: number; width: number; height: number; label: string; color: number }) => {
+        if (id === "n-bomb") throw new Error("boom");
+        registry.addElement(id, makeNode(id, opts.x, opts.y, opts.width, opts.height));
+      }),
+    } as unknown as CanvasEngine;
+    const badCtx: DeserializeContext = { engine: badEngine, registry, history };
+
+    const data: SceneData = {
+      version: 1,
+      nodes: [
+        { id: "n-ok", x: 0, y: 0, width: 100, height: 50, label: "OK", color: 0x333 },
+        { id: "n-bomb", x: 0, y: 0, width: 100, height: 50, label: "Fail", color: 0x333 },
+      ],
+      groups: [], edges: [], groupMemberships: [],
+    };
+
+    expect(() => deserializeScene(data, badCtx)).toThrow("boom");
+
+    // Original element should be restored via rollback
+    expect(registry.getElement("existing")).toBeDefined();
+    // Partial import element should not remain
+    expect(registry.getElement("n-ok")).toBeUndefined();
+  });
+
   test("should round-trip via serialize -> deserialize", () => {
     // Build a scene
     registry.addElement("n1", makeNode("n1", 10, 20, 100, 50));
