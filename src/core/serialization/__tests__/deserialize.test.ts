@@ -164,7 +164,7 @@ describe("deserializeScene", () => {
   });
 
   test("should throw when scene data is null", () => {
-    expect(() => deserializeScene(null, ctx)).toThrow();
+    expect(() => deserializeScene(null, ctx)).toThrow(/non-null object/);
   });
 
   test("should throw when nodes array is missing", () => {
@@ -211,6 +211,26 @@ describe("deserializeScene", () => {
     expect(registry.getElement("existing")).toBeDefined();
     // Partial import element should not remain
     expect(registry.getElement("n-ok")).toBeUndefined();
+  });
+
+  test("should preserve history state when import fails and rolls back", () => {
+    history.execute({ type: "move", execute() {}, undo() {} });
+    expect(history.canUndo).toBe(true);
+
+    const data = {
+      version: 1,
+      nodes: [{ id: "n-bomb", x: 0, y: 0, width: 100, height: 50, label: "Fail", color: 0x333 }],
+      groups: [], edges: [], groupMemberships: [],
+    } as unknown as SceneData;
+
+    const badEngine = {
+      ...engine,
+      addNode: vi.fn(() => { throw new Error("boom"); }),
+    } as unknown as CanvasEngine;
+
+    expect(() => deserializeScene(data, { engine: badEngine, registry, history })).toThrow("boom");
+    // history.clear() is only called on success, so pre-existing history survives
+    expect(history.canUndo).toBe(true);
   });
 
   test("should round-trip via serialize -> deserialize", () => {

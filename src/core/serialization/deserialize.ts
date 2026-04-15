@@ -53,7 +53,11 @@ export function deserializeScene(data: unknown, ctx: DeserializeContext): void {
     try {
       applyScene(snapshot, ctx);
     } catch (rollbackErr) {
-      console.error("Rollback after failed import also failed:", rollbackErr);
+      const message = rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr);
+      throw new Error(
+        `Import failed: ${err instanceof Error ? err.message : String(err)}. ` +
+        `Rollback also failed: ${message}. Scene may be in an inconsistent state.`,
+      );
     }
     throw err;
   }
