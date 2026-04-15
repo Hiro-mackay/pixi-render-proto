@@ -148,6 +148,9 @@ class CanvasEngineImpl implements CanvasEngine {
         );
       },
     );
+    this.selection.setOnSelectionChange((selectedIds) => {
+      this.events.emit("selection:change", { selectedIds });
+    });
     ctx.viewport.addChild(this.selectionLayer);
 
     const deps = this.actionDeps();
@@ -173,7 +176,6 @@ class CanvasEngineImpl implements CanvasEngine {
           sourceId: event.sourceId, sourceSide: event.sourceSide,
           targetId: event.targetId, targetSide: event.targetSide,
         }, this.addRemoveOps));
-        this.events.emit("edge:create", { id: edgeId });
         this.afterCommand();
       },
       this.pauseCtrl,
@@ -305,6 +307,7 @@ class CanvasEngineImpl implements CanvasEngine {
     });
     const vp = this.getCtx().viewport;
     vp.setChildIndex(this.selectionLayer, vp.children.length - 1);
+    this.events.emit("edge:create", { id });
   }
 
   removeElement(id: string): void {
@@ -332,6 +335,7 @@ class CanvasEngineImpl implements CanvasEngine {
     if (edge.labelPill) this.redraw.unregister(edge.labelPill);
     removeEdgeGraphics(edge);
     this.registry.removeEdge(id);
+    this.events.emit("edge:delete", { id });
   }
 
   // --- Mutations ---
@@ -388,7 +392,6 @@ class CanvasEngineImpl implements CanvasEngine {
     if (!first) { this.selection.clear(); }
     else if (ids.length === 1) { this.selection.select(first); }
     else { this.selection.selectMultiple(ids); }
-    this.events.emit("selection:change", { selectedIds: ids });
   }
 
   selectAll(): void { this.select([...this.registry.getAllElements().keys()]); }
@@ -396,7 +399,6 @@ class CanvasEngineImpl implements CanvasEngine {
   clearSelection(): void {
     this.reconnectCleanup.current?.(); this.reconnectCleanup.current = null;
     this.selection.clear();
-    this.events.emit("selection:change", { selectedIds: [] });
   }
 
   getSelection(): readonly string[] { return [...this.selection.getSelectedIds()]; }

@@ -117,10 +117,13 @@ export function enableItemDrag(
     onDragStateChange?.(false);
 
     if (movedDistance < CLICK_THRESHOLD_PX) {
-      // Restore original positions
+      // Restore original positions and edge graphics
       for (const [id, pos] of startPositions) {
         const el = registry.getElement(id);
         if (el) { el.x = pos.x; el.y = pos.y; sync(el); }
+      }
+      for (const edge of cachedEdges) {
+        updateEdgeGraphics(edge, registry, getScale);
       }
       // Click behavior
       if (shiftHeld) {

@@ -5,15 +5,10 @@ import type { SceneData } from "./schema";
 import { validateSceneData } from "./validate";
 import { updateVisibility } from "../hierarchy/group-ops";
 import { syncElement } from "../registry/sync";
+import { serialize as serializeScene } from "./serialize";
 
 const CURRENT_VERSION = 1;
 
-/**
- * Version migration infrastructure.
- * Each migrator transforms data from version N to N+1.
- * Add entries as new versions are introduced:
- *   migrators.set(1, migrateV1toV2);
- */
 const migrators = new Map<number, (data: unknown) => unknown>();
 
 function migrate(data: SceneData): SceneData {
@@ -45,20 +40,38 @@ export function deserializeScene(data: unknown, ctx: DeserializeContext): void {
 
   const scene = validated.version < CURRENT_VERSION ? migrate(validated) : validated;
 
-  // Clear existing scene
+  // Snapshot current scene for rollback on failure
+  const snapshot = serializeScene(ctx.registry);
+
+  clearScene(ctx);
+
+  try {
+    applyScene(scene, ctx);
+  } catch (err) {
+    // Rollback: clear partial import and restore previous scene
+    clearScene(ctx);
+    try { applyScene(snapshot, ctx); }
+    catch { /* best-effort rollback */ }
+    throw err;
+  }
+
+  ctx.history.clear();
+}
+
+function clearScene(ctx: DeserializeContext): void {
   for (const id of [...ctx.registry.getAllEdges().keys()]) {
     ctx.engine.removeEdge(id);
   }
   for (const id of [...ctx.registry.getAllElements().keys()]) {
     ctx.engine.removeElement(id);
   }
+}
 
-  // Add groups first (parents before children for hierarchy)
+function applyScene(scene: SceneData, ctx: DeserializeContext): void {
   for (const g of scene.groups) {
     ctx.engine.addGroup(g.id, {
       label: g.label, x: g.x, y: g.y, width: g.width, height: g.height, color: g.color,
     });
-    // Restore collapsed state directly (bypass toggleCollapse to avoid Command/redraw)
     if (g.collapsed) {
       const el = ctx.registry.getElement(g.id);
       if (el?.type === "group") {
@@ -69,28 +82,24 @@ export function deserializeScene(data: unknown, ctx: DeserializeContext): void {
     }
   }
 
-  // Add nodes
   for (const n of scene.nodes) {
     ctx.engine.addNode(n.id, {
       label: n.label, x: n.x, y: n.y, width: n.width, height: n.height, color: n.color,
     });
   }
 
-  // Apply group memberships directly (bypass Command)
   for (const m of scene.groupMemberships) {
     if (ctx.registry.getElement(m.childId) && ctx.registry.getElement(m.groupId)) {
       ctx.registry.setParentGroup(m.childId, m.groupId);
     }
   }
 
-  // Recompute visibility for collapsed groups (setParentGroup doesn't update visibility)
   for (const g of scene.groups) {
     if (g.collapsed) {
       updateVisibility(g.id, ctx.registry, syncElement);
     }
   }
 
-  // Add edges (skip if source/target missing in the data)
   for (const e of scene.edges) {
     if (!ctx.registry.getElement(e.sourceId) || !ctx.registry.getElement(e.targetId)) continue;
     ctx.engine.addEdge(e.id, {
@@ -100,11 +109,8 @@ export function deserializeScene(data: unknown, ctx: DeserializeContext): void {
     });
   }
 
-  // Restore viewport position
   if (scene.viewport) {
     ctx.engine.viewport.moveCenter(scene.viewport.x, scene.viewport.y);
     ctx.engine.viewport.setZoom(scene.viewport.zoom, true);
   }
-
-  ctx.history.clear();
 }

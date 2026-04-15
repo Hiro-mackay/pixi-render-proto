@@ -93,7 +93,6 @@ export function deleteSelected(
   if (edgeId) {
     deps.clearSelection();
     deps.history.execute(new RemoveEdgeCommand(edgeId, deps.registry, addRemoveOps));
-    deps.events.emit("edge:delete", { id: edgeId });
     deps.afterCommand();
     return;
   }

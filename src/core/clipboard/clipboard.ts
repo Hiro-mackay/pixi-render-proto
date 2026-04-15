@@ -18,7 +18,7 @@ export class CanvasClipboard {
   private data: ClipboardData | null = null;
 
   copy(selectedIds: ReadonlySet<string>, registry: ReadonlyElementRegistry): void {
-    if (selectedIds.size === 0) return;
+    if (selectedIds.size === 0) { this.data = null; return; }
 
     // Collect all element IDs (including group descendants)
     const collected = new Set<string>();

@@ -26,12 +26,22 @@ export class SelectionState {
     return this.handles;
   }
 
+  private onSelectionChange?: (selectedIds: readonly string[]) => void;
+
   constructor(
     private readonly selectionLayer: Container,
     private readonly registry: ReadonlyElementRegistry,
     private readonly getScale: () => number,
     private readonly onHandlesCreated?: (handles: Graphics[]) => void,
   ) {}
+
+  setOnSelectionChange(cb: (selectedIds: readonly string[]) => void): void {
+    this.onSelectionChange = cb;
+  }
+
+  private notifyChange(): void {
+    this.onSelectionChange?.([...this.selectedIds]);
+  }
 
   // --- Element selection ---
 
@@ -40,12 +50,12 @@ export class SelectionState {
     this.clearEdge();
     this.clearElements();
     this.addToSelection(id);
+    this.notifyChange();
   }
 
   selectMultiple(ids: readonly string[]): void {
     this.clearEdge();
     this.clearElements();
-    // Add all outlines first, then conditionally add handles for single selection
     for (const id of ids) {
       const el = this.registry.getElement(id);
       if (!el) continue;
@@ -61,6 +71,7 @@ export class SelectionState {
       const ports = el.container.children.find((c) => c.label === "ports");
       if (ports) ports.visible = true;
     }
+    this.notifyChange();
   }
 
   toggle(id: string): void {
@@ -70,11 +81,14 @@ export class SelectionState {
     } else {
       this.addToSelection(id);
     }
+    this.notifyChange();
   }
 
   clear(): void {
+    const hadSelection = this.selectedIds.size > 0 || this.selectedEdgeId !== null;
     this.clearEdge();
     this.clearElements();
+    if (hadSelection) this.notifyChange();
   }
 
   getSelectedId(): string | null {
@@ -206,7 +220,11 @@ export class SelectionState {
   private clearEdge(): void {
     if (!this.selectedEdgeId) return;
     const edge = this.registry.getEdge(this.selectedEdgeId);
-    if (edge) edge.selected = false;
+    if (edge) {
+      edge.selected = false;
+      // Mark the line dirty so the next redraw flush restores non-selected style
+      edge._posCache = undefined;
+    }
     this.selectedEdgeId = null;
   }
 

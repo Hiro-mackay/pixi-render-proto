@@ -96,19 +96,22 @@ export class EdgeCreator {
       { x: world.x, y: world.y }, this.registry, this.sourceId,
     );
 
-    if (target) {
-      const targetSide = getNearestSide(
-        { x: target.x, y: target.y, width: target.width, height: target.height },
-        world,
-      );
-      this.onEdgeCreated({
-        sourceId: this.sourceId,
-        sourceSide: this.sourceSide,
-        targetId: target.id,
-        targetSide,
-      });
+    try {
+      if (target) {
+        const targetSide = getNearestSide(
+          { x: target.x, y: target.y, width: target.width, height: target.height },
+          world,
+        );
+        this.onEdgeCreated({
+          sourceId: this.sourceId,
+          sourceSide: this.sourceSide,
+          targetId: target.id,
+          targetSide,
+        });
+      }
+    } finally {
+      this.cancel();
     }
-    this.cancel();
   }
 
   cancel(): void {
