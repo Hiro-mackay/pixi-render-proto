@@ -58,8 +58,9 @@ export function createGroupGraphics(
   const container = new Container();
   container.label = element.id;
   container.position.set(element.x, element.y);
-  container.eventMode = "static";
-  container.cursor = "grab";
+  // Use passive so that edges behind the group body remain clickable.
+  // The drag-handle child (header area) provides the interactive hit target.
+  container.eventMode = "passive";
 
   const meta = element.meta;
   const borderColor = meta.color;
@@ -67,6 +68,7 @@ export function createGroupGraphics(
 
   const bg: Redrawable = new Graphics();
   bg.label = "group-bg";
+  bg.eventMode = "none";
   const drawBg = () => {
     bg.clear();
     bg.roundRect(0, 0, element.width, element.height, GROUP_CORNER_RADIUS);
@@ -76,6 +78,20 @@ export function createGroupGraphics(
   drawBg();
   bg.__redraw = drawBg;
   container.addChild(bg);
+
+  // Header drag handle — the interactive zone for group selection and dragging
+  const dragHandle = new Graphics();
+  dragHandle.label = "group-drag-handle";
+  dragHandle.eventMode = "static";
+  dragHandle.cursor = "grab";
+  const drawDragHandle = () => {
+    dragHandle.clear();
+    dragHandle.rect(0, 0, element.width, HEADER_HEIGHT);
+    dragHandle.fill({ color: 0x000000, alpha: 0 });
+  };
+  drawDragHandle();
+  (dragHandle as Redrawable).__redraw = drawDragHandle;
+  container.addChild(dragHandle);
 
   const iconSprite = new Sprite();
   iconSprite.width = ICON_SIZE;

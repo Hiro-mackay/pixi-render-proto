@@ -174,18 +174,25 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
     startParentGroupIds = new Map();
   };
 
-  element.container.eventMode = "static";
-  element.container.cursor = "grab";
-  element.container.on("pointerdown", onPointerDown);
-  element.container.on("globalpointermove", onPointerMove);
-  element.container.on("pointerup", onPointerUp);
-  element.container.on("pointerupoutside", onPointerUp);
+  // For groups, bind to the drag-handle child so edges behind the group body remain clickable.
+  // For nodes, bind to the container directly.
+  const dragTarget = element.type === "group"
+    ? element.container.children.find((c) => c.label === "group-drag-handle") ?? element.container
+    : element.container;
+  if (element.type !== "group") {
+    element.container.eventMode = "static";
+    element.container.cursor = "grab";
+  }
+  dragTarget.on("pointerdown", onPointerDown);
+  dragTarget.on("globalpointermove", onPointerMove);
+  dragTarget.on("pointerup", onPointerUp);
+  dragTarget.on("pointerupoutside", onPointerUp);
 
   return () => {
-    element.container.off("pointerdown", onPointerDown);
-    element.container.off("globalpointermove", onPointerMove);
-    element.container.off("pointerup", onPointerUp);
-    element.container.off("pointerupoutside", onPointerUp);
+    dragTarget.off("pointerdown", onPointerDown);
+    dragTarget.off("globalpointermove", onPointerMove);
+    dragTarget.off("pointerup", onPointerUp);
+    dragTarget.off("pointerupoutside", onPointerUp);
   };
 }
 

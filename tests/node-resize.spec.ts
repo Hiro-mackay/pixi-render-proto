@@ -171,8 +171,28 @@ test.describe("Node Resize", () => {
     const box = await canvas.boundingBox();
     if (!box) throw new Error("Canvas not found");
 
-    // Zoom in
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    // Find a node screen position before zoom
+    const nodeScreen = await page.evaluate(() => {
+      const app = (window as any).__PIXI_APP__;
+      if (!app?.stage) return null;
+      let vp: any = null;
+      for (const c of app.stage.children) { if (c.children?.length > 5) { vp = c; break; } }
+      if (!vp) return null;
+      const sw = app.renderer.width, sh = app.renderer.height;
+      for (const c of vp.children) {
+        if (!c.label?.startsWith("node-")) continue;
+        const b = c.getBounds();
+        const gx = b.x + b.width / 2, gy = b.y + b.height / 2;
+        if (gx > 150 && gy > 150 && gx < sw - 150 && gy < sh - 150) {
+          return { x: gx, y: gy };
+        }
+      }
+      return null;
+    });
+    if (!nodeScreen) throw new Error("No node found on screen");
+
+    // Zoom in centered on the node
+    await page.mouse.move(box.x + nodeScreen.x, box.y + nodeScreen.y);
     await page.keyboard.down("Control");
     for (let i = 0; i < 5; i++) {
       await page.mouse.wheel(0, -120);
@@ -181,8 +201,8 @@ test.describe("Node Resize", () => {
     await page.keyboard.up("Control");
     await page.waitForTimeout(600);
 
-    const cx = box.x + box.width / 2;
-    const cy = box.y + box.height / 2;
+    const cx = box.x + nodeScreen.x;
+    const cy = box.y + nodeScreen.y;
 
     // Select node
     await page.mouse.click(cx, cy);
