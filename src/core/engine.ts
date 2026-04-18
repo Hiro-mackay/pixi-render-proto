@@ -29,7 +29,7 @@ import { CollapseCommand } from "./commands/collapse-command";
 import { DeleteCommand, type DeleteCommandOps } from "./commands/delete-command";
 import { AddEdgeCommand, RemoveEdgeCommand, type AddRemoveOps } from "./commands/add-remove-command";
 import { ReconnectEdgeCommand } from "./commands/edge-command";
-import { createReconnectHandles, type ReconnectResult } from "./interaction/edge-reconnect";
+import { createReconnectHandles, type ReconnectResult, type ReconnectHandleControls } from "./interaction/edge-reconnect";
 import type { SceneData } from "./serialization/schema";
 import { serialize as serializeScene } from "./serialization/serialize";
 import { deserializeScene } from "./serialization/deserialize";
@@ -106,7 +106,7 @@ class CanvasEngineImpl implements CanvasEngine {
   private edgeCreator!: EdgeCreator;
   private readonly dragCleanups = new Map<string, () => void>();
   private readonly portDragCleanups = new Map<string, () => void>();
-  private reconnectCleanup: (() => void) | null = null;
+  private reconnectHandles: ReconnectHandleControls | null = null;
   private resizeCleanup: (() => void) | null = null;
   private marqueeCleanup: (() => void) | null = null;
   private readonly clipboard = new CanvasClipboard();
@@ -210,7 +210,7 @@ class CanvasEngineImpl implements CanvasEngine {
     this.marqueeCleanup?.();
     for (const fn of this.dragCleanups.values()) fn();
     for (const fn of this.portDragCleanups.values()) fn();
-    this.reconnectCleanup?.();
+    this.reconnectHandles?.destroy();
     this.resizeCleanup?.();
     this.edgeCreator.destroy();
     this.keyboard.destroy();
@@ -380,7 +380,7 @@ class CanvasEngineImpl implements CanvasEngine {
   // --- Selection ---
 
   select(ids: readonly string[]): void {
-    this.reconnectCleanup?.(); this.reconnectCleanup = null;
+    this.reconnectHandles?.destroy(); this.reconnectHandles = null; this.selection.setOnEdgeUpdate(undefined);
     const [first] = ids;
     if (!first) { this.selection.clear(); }
     else if (ids.length === 1) { this.selection.select(first); }
@@ -390,7 +390,7 @@ class CanvasEngineImpl implements CanvasEngine {
   selectAll(): void { this.select([...this.registry.getAllElements().keys()]); }
 
   clearSelection(): void {
-    this.reconnectCleanup?.(); this.reconnectCleanup = null;
+    this.reconnectHandles?.destroy(); this.reconnectHandles = null; this.selection.setOnEdgeUpdate(undefined);
     this.selection.clear();
   }
 
@@ -454,17 +454,18 @@ class CanvasEngineImpl implements CanvasEngine {
   // --- Private ---
 
   private selectEdge(edgeId: string): void {
-    this.reconnectCleanup?.();
-    this.reconnectCleanup = null;
+    this.reconnectHandles?.destroy();
+    this.reconnectHandles = null;
     this.selection.selectEdge(edgeId);
     const edge = this.registry.getEdge(edgeId);
     if (edge) {
-      this.reconnectCleanup = createReconnectHandles({
+      this.reconnectHandles = createReconnectHandles({
         edge, layer: this.selectionLayer, viewport: this.getCtx().viewport,
         registry: this.registry, getScale: this.getScale, ghostLayer: this.ghostLayer,
         onReconnect: (r: ReconnectResult) => {
-          this.reconnectCleanup?.();
-          this.reconnectCleanup = null;
+          this.reconnectHandles?.destroy();
+          this.reconnectHandles = null;
+          this.selection.setOnEdgeUpdate(undefined);
           this.history.execute(new ReconnectEdgeCommand(r.edgeId, r.endpoint, r.newNodeId, r.newSide, this.registry));
           this.events.emit("edge:reconnect", { id: r.edgeId, endpoint: r.endpoint, newNodeId: r.newNodeId, newSide: r.newSide });
           this.afterCommand();
@@ -472,6 +473,7 @@ class CanvasEngineImpl implements CanvasEngine {
         },
         pauseCtrl: this.pauseCtrl,
       });
+      this.selection.setOnEdgeUpdate(() => this.reconnectHandles?.reposition());
     }
     this.redraw.markAllDirty();
     this.redraw.flush();

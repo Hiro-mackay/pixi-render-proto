@@ -14,6 +14,7 @@ export class SelectionState {
   private handles: Graphics[] = [];
   private resizing = false;
   private onSelectionChange?: (selectedIds: readonly string[]) => void;
+  private _onEdgeUpdate?: () => void;
 
   getHandles(): readonly Graphics[] {
     return this.handles;
@@ -28,6 +29,10 @@ export class SelectionState {
 
   setOnSelectionChange(cb: (selectedIds: readonly string[]) => void): void {
     this.onSelectionChange = cb;
+  }
+
+  setOnEdgeUpdate(cb: (() => void) | undefined): void {
+    this._onEdgeUpdate = cb;
   }
 
   private notifyChange(): void {
@@ -139,6 +144,10 @@ export class SelectionState {
       if (el) {
         positionSelectionHandles(this.handles, el.x, el.y, el.width, el.height, this.getScale());
       }
+    }
+
+    if (this.selectedEdgeId) {
+      this._onEdgeUpdate?.();
     }
   }
 

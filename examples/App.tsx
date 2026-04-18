@@ -1,7 +1,7 @@
 import { useCallback } from "react";
-import { CanvasProvider } from "./react";
-import { buildDemoScene } from "../examples/demo-scene";
-import type { CanvasEngine } from "./core";
+import { CanvasProvider } from "../src/react";
+import { buildDemoScene } from "./demo-scene";
+import type { CanvasEngine } from "../src/core";
 
 export function App() {
   const handleReady = useCallback(async (engine: CanvasEngine, signal: AbortSignal) => {

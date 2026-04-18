@@ -30,7 +30,12 @@ export interface ReconnectHandleOptions {
   readonly pauseCtrl?: ViewportPauseController;
 }
 
-export function createReconnectHandles(opts: ReconnectHandleOptions): () => void {
+export interface ReconnectHandleControls {
+  readonly destroy: () => void;
+  readonly reposition: () => void;
+}
+
+export function createReconnectHandles(opts: ReconnectHandleOptions): ReconnectHandleControls {
   const { edge, layer, viewport, registry, getScale, ghostLayer, onReconnect, pauseCtrl } = opts;
   const sourceHandle = createEndpointHandle(getScale);
   const targetHandle = createEndpointHandle(getScale);
@@ -165,18 +170,24 @@ export function createReconnectHandles(opts: ReconnectHandleOptions): () => void
   sourceHandle.on("pointerdown", (e: FederatedPointerEvent) => startDrag("source", e));
   targetHandle.on("pointerdown", (e: FederatedPointerEvent) => startDrag("target", e));
 
-  return () => {
-    destroyed = true;
-    // Clean up any active drag session first
-    if (dragging) finishDrag();
-    sourceHandle.removeFromParent();
-    sourceHandle.destroy();
-    targetHandle.removeFromParent();
-    targetHandle.destroy();
-    ghostLine.removeFromParent();
-    ghostLine.destroy();
-    highlight.removeFromParent();
-    highlight.destroy();
+  return {
+    reposition() {
+      if (destroyed || dragging) return;
+      positionHandle(sourceHandle, edge, "source", registry, getScale);
+      positionHandle(targetHandle, edge, "target", registry, getScale);
+    },
+    destroy() {
+      destroyed = true;
+      if (dragging) finishDrag();
+      sourceHandle.removeFromParent();
+      sourceHandle.destroy();
+      targetHandle.removeFromParent();
+      targetHandle.destroy();
+      ghostLine.removeFromParent();
+      ghostLine.destroy();
+      highlight.removeFromParent();
+      highlight.destroy();
+    },
   };
 }
 
