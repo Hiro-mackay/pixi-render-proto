@@ -29,7 +29,7 @@ export function validateSceneData(data: unknown): SceneData {
   }
   const obj = data as Record<string, unknown>;
 
-  if (!isFiniteNumber(obj["version"]) || obj["version"] < 1) {
+  if (!isFiniteNumber(obj["version"]) || !Number.isInteger(obj["version"]) || obj["version"] < 1) {
     throw new SerializationError("Scene data must have a valid version number");
   }
 

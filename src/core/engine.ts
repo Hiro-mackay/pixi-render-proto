@@ -200,7 +200,7 @@ class CanvasEngineImpl implements CanvasEngine {
   }
 
   get viewport(): Viewport { return this.getCtx().viewport; }
-  get scale(): number { return this.ctx?.getScale() ?? 1; }
+  get scale(): number { return this.getCtx().getScale(); }
   private getScale = (): number => this.scale;
   private onDragStateChange = (dragging: boolean): void => { this.keyboard.enabled = !dragging; };
 
@@ -418,9 +418,8 @@ class CanvasEngineImpl implements CanvasEngine {
   // --- Serialization ---
 
   serialize(): SceneData {
-    const vp = this.ctx?.viewport;
-    const viewport = vp ? { x: vp.center.x, y: vp.center.y, zoom: vp.scale.x } : undefined;
-    return serializeScene(this.registry, viewport);
+    const { viewport: vp } = this.getCtx();
+    return serializeScene(this.registry, { x: vp.center.x, y: vp.center.y, zoom: vp.scale.x });
   }
 
   deserialize(data: SceneData): void {

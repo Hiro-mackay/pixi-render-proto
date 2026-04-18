@@ -186,7 +186,7 @@ describe("CommandHistory", () => {
       const inc: Command = { type: "move", execute() { value++; }, undo() { value--; } };
       const fail: Command = { type: "move", execute() { throw new Error("fail"); }, undo: vi.fn() };
 
-      expect(() => history.batch([inc, inc, fail])).toThrow();
+      expect(() => history.batch([inc, inc, fail])).toThrow(CommandExecutionError);
       expect(value).toBe(0); // rolled back
       expect(history.canUndo).toBe(false);
     });

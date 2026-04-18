@@ -93,9 +93,11 @@ export class CommandHistory {
             executed++;
           }
         } catch (err) {
-          // Roll back already-executed commands in reverse
           for (let i = executed - 1; i >= 0; i--) commands[i]!.undo();
-          throw err;
+          throw new CommandExecutionError(
+            err instanceof Error ? err.message : String(err),
+            err,
+          );
         }
       },
       undo() { for (let i = commands.length - 1; i >= 0; i--) commands[i]!.undo(); },

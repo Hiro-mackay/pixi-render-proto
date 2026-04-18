@@ -163,6 +163,12 @@ describe("deserializeScene", () => {
     expect(engine.viewport.setZoom).not.toHaveBeenCalled();
   });
 
+  test("should throw when version is a float", () => {
+    expect(() => deserializeScene({
+      version: 1.5, nodes: [], groups: [], edges: [], groupMemberships: [],
+    }, ctx)).toThrow(/version/);
+  });
+
   test("should throw when scene data is null", () => {
     expect(() => deserializeScene(null, ctx)).toThrow(/non-null object/);
   });
