@@ -73,4 +73,37 @@ describe("CanvasEventEmitter", () => {
     const emitter = new CanvasEventEmitter();
     expect(() => emitter.emit("group:collapse", { id: "g1" })).not.toThrow();
   });
+
+  test("should continue calling remaining handlers when one throws", () => {
+    const emitter = new CanvasEventEmitter();
+    const h1 = vi.fn();
+    const h2 = vi.fn(() => { throw new Error("bad handler"); });
+    const h3 = vi.fn();
+    emitter.on("element:move", h1);
+    emitter.on("element:move", h2);
+    emitter.on("element:move", h3);
+
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    emitter.emit("element:move", { id: "n1", x: 0, y: 0 });
+
+    expect(h1).toHaveBeenCalledOnce();
+    expect(h2).toHaveBeenCalledOnce();
+    expect(h3).toHaveBeenCalledOnce();
+    vi.restoreAllMocks();
+  });
+
+  test("should console.error when a handler throws", () => {
+    const emitter = new CanvasEventEmitter();
+    const error = new Error("handler error");
+    emitter.on("edge:create", () => { throw error; });
+
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    emitter.emit("edge:create", { id: "e1" });
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining("edge:create"),
+      error,
+    );
+    vi.restoreAllMocks();
+  });
 });

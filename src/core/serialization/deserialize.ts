@@ -6,6 +6,7 @@ import { validateSceneData } from "./validate";
 import { updateVisibility } from "../hierarchy/group-ops";
 import { syncElement } from "../registry/sync";
 import { serialize as serializeScene } from "./serialize";
+import { SerializationError } from "../errors";
 
 const CURRENT_VERSION = 1;
 
@@ -17,7 +18,7 @@ function migrate(data: SceneData): SceneData {
   while (version < CURRENT_VERSION) {
     const migrator = migrators.get(version);
     if (!migrator) {
-      throw new Error(`No migrator for version ${version} → ${version + 1}`);
+      throw new SerializationError(`No migrator for version ${version} → ${version + 1}`);
     }
     current = migrator(current);
     version++;
@@ -35,7 +36,7 @@ export function deserializeScene(data: unknown, ctx: DeserializeContext): void {
   const validated = validateSceneData(data);
 
   if (validated.version > CURRENT_VERSION) {
-    throw new Error(`Unknown scene version: ${validated.version}. Max supported: ${CURRENT_VERSION}`);
+    throw new SerializationError(`Unknown scene version: ${validated.version}. Max supported: ${CURRENT_VERSION}`);
   }
 
   const scene = validated.version < CURRENT_VERSION ? migrate(validated) : validated;
@@ -54,7 +55,7 @@ export function deserializeScene(data: unknown, ctx: DeserializeContext): void {
       applyScene(snapshot, ctx);
     } catch (rollbackErr) {
       const message = rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr);
-      throw new Error(
+      throw new SerializationError(
         `Import failed: ${err instanceof Error ? err.message : String(err)}. ` +
         `Rollback also failed: ${message}. Scene may be in an inconsistent state.`,
       );

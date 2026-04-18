@@ -4,6 +4,7 @@ import type { CanvasElement, NodeOptions, GroupOptions, EdgeOptions } from "../t
 import { COLLAPSED_HEIGHT } from "../types";
 import type { ElementRegistry } from "../registry/element-registry";
 import { applyParentChange } from "../hierarchy/group-ops";
+import { ElementNotFoundError } from "../errors";
 
 type ElementSnapshot =
   | {
@@ -44,7 +45,7 @@ export class DeleteCommand implements Command {
     private readonly ops: DeleteCommandOps,
   ) {
     const el = registry.getElement(elementId);
-    if (!el) throw new Error(`Element "${elementId}" not found`);
+    if (!el) throw new ElementNotFoundError(`Element "${elementId}" not found`);
 
     this.element = el.type === "node"
       ? {

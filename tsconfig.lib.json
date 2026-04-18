@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "declarationDir": "./dist/types",
+    "emitDeclarationOnly": true
+  },
+  "include": ["src/core", "src/react", "src/vite-env.d.ts"],
+  "exclude": ["**/__tests__/**", "**/*.test.ts"]
+}

@@ -1,7 +1,17 @@
 export { createCanvasEngine } from "./engine";
 export type { CanvasEngine } from "./engine";
+export {
+  CanvasEngineError,
+  ElementNotFoundError,
+  ElementExistsError,
+  InvalidArgumentError,
+  CycleDetectedError,
+  DestroyedEngineError,
+  SerializationError,
+  CommandExecutionError,
+} from "./errors";
 export type { ReadonlyElementRegistry } from "./registry/element-registry";
-export type { CanvasEventMap, CanvasEventName } from "./events/event-emitter";
+export type { CanvasEventMap, CanvasEventName, EventDescriptor } from "./events/event-emitter";
 export type {
   EngineOptions,
   NodeOptions,

@@ -37,6 +37,7 @@ import { CanvasClipboard } from "./clipboard/clipboard";
 import { CanvasEventEmitter, type CanvasEventName, type CanvasEventMap } from "./events/event-emitter";
 import { setViewportZoom, centerViewportOn, fitViewportToContent } from "./viewport/view-control";
 import { ViewportPauseController } from "./viewport/pause-controller";
+import { InvalidArgumentError, DestroyedEngineError } from "./errors";
 
 export interface CanvasEngine {
   readonly viewport: Viewport;
@@ -74,12 +75,12 @@ export interface CanvasEngine {
 const DEFAULT_NODE_COLOR = 0x2d3748;
 
 function assertFinite(value: number, name: string): void {
-  if (!Number.isFinite(value)) throw new Error(`${name} must be a finite number, got ${value}`);
+  if (!Number.isFinite(value)) throw new InvalidArgumentError(`${name} must be a finite number, got ${value}`);
 }
 
 function assertPositive(value: number, name: string): void {
   assertFinite(value, name);
-  if (value <= 0) throw new Error(`${name} must be positive, got ${value}`);
+  if (value <= 0) throw new InvalidArgumentError(`${name} must be positive, got ${value}`);
 }
 
 class CanvasEngineImpl implements CanvasEngine {
@@ -194,7 +195,7 @@ class CanvasEngineImpl implements CanvasEngine {
   }
 
   private getCtx(): ViewportContext {
-    if (this.destroyed || !this.ctx) throw new Error("CanvasEngine has been destroyed");
+    if (this.destroyed || !this.ctx) throw new DestroyedEngineError("CanvasEngine has been destroyed");
     return this.ctx;
   }
 
@@ -440,7 +441,7 @@ class CanvasEngineImpl implements CanvasEngine {
     const ctx = this.getCtx();
     const canvas = ctx.app.renderer.extract.canvas(ctx.app.stage);
     if (!(canvas instanceof HTMLCanvasElement)) {
-      throw new Error("toDataURL requires an HTMLCanvasElement (not available in OffscreenCanvas environments)");
+      throw new InvalidArgumentError("toDataURL requires an HTMLCanvasElement (not available in OffscreenCanvas environments)");
     }
     return canvas.toDataURL(type ?? "image/png");
   }

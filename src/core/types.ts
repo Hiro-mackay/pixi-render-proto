@@ -29,26 +29,31 @@ export type ElementSize = { readonly width: number; readonly height: number };
 /** @internal */
 export type Redrawable = Graphics & { __redraw?: () => void };
 
+/** @internal */
 export function getTextResolution(): number {
   return Math.ceil((typeof window !== "undefined" ? window.devicePixelRatio : 1) || 1) * 2;
 }
 
-/** Runtime check for objects that implement the __redraw protocol. */
+/** @internal Runtime check for objects that implement the __redraw protocol. */
 export function hasRedraw(c: object): c is { __redraw: () => void } {
   return "__redraw" in c && typeof (c as { __redraw?: unknown }).__redraw === "function";
 }
 
 // --- Canvas element model (single source of truth) ---
 
+/** @internal */
 export const HEADER_HEIGHT = 28;
+/** @internal */
 export const COLLAPSED_HEIGHT = HEADER_HEIGHT;
 
+/** @internal */
 export interface NodeMeta {
   readonly label: string;
   readonly color: number;
   readonly icon?: Texture;
 }
 
+/** @internal */
 export interface GroupMeta {
   readonly label: string;
   readonly color: number;
@@ -56,6 +61,7 @@ export interface GroupMeta {
   expandedHeight: number;
 }
 
+/** @internal */
 interface ElementBase {
   readonly id: string;
   x: number;
@@ -67,18 +73,22 @@ interface ElementBase {
   container: Container;
 }
 
+/** @internal */
 export interface NodeElement extends ElementBase {
   readonly type: "node";
   readonly meta: NodeMeta;
 }
 
+/** @internal */
 export interface GroupElement extends ElementBase {
   readonly type: "group";
   readonly meta: GroupMeta;
 }
 
+/** @internal */
 export type CanvasElement = NodeElement | GroupElement;
 
+/** @internal */
 export interface EdgePositionCache {
   srcX: number; srcY: number; srcW: number; srcH: number;
   tgtX: number; tgtY: number; tgtW: number; tgtH: number;
@@ -86,6 +96,7 @@ export interface EdgePositionCache {
   selected: boolean;
 }
 
+/** @internal */
 export interface CanvasEdge {
   readonly id: string;
   readonly sourceId: string;

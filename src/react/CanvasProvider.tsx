@@ -3,7 +3,7 @@ import { createCanvasEngine, type CanvasEngine, type EngineOptions } from "../co
 
 export const CanvasContext = createContext<CanvasEngine | null>(null);
 
-interface CanvasProviderProps {
+export interface CanvasProviderProps {
   readonly children?: ReactNode;
   readonly options?: Omit<EngineOptions, "signal">;
   readonly onReady?: (engine: CanvasEngine, signal: AbortSignal) => void | Promise<void>;

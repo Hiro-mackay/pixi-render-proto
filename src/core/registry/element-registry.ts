@@ -1,6 +1,7 @@
 import { Container } from "pixi.js";
 import type { CanvasEdge, CanvasElement, Side } from "../types";
 import { EdgeIndex } from "./edge-index";
+import { ElementNotFoundError, ElementExistsError, CycleDetectedError, InvalidArgumentError } from "../errors";
 
 /** Internal mutable view of CanvasEdge for reconnection within the registry. */
 interface MutableCanvasEdge extends Omit<CanvasEdge, "sourceId" | "sourceSide" | "targetId" | "targetSide"> {
@@ -33,7 +34,7 @@ export class ElementRegistry implements ReadonlyElementRegistry {
 
   addElement(id: string, element: CanvasElement): void {
     if (this.elements.has(id)) {
-      throw new Error(`Element "${id}" already exists`);
+      throw new ElementExistsError(`Element "${id}" already exists`);
     }
     this.elements.set(id, element);
     this.containerToId.set(element.container, id);
@@ -45,7 +46,7 @@ export class ElementRegistry implements ReadonlyElementRegistry {
     // Fail fast if caller forgot to remove connected edges first
     const connectedEdgeIds = this.edgeIndex.getEdgeIdsForNode(id);
     if (connectedEdgeIds && connectedEdgeIds.size > 0) {
-      throw new Error(
+      throw new InvalidArgumentError(
         `Cannot remove element "${id}": ${connectedEdgeIds.size} connected edge(s) remain. Remove edges first.`,
       );
     }
@@ -76,7 +77,7 @@ export class ElementRegistry implements ReadonlyElementRegistry {
 
   getElementOrThrow(id: string): CanvasElement {
     const element = this.elements.get(id);
-    if (!element) throw new Error(`Element "${id}" not found`);
+    if (!element) throw new ElementNotFoundError(`Element "${id}" not found`);
     return element;
   }
 
@@ -106,13 +107,13 @@ export class ElementRegistry implements ReadonlyElementRegistry {
 
   addEdge(id: string, edge: CanvasEdge): void {
     if (this.edges.has(id)) {
-      throw new Error(`Edge "${id}" already exists`);
+      throw new ElementExistsError(`Edge "${id}" already exists`);
     }
     if (!this.elements.has(edge.sourceId)) {
-      throw new Error(`Edge source "${edge.sourceId}" not found`);
+      throw new ElementNotFoundError(`Edge source "${edge.sourceId}" not found`);
     }
     if (!this.elements.has(edge.targetId)) {
-      throw new Error(`Edge target "${edge.targetId}" not found`);
+      throw new ElementNotFoundError(`Edge target "${edge.targetId}" not found`);
     }
     this.edges.set(id, edge as MutableCanvasEdge);
     this.edgeIndex.add(edge);
@@ -131,7 +132,7 @@ export class ElementRegistry implements ReadonlyElementRegistry {
 
   getEdgeOrThrow(id: string): CanvasEdge {
     const edge = this.edges.get(id);
-    if (!edge) throw new Error(`Edge "${id}" not found`);
+    if (!edge) throw new ElementNotFoundError(`Edge "${id}" not found`);
     return edge;
   }
 
@@ -153,9 +154,9 @@ export class ElementRegistry implements ReadonlyElementRegistry {
     newSide: Side,
   ): void {
     const edge = this.edges.get(id);
-    if (!edge) throw new Error(`Edge "${id}" not found`);
+    if (!edge) throw new ElementNotFoundError(`Edge "${id}" not found`);
     if (!this.elements.has(newNodeId)) {
-      throw new Error(`Target node "${newNodeId}" not found`);
+      throw new ElementNotFoundError(`Target node "${newNodeId}" not found`);
     }
     if (endpoint === "source") {
       const oldNodeId = edge.sourceId;
@@ -181,19 +182,19 @@ export class ElementRegistry implements ReadonlyElementRegistry {
     if (groupId) {
       const group = this.getElementOrThrow(groupId);
       if (group.type !== "group") {
-        throw new Error(`Element "${groupId}" is not a group (type: "${group.type}")`);
+        throw new InvalidArgumentError(`Element "${groupId}" is not a group (type: "${group.type}")`);
       }
       // Cycle detection: walk up from target group to ensure child is not an ancestor
       let cursor = group.parentGroupId;
       while (cursor) {
         if (cursor === childId) {
-          throw new Error(`Cannot assign "${childId}" to "${groupId}": would create a cycle`);
+          throw new CycleDetectedError(`Cannot assign "${childId}" to "${groupId}": would create a cycle`);
         }
         const ancestor = this.elements.get(cursor);
         cursor = ancestor?.parentGroupId ?? null;
       }
       if (groupId === childId) {
-        throw new Error(`Cannot assign "${childId}" to itself`);
+        throw new CycleDetectedError(`Cannot assign "${childId}" to itself`);
       }
     }
 

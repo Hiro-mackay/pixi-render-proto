@@ -4,6 +4,7 @@ import type { ElementRegistry } from "../registry/element-registry";
 import type { CanvasElement } from "../types";
 import { COLLAPSED_HEIGHT } from "../types";
 import { updateVisibility } from "../hierarchy/group-ops";
+import { InvalidArgumentError } from "../errors";
 
 export class CollapseCommand implements Command {
   readonly type = "collapse" as const;
@@ -17,7 +18,7 @@ export class CollapseCommand implements Command {
     private readonly sync: (el: CanvasElement) => void,
   ) {
     const group = registry.getElementOrThrow(groupId);
-    if (group.type !== "group") throw new Error(`Element "${groupId}" is not a group`);
+    if (group.type !== "group") throw new InvalidArgumentError(`Element "${groupId}" is not a group`);
     this.prevCollapsed = group.meta.collapsed;
     this.prevHeight = group.height;
     this.prevExpandedHeight = group.meta.expandedHeight;

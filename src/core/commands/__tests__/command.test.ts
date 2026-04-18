@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeEach, vi } from "vitest";
 import { CommandHistory, type Command } from "../command";
+import { CommandExecutionError } from "../../errors";
 
 function makeCommand(): Command {
   return { type: "move", execute: vi.fn(), undo: vi.fn() };
@@ -135,6 +136,59 @@ describe("CommandHistory", () => {
       history.clear();
       expect(history.canUndo).toBe(false);
       expect(history.canRedo).toBe(false);
+    });
+  });
+
+  describe("error safety", () => {
+    test("should not push to undo stack when execute throws", () => {
+      const failing: Command = {
+        type: "move",
+        execute() { throw new Error("execute failed"); },
+        undo: vi.fn(),
+      };
+      expect(() => history.execute(failing)).toThrow("execute failed");
+      expect(history.canUndo).toBe(false);
+    });
+
+    test("should not clear redo stack when execute throws", () => {
+      const cmd = makeCommand();
+      history.execute(cmd);
+      history.undo();
+      expect(history.canRedo).toBe(true);
+
+      const failing: Command = {
+        type: "move",
+        execute() { throw new Error("boom"); },
+        undo: vi.fn(),
+      };
+      expect(() => history.execute(failing)).toThrow();
+      expect(history.canRedo).toBe(true);
+    });
+
+    test("should wrap thrown error in CommandExecutionError", () => {
+      const cause = new Error("root");
+      const failing: Command = {
+        type: "move",
+        execute() { throw cause; },
+        undo: vi.fn(),
+      };
+      try {
+        history.execute(failing);
+        expect.unreachable();
+      } catch (err) {
+        expect(err).toBeInstanceOf(CommandExecutionError);
+        expect((err as CommandExecutionError).cause).toBe(cause);
+      }
+    });
+
+    test("should roll back partial batch when a sub-command fails", () => {
+      let value = 0;
+      const inc: Command = { type: "move", execute() { value++; }, undo() { value--; } };
+      const fail: Command = { type: "move", execute() { throw new Error("fail"); }, undo: vi.fn() };
+
+      expect(() => history.batch([inc, inc, fail])).toThrow();
+      expect(value).toBe(0); // rolled back
+      expect(history.canUndo).toBe(false);
     });
   });
 });

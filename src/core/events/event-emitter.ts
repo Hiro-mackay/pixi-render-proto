@@ -50,7 +50,11 @@ export class CanvasEventEmitter {
     const set = this.listeners.get(event);
     if (!set) return;
     for (const handler of set) {
-      (handler as Handler<E>)(data);
+      try {
+        (handler as Handler<E>)(data);
+      } catch (err) {
+        console.error(`Event handler for "${event}" threw:`, err);
+      }
     }
   }
 

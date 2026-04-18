@@ -1,4 +1,5 @@
 import type { EventDescriptor } from "../events/event-emitter";
+import { CommandExecutionError } from "../errors";
 
 export type CommandType =
   | "move" | "resize" | "drag"
@@ -38,7 +39,14 @@ export class CommandHistory {
   }
 
   execute(command: Command): void {
-    command.execute();
+    try {
+      command.execute();
+    } catch (err) {
+      throw new CommandExecutionError(
+        err instanceof Error ? err.message : String(err),
+        err,
+      );
+    }
 
     const prev = this.undoStack[this.undoStack.length - 1];
     if (prev) {
@@ -77,7 +85,19 @@ export class CommandHistory {
     if (commands.length === 0) return;
     const batchCmd: Command = {
       type: "batch",
-      execute() { for (const c of commands) c.execute(); },
+      execute() {
+        let executed = 0;
+        try {
+          for (const c of commands) {
+            c.execute();
+            executed++;
+          }
+        } catch (err) {
+          // Roll back already-executed commands in reverse
+          for (let i = executed - 1; i >= 0; i--) commands[i]!.undo();
+          throw err;
+        }
+      },
       undo() { for (let i = commands.length - 1; i >= 0; i--) commands[i]!.undo(); },
       getDomainEvents(direction) {
         return commands.flatMap((c) => c.getDomainEvents?.(direction) ?? []);
