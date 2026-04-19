@@ -1,4 +1,4 @@
-import type { FederatedPointerEvent } from "pixi.js";
+import { Graphics, type FederatedPointerEvent } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
 import type { CanvasEdge, CanvasElement } from "../types";
 import type { ElementRegistry } from "../registry/element-registry";
@@ -9,6 +9,7 @@ import { DragCommand } from "../commands/drag-command";
 import { getDescendants } from "../hierarchy/group-ops";
 import { findGroupAt } from "../hierarchy/membership";
 import { updateEdgeGraphics } from "../elements/edge-renderer";
+import { drawHighlight } from "./ghost-graphics";
 
 import { snapToGrid } from "../geometry/snap";
 
@@ -26,16 +27,25 @@ export interface ItemDragOptions {
   readonly gridSize?: number;
   readonly pauseCtrl?: ViewportPauseController;
   readonly onDragEnd?: (movedIds: string[]) => void;
+  readonly ghostLayer?: import("pixi.js").Container;
 }
+
+const DROP_HIGHLIGHT_COLOR = 0x3b82f6;
 
 export function enableItemDrag(opts: ItemDragOptions): () => void {
   const { element, viewport, registry, history, selection, getScale, sync,
-    onDragStateChange, gridSize, pauseCtrl, onDragEnd } = opts;
+    onDragStateChange, gridSize, pauseCtrl, onDragEnd, ghostLayer } = opts;
   let dragging = false;
   let movedDistance = 0;
   let downPos = { x: 0, y: 0 };
   let initialWorld = { x: 0, y: 0 };
   let shiftHeld = false;
+
+  // Drop-target highlight
+  const dropHighlight = new Graphics();
+  dropHighlight.visible = false;
+  ghostLayer?.addChild(dropHighlight);
+  let highlightedGroupId: string | null = null;
 
   // Drag participants: all elements that move together
   let participants: CanvasElement[] = [];
@@ -112,6 +122,20 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
       updateEdgeGraphics(edge, registry, getScale);
     }
     selection.update();
+
+    // Highlight the drop-target group
+    if (movedDistance >= CLICK_THRESHOLD_PX) {
+      const firstRoot = dragRoots[0];
+      const rootEl = firstRoot ? registry.getElement(firstRoot) : undefined;
+      const cx = rootEl ? rootEl.x + rootEl.width / 2 : 0;
+      const cy = rootEl ? rootEl.y + rootEl.height / 2 : 0;
+      const targetId = findGroupAt({ x: cx, y: cy }, registry, cachedExcludeIds);
+      if (targetId !== highlightedGroupId) {
+        highlightedGroupId = targetId;
+        const targetEl = targetId ? registry.getElement(targetId) : undefined;
+        drawHighlight(dropHighlight, targetEl ?? null, getScale(), DROP_HIGHLIGHT_COLOR);
+      }
+    }
   };
 
   const onPointerUp = () => {
@@ -120,6 +144,8 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
     dragTarget.cursor = "grab";
     pauseCtrl ? pauseCtrl.release() : (viewport.pause = false);
     onDragStateChange?.(false);
+    highlightedGroupId = null;
+    drawHighlight(dropHighlight, null, getScale(), DROP_HIGHLIGHT_COLOR);
 
     if (movedDistance < CLICK_THRESHOLD_PX) {
       // Restore original positions and edge graphics
@@ -197,6 +223,8 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
     dragTarget.off("globalpointermove", onPointerMove);
     dragTarget.off("pointerup", onPointerUp);
     dragTarget.off("pointerupoutside", onPointerUp);
+    dropHighlight.removeFromParent();
+    dropHighlight.destroy();
   };
 }
 

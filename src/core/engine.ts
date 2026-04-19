@@ -243,6 +243,7 @@ class CanvasEngineImpl implements CanvasEngine {
         selection: this.selection, getScale: this.getScale, sync: syncToContainer,
         onDragStateChange: this.onDragStateChange, gridSize: this.gridSize,
         pauseCtrl: this.pauseCtrl, onDragEnd: this.emitMovedElements,
+        ghostLayer: this.ghostLayer,
       }),
     );
     this.portDragCleanups.set(id,
@@ -273,6 +274,7 @@ class CanvasEngineImpl implements CanvasEngine {
         selection: this.selection, getScale: this.getScale, sync: syncToContainer,
         onDragStateChange: this.onDragStateChange, gridSize: this.gridSize,
         pauseCtrl: this.pauseCtrl, onDragEnd: this.emitMovedElements,
+        ghostLayer: this.ghostLayer,
       }),
     );
     this.events.emit("element:add", { id, type: "group" });
