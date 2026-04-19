@@ -74,7 +74,6 @@ export function updateEdgeGraphics(
   }
   const srcEl = registry.getElementOrThrow(srcVisId);
   const tgtEl = registry.getElementOrThrow(tgtVisId);
-  const scale = getScale();
 
   const cache = edge._posCache;
   if (cache &&
@@ -82,7 +81,7 @@ export function updateEdgeGraphics(
       cache.srcW === srcEl.width && cache.srcH === srcEl.height &&
       cache.tgtX === tgtEl.x && cache.tgtY === tgtEl.y &&
       cache.tgtW === tgtEl.width && cache.tgtH === tgtEl.height &&
-      cache.scale === scale && cache.selected === edge.selected) {
+      cache.selected === edge.selected) {
     return;
   }
 
@@ -99,7 +98,7 @@ export function updateEdgeGraphics(
   );
   const color = edge.selected ? SELECTED_COLOR : EDGE_COLOR;
   const alpha = edge.selected ? 1.0 : EDGE_ALPHA;
-  const sw = (edge.selected ? SELECTED_STROKE_WIDTH : STROKE_WIDTH) / scale;
+  const sw = edge.selected ? SELECTED_STROKE_WIDTH : STROKE_WIDTH;
 
   edge.line.clear();
   edge.line.moveTo(start.x, start.y);
@@ -112,7 +111,7 @@ export function updateEdgeGraphics(
   edge.hitLine.clear();
   edge.hitLine.moveTo(start.x, start.y);
   edge.hitLine.bezierCurveTo(cp.cp1x, cp.cp1y, cp.cp2x, cp.cp2y, end.x, end.y);
-  edge.hitLine.stroke({ width: HIT_STROKE_WIDTH / scale, color: 0xffffff, alpha: 0.001 });
+  edge.hitLine.stroke({ width: HIT_STROKE_WIDTH, color: 0xffffff, alpha: 0.001 });
 
   if (edge.labelText && edge.labelPill) {
     const mid = cubicBezierPoint(
@@ -125,13 +124,13 @@ export function updateEdgeGraphics(
     edge.labelPill.clear();
     edge.labelPill.roundRect(mid.x - w / 2, mid.y - h / 2, w, h, h / 2);
     edge.labelPill.fill({ color: bg, alpha: 0.95 });
-    edge.labelPill.stroke({ width: 0.5 / scale, color: 0x0f172a, alpha: 0.5 });
+    edge.labelPill.stroke({ width: 0.5, color: 0x0f172a, alpha: 0.5 });
   }
 
   edge._posCache = {
     srcX: srcEl.x, srcY: srcEl.y, srcW: srcEl.width, srcH: srcEl.height,
     tgtX: tgtEl.x, tgtY: tgtEl.y, tgtW: tgtEl.width, tgtH: tgtEl.height,
-    scale, selected: edge.selected,
+    selected: edge.selected,
   };
 }
 

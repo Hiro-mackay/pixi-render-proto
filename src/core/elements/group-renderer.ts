@@ -74,7 +74,7 @@ export function createGroupGraphics(
     bg.clear();
     bg.roundRect(0, 0, element.width, element.height, GROUP_CORNER_RADIUS);
     bg.fill({ color: bgFill, alpha: 0.3 });
-    bg.stroke({ width: 2 / getScale(), color: borderColor, alpha: 0.6 });
+    bg.stroke({ width: 2, color: borderColor, alpha: 0.6 });
   };
   drawBg();
   bg.__redraw = drawBg;
@@ -141,7 +141,7 @@ export function createGroupGraphics(
     if (meta.collapsed) return;
     headerLine.moveTo(0, HEADER_HEIGHT);
     headerLine.lineTo(element.width, HEADER_HEIGHT);
-    headerLine.stroke({ width: 1 / getScale(), color: borderColor, alpha: 0.3 });
+    headerLine.stroke({ width: 1, color: borderColor, alpha: 0.3 });
   };
   drawHeader();
   headerLine.__redraw = drawHeader;

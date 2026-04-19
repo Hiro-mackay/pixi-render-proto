@@ -16,13 +16,20 @@ export function setupZoomHandler(
   const zoomCallbacks: Array<(scale: number) => void> = [];
   const panCallbacks: Array<() => void> = [];
 
-  // TODO: passive: false blocks all wheel scroll on the canvas.
-  // Acceptable for full-screen canvas; revisit when embedding as a page component.
-  const onWheel = (e: WheelEvent) => {
-    e.preventDefault();
+  let cachedRect: DOMRect | null = null;
+  let rectRafId = 0;
+  const getRect = (): DOMRect => {
+    if (!cachedRect) cachedRect = canvasEl.getBoundingClientRect();
+    if (!rectRafId) {
+      rectRafId = requestAnimationFrame(() => { cachedRect = null; rectRafId = 0; });
+    }
+    return cachedRect;
+  };
 
+  const onWheel = (e: WheelEvent) => {
     if (e.ctrlKey) {
-      const rect = canvasEl.getBoundingClientRect();
+      e.preventDefault();
+      const rect = getRect();
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
 
@@ -70,6 +77,7 @@ export function setupZoomHandler(
       canvasEl.removeEventListener("wheel", onWheel);
       viewport.off("zoomed", handleZoom);
       viewport.off("moved", handlePan);
+      cancelAnimationFrame(rectRafId);
     },
   };
 }

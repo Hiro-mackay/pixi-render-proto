@@ -51,7 +51,7 @@ export function createNodeGraphics(
     bg.clear();
     bg.roundRect(0, 0, element.width, element.height, NODE_CORNER_RADIUS);
     bg.fill(color);
-    bg.stroke({ width: NODE_STROKE_WIDTH / getScale(), color: NODE_STROKE_COLOR });
+    bg.stroke({ width: NODE_STROKE_WIDTH, color: NODE_STROKE_COLOR });
     if (iconSprite) {
       iconSprite.position.set((element.width - ICON_SIZE) / 2, 10);
     }

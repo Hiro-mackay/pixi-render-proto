@@ -47,9 +47,13 @@ export class RedrawManager {
     this.walkTree(container, (r) => this.unregister(r), (t) => this.textItems.delete(t));
   }
 
+  private lastTargetRes = 0;
+
   updateTextResolutions(scale: number): void {
     const dpr = typeof window !== "undefined" ? (window.devicePixelRatio || 1) : 1;
     const targetRes = Math.min(Math.ceil(scale * dpr), MAX_TEXT_RESOLUTION);
+    if (targetRes === this.lastTargetRes) return;
+    this.lastTargetRes = targetRes;
     for (const text of this.textItems) {
       if (text.resolution !== targetRes) {
         text.resolution = targetRes;
