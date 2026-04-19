@@ -50,7 +50,7 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
     dragging = true;
     movedDistance = 0;
     shiftHeld = e.shiftKey;
-    element.container.cursor = "grabbing";
+    dragTarget.cursor = "grabbing";
     pauseCtrl ? pauseCtrl.acquire() : (viewport.pause = true);
     onDragStateChange?.(true);
 
@@ -117,7 +117,7 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
   const onPointerUp = () => {
     if (!dragging) return;
     dragging = false;
-    element.container.cursor = "grab";
+    dragTarget.cursor = "grab";
     pauseCtrl ? pauseCtrl.release() : (viewport.pause = false);
     onDragStateChange?.(false);
 
