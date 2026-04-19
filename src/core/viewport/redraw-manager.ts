@@ -58,7 +58,8 @@ export class RedrawManager {
   private lastTargetRes = 0;
 
   updateTextResolutions(scale: number): void {
-    const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+    const dpr =
+      typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
     const targetRes = Math.min(Math.ceil(scale * dpr), MAX_TEXT_RESOLUTION);
     if (targetRes === this.lastTargetRes) return;
     this.lastTargetRes = targetRes;
@@ -85,7 +86,11 @@ export class RedrawManager {
     this.textItems.clear();
   }
 
-  private walkTree(c: Container, fn: (r: Redrawable) => void, textFn: (t: Text) => void): void {
+  private walkTree(
+    c: Container,
+    fn: (r: Redrawable) => void,
+    textFn: (t: Text) => void,
+  ): void {
     if (c instanceof Text) textFn(c);
     if (hasRedraw(c)) fn(c as Redrawable);
     for (const child of c.children) {
