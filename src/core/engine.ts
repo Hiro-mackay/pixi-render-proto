@@ -268,6 +268,16 @@ class CanvasEngineImpl implements CanvasEngine {
     if (toggleBtn) {
       toggleBtn.on("pointerdown", (e) => { e.stopPropagation(); this.toggleCollapse(id); });
     }
+    // Body click selects the group (bg sits below drag-handle in z-order,
+    // so header clicks reach drag-handle first for drag initiation)
+    const groupBg = element.container.children.find((c) => c.label === "group-bg");
+    if (groupBg) {
+      groupBg.on("pointerdown", (e: FederatedPointerEvent) => {
+        e.stopPropagation();
+        if (e.shiftKey) { this.selection.toggle(id); }
+        else { this.selection.select(id); }
+      });
+    }
     this.dragCleanups.set(id,
       enableItemDrag({
         element, viewport: this.getCtx().viewport, registry: this.registry, history: this.history,
