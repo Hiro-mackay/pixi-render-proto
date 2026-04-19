@@ -1,6 +1,6 @@
 import type { Container } from "pixi.js";
 import { Graphics, Text, TextStyle } from "pixi.js";
-import { getFixedSideAnchor, oppositeSide } from "../geometry/anchor";
+import { computeOptimalSides, getFixedSideAnchor, oppositeSide } from "../geometry/anchor";
 import { computeBezierControlPoints, cubicBezierPoint, sideDirection } from "../geometry/bezier";
 import { resolveVisibleElement } from "../geometry/hit-test";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
@@ -98,7 +98,8 @@ export function updateEdgeGraphics(
   setEdgeVisible(edge, true);
 
   const srcSide = edge.sourceSide;
-  const tgtSide = oppositeSide(srcSide);
+  let { tgtSide } = computeOptimalSides(srcEl, tgtEl);
+  if (tgtSide === srcSide) tgtSide = oppositeSide(srcSide);
   const start = getFixedSideAnchor(srcEl, srcSide);
   const end = getFixedSideAnchor(tgtEl, tgtSide);
   const cp = computeBezierControlPoints(start.x, start.y, start.side, end.x, end.y, end.side);

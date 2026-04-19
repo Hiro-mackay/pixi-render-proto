@@ -24,11 +24,11 @@ describe("bezier control points", () => {
   test("should keep control point offsets within reasonable bounds regardless of distance", () => {
     // Very short edge: minimum offset applies
     const short = computeBezierControlPoints(0, 0, "right", 10, 0, "left");
-    expect(short.cp1x).toBeGreaterThanOrEqual(120);
+    expect(short.cp1x).toBeGreaterThanOrEqual(100);
 
     // Very long edge: maximum offset caps
     const long = computeBezierControlPoints(0, 0, "right", 5000, 0, "left");
-    expect(long.cp1x).toBeLessThanOrEqual(250);
+    expect(long.cp1x).toBeLessThanOrEqual(300);
   });
 
   test("should scale control point offset with distance for close nodes", () => {
@@ -38,7 +38,7 @@ describe("bezier control points", () => {
     // Close nodes should have smaller offset than far nodes
     expect(close.cp1x).toBeLessThan(far.cp1x);
     // Close node offset should be clamped at minimum
-    expect(close.cp1x).toBeGreaterThanOrEqual(120);
+    expect(close.cp1x).toBeGreaterThanOrEqual(100);
   });
 
   test("should produce nearly constant offset regardless of distance", () => {
@@ -46,7 +46,7 @@ describe("bezier control points", () => {
     const long = computeBezierControlPoints(0, 0, "right", 800, 0, "left");
 
     // Offset should vary only slightly between short and long edges
-    expect(long.cp1x - short.cp1x).toBeLessThan(10);
+    expect(long.cp1x - short.cp1x).toBeLessThan(75);
   });
 
   test("should handle vertical connections (top/bottom)", () => {
@@ -114,7 +114,7 @@ describe("bezier control points", () => {
 
     // Offset should be proportional to distance, not inflated
     const overshoot = cp.cp1x - 200; // how far cp1 extends past source
-    expect(overshoot).toBeLessThanOrEqual(250 + 1);
+    expect(overshoot).toBeLessThanOrEqual(300 + 1);
     expect(overshoot).toBeGreaterThan(0); // must extend in exit direction
   });
 });

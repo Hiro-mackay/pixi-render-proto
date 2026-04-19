@@ -1,12 +1,12 @@
 import type { BezierPoints, Point, Side } from "../types";
 
 // Control-point offset: large base for consistent S-curves, near-zero distance scaling.
-const BASE_OFFSET = 200;
-const DISTANCE_FACTOR = 0.01;
-const MIN_OFFSET = 120;
-const MAX_OFFSET = 250;
+const BASE_OFFSET = 100;
+const DISTANCE_FACTOR = 0.1;
+const MIN_OFFSET = 100;
+const MAX_OFFSET = 300;
 
-const SAME_SIDE_PERPENDICULAR_RATIO = 0.5;
+const SAME_SIDE_PERPENDICULAR_RATIO = 0.6;
 const SAME_SIDE_MIN_PERPENDICULAR = 40;
 const SAME_SIDE_DISTANCE_RATIO = 0.3;
 const FALLBACK_RATIO = 0.25;

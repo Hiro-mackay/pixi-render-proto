@@ -1,7 +1,7 @@
 import type { Container, FederatedPointerEvent } from "pixi.js";
 import { Graphics } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
-import { getFixedSideAnchor, getNearestSide, oppositeSide } from "../geometry/anchor";
+import { computeOptimalSides, getFixedSideAnchor, getNearestSide, oppositeSide } from "../geometry/anchor";
 import { findNodeAt, resolveVisibleElement } from "../geometry/hit-test";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
 import { ACCENT_COLOR, type CanvasEdge, type Rect, type Side } from "../types";
@@ -228,7 +228,11 @@ function positionBothHandles(
   const tgtEl = tgtVisId ? registry.getElement(tgtVisId) : registry.getElement(edge.targetId);
 
   const srcSide: Side = edge.sourceSide;
-  const tgtSide: Side = oppositeSide(srcSide);
+  let tgtSide: Side = edge.targetSide;
+  if (srcEl && tgtEl) {
+    tgtSide = computeOptimalSides(srcEl, tgtEl).tgtSide;
+    if (tgtSide === srcSide) tgtSide = oppositeSide(srcSide);
+  }
 
   if (srcEl) drawHandle(sourceHandle, srcEl, srcSide, getScale);
   if (tgtEl) drawHandle(targetHandle, tgtEl, tgtSide, getScale);
