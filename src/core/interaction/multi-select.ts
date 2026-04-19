@@ -31,6 +31,8 @@ export function enableMarqueeSelect(
   const onPointerDown = (e: FederatedPointerEvent) => {
     downOnBackground = e.target === viewport;
     if (!downOnBackground) return;
+    // Pause viewport immediately to prevent pan jitter before marquee threshold
+    pauseCtrl ? pauseCtrl.acquire() : (viewport.pause = true);
     downScreen = { x: e.globalX, y: e.globalY };
     shiftHeld = e.shiftKey;
     const world = viewport.toWorld(e.global.x, e.global.y);
@@ -43,7 +45,6 @@ export function enableMarqueeSelect(
     if (!active && dist >= DRAG_THRESHOLD) {
       active = true;
       marquee.visible = true;
-      pauseCtrl ? pauseCtrl.acquire() : (viewport.pause = true);
     }
     if (!active) return;
 
@@ -76,13 +77,19 @@ export function enableMarqueeSelect(
       const x2 = Math.max(startWorld.x, world.x);
       const y2 = Math.max(startWorld.y, world.y);
 
-      // Collect elements intersecting the marquee rect
+      // Collect elements intersecting the marquee rect.
+      // Groups are only included if fully enclosed by the marquee (Figma behavior:
+      // dragging inside a group selects its children, not the group itself).
       const hitSet = new Set<string>();
       for (const el of registry.getAllElements().values()) {
         if (!el.visible) continue;
-        if (el.x + el.width >= x1 && el.x <= x2 && el.y + el.height >= y1 && el.y <= y2) {
-          hitSet.add(el.id);
+        const intersects = el.x + el.width >= x1 && el.x <= x2 && el.y + el.height >= y1 && el.y <= y2;
+        if (!intersects) continue;
+        if (el.type === "group") {
+          const fullyEnclosed = el.x >= x1 && el.y >= y1 && el.x + el.width <= x2 && el.y + el.height <= y2;
+          if (!fullyEnclosed) continue;
         }
+        hitSet.add(el.id);
       }
       // Exclude children whose parent group is also selected (prevents double-move)
       const hitIds: string[] = [];
@@ -99,6 +106,7 @@ export function enableMarqueeSelect(
       }
     } else {
       // Click on background (no drag) → clear selection
+      pauseCtrl ? pauseCtrl.release() : (viewport.pause = false);
       const dist = Math.hypot(e.globalX - downScreen.x, e.globalY - downScreen.y);
       if (dist < DRAG_THRESHOLD) onClearSelection();
     }

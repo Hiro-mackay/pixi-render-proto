@@ -148,6 +148,7 @@ class CanvasEngineImpl implements CanvasEngine {
     );
     this.selection.setOnSelectionChange((selectedIds) => {
       this.events.emit("selection:change", { selectedIds });
+      this.updateGroupDragHandles(new Set(selectedIds));
     });
     ctx.viewport.addChild(this.selectionLayer);
 
@@ -531,6 +532,16 @@ class CanvasEngineImpl implements CanvasEngine {
     this.events.emit("element:resize", { id, width, height });
     this.afterCommand();
   };
+
+  private updateGroupDragHandles(selectedIds: ReadonlySet<string>): void {
+    for (const el of this.registry.getAllElements().values()) {
+      if (el.type !== "group") continue;
+      const handle = el.container.children.find((c) => c.label === "group-drag-handle");
+      if (handle && "setCoversBody" in handle) {
+        (handle as { setCoversBody: (v: boolean) => void }).setCoversBody(selectedIds.has(el.id));
+      }
+    }
+  }
 
   private afterCommand(): void {
     this.selection.update();

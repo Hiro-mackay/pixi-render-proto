@@ -79,18 +79,25 @@ export function createGroupGraphics(
   bg.__redraw = drawBg;
   container.addChild(bg);
 
-  // Header drag handle — the interactive zone for group selection and dragging
+  // Drag handle — covers header by default, expands to full body when selected
   const dragHandle = new Graphics();
   dragHandle.label = "group-drag-handle";
   dragHandle.eventMode = "static";
   dragHandle.cursor = "grab";
+  let dragHandleCoversBody = false;
   const drawDragHandle = () => {
     dragHandle.clear();
-    dragHandle.rect(0, 0, element.width, HEADER_HEIGHT);
+    const h = dragHandleCoversBody ? element.height : HEADER_HEIGHT;
+    dragHandle.rect(0, 0, element.width, h);
     dragHandle.fill({ color: 0x000000, alpha: 0 });
   };
   drawDragHandle();
   (dragHandle as Redrawable).__redraw = drawDragHandle;
+  (dragHandle as unknown as { setCoversBody: (v: boolean) => void }).setCoversBody = (v: boolean) => {
+    if (v === dragHandleCoversBody) return;
+    dragHandleCoversBody = v;
+    drawDragHandle();
+  };
   container.addChild(dragHandle);
 
   const iconSprite = new Sprite();
