@@ -1,4 +1,4 @@
-import { Container, type FederatedPointerEvent } from "pixi.js";
+import { Container, Graphics, type FederatedPointerEvent } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
 import type {
   CanvasEdge, EdgeOptions, EngineOptions,
@@ -109,6 +109,8 @@ class CanvasEngineImpl implements CanvasEngine {
   private reconnectHandles: ReconnectHandleControls | null = null;
   private resizeCleanup: (() => void) | null = null;
   private marqueeCleanup: (() => void) | null = null;
+  private readonly hoverOutline = new Graphics();
+  private hoveredId: string | null = null;
   private readonly clipboard = new CanvasClipboard();
   private readonly addRemoveOps: AddRemoveOps;
   private readonly elementOps: DeleteCommandOps;
@@ -123,6 +125,8 @@ class CanvasEngineImpl implements CanvasEngine {
     this.edgeLabelLayer.label = "edge-label-layer";
     this.ghostLayer.label = "ghost-layer";
     this.selectionLayer.label = "selection-layer";
+    this.hoverOutline.label = "hover-outline";
+    this.hoverOutline.visible = false;
     ctx.viewport.addChild(this.edgeLineLayer);
     ctx.viewport.addChild(this.edgeLabelLayer);
     ctx.viewport.addChild(this.ghostLayer);
@@ -149,7 +153,12 @@ class CanvasEngineImpl implements CanvasEngine {
     this.selection.setOnSelectionChange((selectedIds) => {
       this.events.emit("selection:change", { selectedIds });
       this.updateGroupDragHandles(new Set(selectedIds));
+      // Clear hover when element becomes selected
+      if (this.hoveredId && selectedIds.includes(this.hoveredId)) {
+        this.clearHover();
+      }
     });
+    this.selectionLayer.addChild(this.hoverOutline);
     ctx.viewport.addChild(this.selectionLayer);
 
     this.addRemoveOps = {
@@ -203,7 +212,10 @@ class CanvasEngineImpl implements CanvasEngine {
   get viewport(): Viewport { return this.getCtx().viewport; }
   get scale(): number { return this.getCtx().getScale(); }
   private getScale = (): number => this.scale;
-  private onDragStateChange = (dragging: boolean): void => { this.keyboard.enabled = !dragging; };
+  private onDragStateChange = (dragging: boolean): void => {
+    this.keyboard.enabled = !dragging;
+    if (dragging) this.clearHover();
+  };
 
   destroy(): void {
     if (this.destroyed) return;
@@ -249,6 +261,8 @@ class CanvasEngineImpl implements CanvasEngine {
     this.portDragCleanups.set(id,
       enablePortDrag(element, this.getCtx().viewport, this.getScale, this.edgeCreator),
     );
+    element.container.on("pointerenter", () => this.showHover(id));
+    element.container.on("pointerleave", () => { if (this.hoveredId === id) this.clearHover(); });
     this.events.emit("element:add", { id, type: "node" });
   }
 
@@ -273,12 +287,13 @@ class CanvasEngineImpl implements CanvasEngine {
     const groupBg = element.container.children.find((c) => c.label === "group-bg");
     if (groupBg) {
       groupBg.on("pointerdown", (e: FederatedPointerEvent) => {
-        // Cmd/Ctrl + click: let marquee handler take over for child selection
         if (e.metaKey || e.ctrlKey) return;
         e.stopPropagation();
         if (e.shiftKey) { this.selection.toggle(id); }
         else { this.selection.select(id); }
       });
+      groupBg.on("pointerenter", () => this.showHover(id));
+      groupBg.on("pointerleave", () => { if (this.hoveredId === id) this.clearHover(); });
     }
     this.dragCleanups.set(id,
       enableItemDrag({
@@ -313,6 +328,8 @@ class CanvasEngineImpl implements CanvasEngine {
       e.stopPropagation();
       this.selectEdge(id);
     });
+    gfx.hitLine.on("pointerenter", () => this.showHover(id));
+    gfx.hitLine.on("pointerleave", () => { if (this.hoveredId === id) this.clearHover(); });
     const vp = this.getCtx().viewport;
     vp.setChildIndex(this.selectionLayer, vp.children.length - 1);
     this.events.emit("edge:create", { id });
@@ -546,6 +563,47 @@ class CanvasEngineImpl implements CanvasEngine {
     this.events.emit("element:resize", { id, width, height });
     this.afterCommand();
   };
+
+  private static readonly HOVER_COLOR = 0x3b82f6;
+  private static readonly HOVER_ALPHA = 0.5;
+
+  private showHover(id: string): void {
+    if (this.selection.isSelected(id) || this.selection.getSelectedEdgeId() === id) return;
+    this.hoveredId = id;
+    const el = this.registry.getElement(id);
+    const edge = el ? null : this.registry.getEdge(id);
+    this.hoverOutline.clear();
+    if (el) {
+      this.hoverOutline.rect(el.x, el.y, el.width, el.height);
+      this.hoverOutline.stroke({
+        color: CanvasEngineImpl.HOVER_COLOR,
+        width: 1.5 / this.scale,
+        alpha: CanvasEngineImpl.HOVER_ALPHA,
+      });
+    } else if (edge) {
+      // For edges, highlight source and target nodes
+      const src = this.registry.getElement(edge.sourceId);
+      const tgt = this.registry.getElement(edge.targetId);
+      for (const n of [src, tgt]) {
+        if (n) {
+          this.hoverOutline.rect(n.x, n.y, n.width, n.height);
+          this.hoverOutline.stroke({
+            color: CanvasEngineImpl.HOVER_COLOR,
+            width: 1 / this.scale,
+            alpha: CanvasEngineImpl.HOVER_ALPHA * 0.6,
+          });
+        }
+      }
+    }
+    this.hoverOutline.visible = true;
+  }
+
+  private clearHover(): void {
+    if (!this.hoveredId) return;
+    this.hoveredId = null;
+    this.hoverOutline.clear();
+    this.hoverOutline.visible = false;
+  }
 
   private updateGroupDragHandles(selectedIds: ReadonlySet<string>): void {
     for (const el of this.registry.getAllElements().values()) {
