@@ -406,21 +406,11 @@ class CanvasEngineImpl implements CanvasEngine {
         this.toggleCollapse(id);
       });
     }
-    // Body click selects the group (bg sits below drag-handle in z-order,
-    // so header clicks reach drag-handle first for drag initiation)
-    const groupBg = element.container.children.find((c) => c.label === "group-bg");
-    if (groupBg) {
-      groupBg.on("pointerdown", (e: FederatedPointerEvent) => {
-        if (e.metaKey || e.ctrlKey) return;
-        e.stopPropagation();
-        if (e.shiftKey) {
-          this.selection.toggle(id);
-        } else {
-          this.selection.select(id);
-        }
-      });
-      groupBg.on("pointerenter", () => this.showHover(id));
-      groupBg.on("pointerleave", () => {
+    // Hover on drag-handle (bg is eventMode="none" so edges behind it remain clickable)
+    const dragHandle = element.container.children.find((c) => c.label === "group-drag-handle");
+    if (dragHandle) {
+      dragHandle.on("pointerenter", () => this.showHover(id));
+      dragHandle.on("pointerleave", () => {
         if (this.hoveredId === id) this.clearHover();
       });
     }

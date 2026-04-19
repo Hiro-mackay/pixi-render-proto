@@ -62,6 +62,23 @@ export function computeOptimalSides(
   return dy >= 0 ? { srcSide: "bottom", tgtSide: "top" } : { srcSide: "top", tgtSide: "bottom" };
 }
 
+export function oppositeSide(side: Side): Side {
+  switch (side) {
+    case "right":
+      return "left";
+    case "left":
+      return "right";
+    case "top":
+      return "bottom";
+    case "bottom":
+      return "top";
+    default: {
+      const _exhaustive: never = side;
+      return _exhaustive;
+    }
+  }
+}
+
 export function getFixedSideAnchor(rect: Rect, side: Side): Anchor {
   const cx = rect.x + rect.width / 2;
   const cy = rect.y + rect.height / 2;

@@ -64,8 +64,7 @@ export function createGroupGraphics(element: GroupElement, _getScale: () => numb
 
   const bg: Redrawable = new Graphics();
   bg.label = "group-bg";
-  bg.eventMode = "static";
-  bg.cursor = "default";
+  bg.eventMode = "none";
   const drawBg = () => {
     bg.clear();
     bg.roundRect(0, 0, element.width, element.height, GROUP_CORNER_RADIUS);

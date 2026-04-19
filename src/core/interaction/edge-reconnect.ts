@@ -1,7 +1,7 @@
 import type { Container, FederatedPointerEvent } from "pixi.js";
 import { Graphics } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
-import { computeOptimalSides, getFixedSideAnchor, getNearestSide } from "../geometry/anchor";
+import { getFixedSideAnchor, getNearestSide, oppositeSide } from "../geometry/anchor";
 import { findNodeAt, resolveVisibleElement } from "../geometry/hit-test";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
 import { ACCENT_COLOR, type CanvasEdge, type Rect, type Side } from "../types";
@@ -67,16 +67,11 @@ export function createReconnectHandles(opts: ReconnectHandleOptions): ReconnectH
     // Fixed end is the opposite endpoint
     const fixedEndpoint = endpoint === "source" ? "target" : "source";
     const fixedNodeId = fixedEndpoint === "source" ? edge.sourceId : edge.targetId;
-    const movingNodeId = endpoint === "source" ? edge.sourceId : edge.targetId;
     const fixedEl = registry.getElement(fixedNodeId);
-    const movingEl = registry.getElement(movingNodeId);
     if (!fixedEl) return;
 
-    const fixedNodeSide = movingEl
-      ? computeOptimalSides(fixedEl, movingEl).srcSide
-      : fixedEndpoint === "source"
-        ? edge.sourceSide
-        : edge.targetSide;
+    const fixedNodeSide: Side =
+      fixedEndpoint === "source" ? edge.sourceSide : edge.targetSide;
 
     dragging = true;
     if (pauseCtrl) {
@@ -232,13 +227,8 @@ function positionBothHandles(
   const srcEl = srcVisId ? registry.getElement(srcVisId) : registry.getElement(edge.sourceId);
   const tgtEl = tgtVisId ? registry.getElement(tgtVisId) : registry.getElement(edge.targetId);
 
-  let srcSide: Side = edge.sourceSide;
-  let tgtSide: Side = edge.targetSide;
-  if (srcEl && tgtEl) {
-    const optimal = computeOptimalSides(srcEl, tgtEl);
-    srcSide = optimal.srcSide;
-    tgtSide = optimal.tgtSide;
-  }
+  const srcSide: Side = edge.sourceSide;
+  const tgtSide: Side = oppositeSide(srcSide);
 
   if (srcEl) drawHandle(sourceHandle, srcEl, srcSide, getScale);
   if (tgtEl) drawHandle(targetHandle, tgtEl, tgtSide, getScale);

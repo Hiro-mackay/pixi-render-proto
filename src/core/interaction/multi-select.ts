@@ -11,6 +11,22 @@ const MARQUEE_FILL_ALPHA = 0.08;
 const MARQUEE_STROKE_ALPHA = 0.5;
 const DRAG_THRESHOLD = 5;
 
+function findGroupAtPoint(
+  registry: ReadonlyElementRegistry,
+  wx: number,
+  wy: number,
+): string | null {
+  let best: { id: string; area: number } | null = null;
+  for (const el of registry.getAllElements().values()) {
+    if (el.type !== "group" || !el.visible) continue;
+    if (wx >= el.x && wx <= el.x + el.width && wy >= el.y && wy <= el.y + el.height) {
+      const area = el.width * el.height;
+      if (!best || area < best.area) best = { id: el.id, area };
+    }
+  }
+  return best?.id ?? null;
+}
+
 export function enableMarqueeSelect(
   viewport: Viewport,
   registry: ReadonlyElementRegistry,
@@ -28,15 +44,10 @@ export function enableMarqueeSelect(
   let canMarquee = false;
   let downScreen = { x: 0, y: 0 };
   let shiftHeld = false;
-
   const onPointerDown = (e: FederatedPointerEvent) => {
     const onBackground = e.target === viewport;
-    // Cmd/Ctrl + drag on group-bg starts child marquee selection (Section model)
-    const onGroupBg = !onBackground && (e.target as { label?: string }).label === "group-bg";
-    const cmdHeld = e.metaKey || e.ctrlKey;
-    canMarquee = onBackground || (onGroupBg && cmdHeld);
-    if (!canMarquee) return;
-    if (onGroupBg) e.stopPropagation(); // prevent bg's own selection handler
+    if (!onBackground) return;
+    canMarquee = true;
     if (pauseCtrl) {
       pauseCtrl.acquire();
     } else {
@@ -120,14 +131,27 @@ export function enableMarqueeSelect(
         selection.selectMultiple(hitIds);
       }
     } else {
-      // Click on background (no drag) → clear selection
+      // Click on background (no drag) → select group body or clear selection
       if (pauseCtrl) {
         pauseCtrl.release();
       } else {
         viewport.pause = false;
       }
       const dist = Math.hypot(e.globalX - downScreen.x, e.globalY - downScreen.y);
-      if (dist < DRAG_THRESHOLD) onClearSelection();
+      if (dist < DRAG_THRESHOLD) {
+        const world = viewport.toWorld(e.global.x, e.global.y);
+        const groupId = findGroupAtPoint(registry, world.x, world.y);
+        if (groupId && !(e.metaKey || e.ctrlKey)) {
+          onClearSelection();
+          if (e.shiftKey) {
+            selection.toggle(groupId);
+          } else {
+            selection.select(groupId);
+          }
+        } else {
+          onClearSelection();
+        }
+      }
     }
   };
 

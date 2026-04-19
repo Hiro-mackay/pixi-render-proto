@@ -13,22 +13,22 @@ describe("bezier control points", () => {
     expect(cp.cp2y).toBe(0);
   });
 
-  test("should route reverse-direction edges with wider arcs to avoid overlap", () => {
+  test("should use same offset for forward and reverse (distance-independent)", () => {
     const forward = computeBezierControlPoints(0, 0, "right", 200, 0, "left");
     const reverse = computeBezierControlPoints(200, 0, "right", 0, 0, "left");
 
-    // Reverse edges need larger offsets to curve around nodes
-    expect(Math.abs(reverse.cp1x - 200)).toBeGreaterThan(forward.cp1x);
+    // Same distance → same offset magnitude
+    expect(Math.abs(reverse.cp1x - 200)).toBeCloseTo(forward.cp1x, 0);
   });
 
   test("should keep control point offsets within reasonable bounds regardless of distance", () => {
-    // Very short edge: dynamic min offset scales down with distance
+    // Very short edge: minimum offset applies
     const short = computeBezierControlPoints(0, 0, "right", 10, 0, "left");
-    expect(short.cp1x).toBeGreaterThanOrEqual(8); // distance-adaptive: max(10*0.3, 8) = 8
+    expect(short.cp1x).toBeGreaterThanOrEqual(120);
 
-    // Very long edge
+    // Very long edge: maximum offset caps
     const long = computeBezierControlPoints(0, 0, "right", 5000, 0, "left");
-    expect(long.cp1x).toBeLessThanOrEqual(200);
+    expect(long.cp1x).toBeLessThanOrEqual(250);
   });
 
   test("should scale control point offset with distance for close nodes", () => {
@@ -37,15 +37,16 @@ describe("bezier control points", () => {
 
     // Close nodes should have smaller offset than far nodes
     expect(close.cp1x).toBeLessThan(far.cp1x);
-    // Close node offset should be distance-proportional, not fixed at 30
-    expect(close.cp1x).toBeLessThan(30);
-    expect(close.cp1x).toBeGreaterThanOrEqual(8);
+    // Close node offset should be clamped at minimum
+    expect(close.cp1x).toBeGreaterThanOrEqual(120);
   });
 
-  test("should match legacy behavior for medium-to-long distances (>= 100px)", () => {
-    // At distance >= 100, dynamicMinForward = min(100*0.3, 30) = 30 → same as legacy
-    const cp = computeBezierControlPoints(0, 0, "right", 200, 0, "left");
-    expect(cp.cp1x).toBeGreaterThanOrEqual(30);
+  test("should produce nearly constant offset regardless of distance", () => {
+    const short = computeBezierControlPoints(0, 0, "right", 100, 0, "left");
+    const long = computeBezierControlPoints(0, 0, "right", 800, 0, "left");
+
+    // Offset should vary only slightly between short and long edges
+    expect(long.cp1x - short.cp1x).toBeLessThan(10);
   });
 
   test("should handle vertical connections (top/bottom)", () => {
@@ -103,8 +104,18 @@ describe("bezier control points", () => {
   test("should handle extremely close coordinates (1px apart)", () => {
     const cp = computeBezierControlPoints(0, 0, "right", 1, 0, "left");
 
-    // Distance-adaptive minimum: max(1*0.3, 8) = 8
-    expect(cp.cp1x).toBeGreaterThanOrEqual(8);
+    // Minimum offset applies
+    expect(cp.cp1x).toBeGreaterThanOrEqual(50);
+  });
+
+  test("should not create excessive loops for reverse-direction edges", () => {
+    // Source exits right, target enters left, but target is LEFT of source
+    const cp = computeBezierControlPoints(200, 0, "right", 0, 0, "left");
+
+    // Offset should be proportional to distance, not inflated
+    const overshoot = cp.cp1x - 200; // how far cp1 extends past source
+    expect(overshoot).toBeLessThanOrEqual(250 + 1);
+    expect(overshoot).toBeGreaterThan(0); // must extend in exit direction
   });
 });
 
