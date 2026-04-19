@@ -24,14 +24,18 @@ export function enableMarqueeSelect(
 
   let active = false;
   let startWorld = { x: 0, y: 0 };
-  let downOnBackground = false;
+  let canMarquee = false;
   let downScreen = { x: 0, y: 0 };
   let shiftHeld = false;
 
   const onPointerDown = (e: FederatedPointerEvent) => {
-    downOnBackground = e.target === viewport;
-    if (!downOnBackground) return;
-    // Pause viewport immediately to prevent pan jitter before marquee threshold
+    const onBackground = e.target === viewport;
+    // Cmd/Ctrl + drag on group-bg starts child marquee selection (Section model)
+    const onGroupBg = !onBackground && (e.target as { label?: string }).label === "group-bg";
+    const cmdHeld = e.metaKey || e.ctrlKey;
+    canMarquee = onBackground || (onGroupBg && cmdHeld);
+    if (!canMarquee) return;
+    if (onGroupBg) e.stopPropagation(); // prevent bg's own selection handler
     pauseCtrl ? pauseCtrl.acquire() : (viewport.pause = true);
     downScreen = { x: e.globalX, y: e.globalY };
     shiftHeld = e.shiftKey;
@@ -40,7 +44,7 @@ export function enableMarqueeSelect(
   };
 
   const onPointerMove = (e: FederatedPointerEvent) => {
-    if (!downOnBackground) return;
+    if (!canMarquee) return;
     const dist = Math.hypot(e.globalX - downScreen.x, e.globalY - downScreen.y);
     if (!active && dist >= DRAG_THRESHOLD) {
       active = true;
@@ -62,8 +66,8 @@ export function enableMarqueeSelect(
   };
 
   const onPointerUp = (e: FederatedPointerEvent) => {
-    if (!downOnBackground) return;
-    downOnBackground = false;
+    if (!canMarquee) return;
+    canMarquee = false;
 
     if (active) {
       active = false;

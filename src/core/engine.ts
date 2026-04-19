@@ -273,6 +273,8 @@ class CanvasEngineImpl implements CanvasEngine {
     const groupBg = element.container.children.find((c) => c.label === "group-bg");
     if (groupBg) {
       groupBg.on("pointerdown", (e: FederatedPointerEvent) => {
+        // Cmd/Ctrl + click: let marquee handler take over for child selection
+        if (e.metaKey || e.ctrlKey) return;
         e.stopPropagation();
         if (e.shiftKey) { this.selection.toggle(id); }
         else { this.selection.select(id); }
