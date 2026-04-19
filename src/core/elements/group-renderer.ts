@@ -17,7 +17,7 @@ const GROUP_CORNER_RADIUS = 12;
 const GROUP_LABEL_STYLE = new TextStyle({
   fontFamily: "system-ui, sans-serif",
   fontSize: 11,
-  fill: 0x94a3b8,
+  fill: 0x718096,
   fontWeight: "bold",
   letterSpacing: 1,
 });

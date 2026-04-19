@@ -31,9 +31,8 @@ export function createOutlineGraphic(
     const el = registry.getElement(id);
     if (!el) return;
     const s = getScale();
-    const r = el.type === "group" ? 12 : 8;
     outline.clear();
-    outline.roundRect(el.x, el.y, el.width, el.height, r);
+    outline.rect(el.x, el.y, el.width, el.height);
     outline.stroke({ color: OUTLINE_COLOR, width: OUTLINE_WIDTH / s });
   };
   outline.__redraw();

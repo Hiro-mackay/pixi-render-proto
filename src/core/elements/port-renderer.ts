@@ -3,7 +3,7 @@ import { ACCENT_COLOR, type CanvasElement, type Redrawable, type Side } from "..
 
 const PORT_RADIUS = 5;
 const HIT_RADIUS = 12;
-const ANCHOR_SCREEN_PX = 16;
+const ANCHOR_SCREEN_PX = 14;
 const ANCHOR_HIDE_THRESHOLD = 0.3;
 const PORT_DEFAULT_FILL = 0xffffff;
 const PORT_DEFAULT_STROKE = ACCENT_COLOR;

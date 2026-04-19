@@ -3,7 +3,7 @@ import type { NodeElement, Redrawable } from "../types";
 import { getTextResolution } from "../types";
 
 const NODE_STROKE_WIDTH = 1.5;
-const NODE_STROKE_COLOR = 0x5a6b80;
+const NODE_STROKE_COLOR = 0x4a5568;
 const NODE_CORNER_RADIUS = 8;
 const DEFAULT_NODE_COLOR = 0x2d3748;
 const ICON_SIZE = 28;

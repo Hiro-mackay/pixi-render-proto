@@ -46,16 +46,17 @@ import { syncElement, syncToContainer } from "./registry/sync";
 import { deserializeScene } from "./serialization/deserialize";
 import type { SceneData } from "./serialization/schema";
 import { serialize as serializeScene } from "./serialization/serialize";
-import type {
-  CanvasEdge,
-  EdgeOptions,
-  EngineOptions,
-  GroupElement,
-  GroupMeta,
-  GroupOptions,
-  NodeElement,
-  NodeMeta,
-  NodeOptions,
+import {
+  ACCENT_COLOR,
+  type CanvasEdge,
+  type EdgeOptions,
+  type EngineOptions,
+  type GroupElement,
+  type GroupMeta,
+  type GroupOptions,
+  type NodeElement,
+  type NodeMeta,
+  type NodeOptions,
 } from "./types";
 import { ViewportPauseController } from "./viewport/pause-controller";
 import { RedrawManager } from "./viewport/redraw-manager";
@@ -833,7 +834,7 @@ class CanvasEngineImpl implements CanvasEngine {
     this.afterCommand([id]);
   };
 
-  private static readonly HOVER_COLOR = 0x3b82f6;
+  private static readonly HOVER_COLOR = ACCENT_COLOR;
   private static readonly HOVER_ALPHA = 0.5;
 
   private showHover(id: string): void {
@@ -844,8 +845,7 @@ class CanvasEngineImpl implements CanvasEngine {
     this.hoveredId = id;
     this.hoverOutline.clear();
     if (el) {
-      const r = el.type === "group" ? 12 : 8;
-      this.hoverOutline.roundRect(el.x, el.y, el.width, el.height, r);
+      this.hoverOutline.rect(el.x, el.y, el.width, el.height);
       this.hoverOutline.stroke({
         color: CanvasEngineImpl.HOVER_COLOR,
         width: 1.5 / this.scale,
@@ -859,8 +859,7 @@ class CanvasEngineImpl implements CanvasEngine {
       const tgt = tgtId ? this.registry.getElement(tgtId) : undefined;
       for (const n of [src, tgt]) {
         if (n) {
-          const r = n.type === "group" ? 12 : 8;
-          this.hoverOutline.roundRect(n.x, n.y, n.width, n.height, r);
+          this.hoverOutline.rect(n.x, n.y, n.width, n.height);
           this.hoverOutline.stroke({
             color: CanvasEngineImpl.HOVER_COLOR,
             width: 1 / this.scale,
