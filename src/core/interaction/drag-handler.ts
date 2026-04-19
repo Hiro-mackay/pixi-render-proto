@@ -54,10 +54,14 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
     pauseCtrl ? pauseCtrl.acquire() : (viewport.pause = true);
     onDragStateChange?.(true);
 
+    // Select on pointerdown so outline/handles are visible during drag (Figma behavior)
+    if (!shiftHeld && !selection.isSelected(element.id)) {
+      selection.select(element.id);
+    }
+
     // Determine drag participants
     const isMultiSelected = selection.getSelectedIds().size > 1 && selection.isSelected(element.id);
     if (isMultiSelected) {
-      // Filter to roots: exclude descendants whose ancestor is also selected
       dragRoots = filterToRoots(selection.getSelectedIds(), registry);
       participants = collectParticipants(dragRoots, registry);
     } else {
