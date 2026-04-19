@@ -143,7 +143,6 @@ class CanvasEngineImpl implements CanvasEngine {
     });
     ctx.onPan(() => {
       this.cullToViewport();
-      this.redraw.markAllDirty();
       this.redraw.flush();
     });
 
@@ -395,7 +394,7 @@ class CanvasEngineImpl implements CanvasEngine {
     assertFinite(x, "x"); assertFinite(y, "y");
     this.history.execute(new MoveCommand(id, this.registry, x, y, syncToContainer, crypto.randomUUID()));
     this.events.emit("element:move", { id, x, y });
-    this.afterCommand();
+    this.afterCommand([id]);
   }
 
   resizeElement(id: string, width: number, height: number): void {
@@ -407,7 +406,7 @@ class CanvasEngineImpl implements CanvasEngine {
       sync: syncElement, sessionId: crypto.randomUUID(),
     }));
     this.events.emit("element:resize", { id, width, height });
-    this.afterCommand();
+    this.afterCommand([id]);
   }
 
   assignToGroup(childId: string, groupId: string): void {
@@ -415,7 +414,7 @@ class CanvasEngineImpl implements CanvasEngine {
     const oldGroupId = child.parentGroupId;
     this.history.execute(new AssignCommand(childId, groupId, this.registry, syncElement));
     this.events.emit("group:membership", { childId, oldGroupId, newGroupId: groupId });
-    this.afterCommand();
+    this.afterCommand([childId, groupId]);
   }
 
   removeFromGroup(childId: string): void {
@@ -423,7 +422,7 @@ class CanvasEngineImpl implements CanvasEngine {
     const oldGroupId = child.parentGroupId;
     this.history.execute(new AssignCommand(childId, null, this.registry, syncElement));
     this.events.emit("group:membership", { childId, oldGroupId, newGroupId: null });
-    this.afterCommand();
+    this.afterCommand([childId]);
   }
 
   toggleCollapse(groupId: string): void {
@@ -520,7 +519,16 @@ class CanvasEngineImpl implements CanvasEngine {
       if (!el.visible) continue;
       const inView = el.x + el.width > left && el.x < right &&
                      el.y + el.height > top && el.y < bottom;
-      if (el.container.visible !== inView) el.container.visible = inView;
+      if (el.container.visible !== inView) {
+        el.container.visible = inView;
+        if (inView) {
+          this.redraw.markTreeDirty(el.container);
+          for (const edge of this.registry.getEdgesForNode(el.id)) {
+            this.redraw.markDirty(edge.line);
+            if (edge.labelPill) this.redraw.markDirty(edge.labelPill);
+          }
+        }
+      }
     }
   }
 
@@ -618,12 +626,12 @@ class CanvasEngineImpl implements CanvasEngine {
       const el = this.registry.getElement(mid);
       if (el) this.events.emit("element:move", { id: mid, x: el.x, y: el.y });
     }
-    this.afterCommand();
+    this.afterCommand(movedIds);
   };
 
   private emitResizedElement = (id: string, width: number, height: number): void => {
     this.events.emit("element:resize", { id, width, height });
-    this.afterCommand();
+    this.afterCommand([id]);
   };
 
   private static readonly HOVER_COLOR = ACCENT_COLOR;
@@ -680,13 +688,33 @@ class CanvasEngineImpl implements CanvasEngine {
     }
   }
 
-  private afterCommand(): void {
+  private afterCommand(affectedIds?: readonly string[]): void {
     if (this.bulkLoading) return;
     this.selection.update();
     this.cullToViewport();
-    this.redraw.markAllDirty();
+    if (affectedIds) {
+      this.markAffectedDirty(affectedIds);
+    } else {
+      this.redraw.markAllDirty();
+    }
     this.redraw.flush();
     this.events.emit("history:change", { canUndo: this.history.canUndo, canRedo: this.history.canRedo });
+  }
+
+  private markAffectedDirty(ids: readonly string[]): void {
+    const seen = new Set<string>();
+    for (const id of ids) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const el = this.registry.getElement(id);
+      if (el) {
+        this.redraw.markTreeDirty(el.container);
+        for (const edge of this.registry.getEdgesForNode(id)) {
+          this.redraw.markDirty(edge.line);
+          if (edge.labelPill) this.redraw.markDirty(edge.labelPill);
+        }
+      }
+    }
   }
 }
 

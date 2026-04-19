@@ -61,6 +61,10 @@ export class RedrawManager {
     }
   }
 
+  markTreeDirty(container: Container): void {
+    this.walkTree(container, (r) => { if (this.items.has(r)) this.dirty.add(r); }, () => {});
+  }
+
   clear(): void {
     this.items.clear();
     this.dirty.clear();

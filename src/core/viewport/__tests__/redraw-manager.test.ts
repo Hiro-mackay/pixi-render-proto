@@ -117,6 +117,33 @@ describe("RedrawManager", () => {
     });
   });
 
+  describe("markTreeDirty", () => {
+    test("should mark only items within the given container tree as dirty", () => {
+      const { root, childRedrawable } = makeContainerTree();
+      const outside = makeItem();
+      manager.registerTree(root);
+      manager.register(outside);
+
+      manager.markTreeDirty(root);
+      manager.flush();
+
+      expect(childRedrawable.__redraw).toHaveBeenCalledOnce();
+      expect(outside.__redraw).not.toHaveBeenCalled();
+    });
+
+    test("should not mark items that were never registered", () => {
+      const { root, childRedrawable } = makeContainerTree();
+      // Register tree then unregister it — markTreeDirty should be a no-op
+      manager.registerTree(root);
+      manager.unregisterTree(root);
+
+      manager.markTreeDirty(root);
+      manager.flush();
+
+      expect(childRedrawable.__redraw).not.toHaveBeenCalled();
+    });
+  });
+
   describe("updateTextResolutions", () => {
     test("should update resolution of tracked Text items", () => {
       const { root, text } = makeContainerTree();
