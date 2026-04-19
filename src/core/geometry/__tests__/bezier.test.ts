@@ -22,13 +22,30 @@ describe("bezier control points", () => {
   });
 
   test("should keep control point offsets within reasonable bounds regardless of distance", () => {
-    // Very short edge
+    // Very short edge: dynamic min offset scales down with distance
     const short = computeBezierControlPoints(0, 0, "right", 10, 0, "left");
-    expect(short.cp1x).toBeGreaterThanOrEqual(30);
+    expect(short.cp1x).toBeGreaterThanOrEqual(8); // distance-adaptive: max(10*0.3, 8) = 8
 
     // Very long edge
     const long = computeBezierControlPoints(0, 0, "right", 5000, 0, "left");
     expect(long.cp1x).toBeLessThanOrEqual(200);
+  });
+
+  test("should scale control point offset with distance for close nodes", () => {
+    const close = computeBezierControlPoints(0, 0, "right", 20, 0, "left");
+    const far = computeBezierControlPoints(0, 0, "right", 200, 0, "left");
+
+    // Close nodes should have smaller offset than far nodes
+    expect(close.cp1x).toBeLessThan(far.cp1x);
+    // Close node offset should be distance-proportional, not fixed at 30
+    expect(close.cp1x).toBeLessThan(30);
+    expect(close.cp1x).toBeGreaterThanOrEqual(8);
+  });
+
+  test("should match legacy behavior for medium-to-long distances (>= 100px)", () => {
+    // At distance >= 100, dynamicMinForward = min(100*0.3, 30) = 30 → same as legacy
+    const cp = computeBezierControlPoints(0, 0, "right", 200, 0, "left");
+    expect(cp.cp1x).toBeGreaterThanOrEqual(30);
   });
 
   test("should handle vertical connections (top/bottom)", () => {
@@ -86,8 +103,8 @@ describe("bezier control points", () => {
   test("should handle extremely close coordinates (1px apart)", () => {
     const cp = computeBezierControlPoints(0, 0, "right", 1, 0, "left");
 
-    // Minimum forward offset should apply
-    expect(cp.cp1x).toBeGreaterThanOrEqual(30);
+    // Distance-adaptive minimum: max(1*0.3, 8) = 8
+    expect(cp.cp1x).toBeGreaterThanOrEqual(8);
   });
 });
 

@@ -23,10 +23,24 @@ export function sideDirection(side: Side): Point {
   }
 }
 
-function computeOffset(proj: number): number {
-  return proj > 0
-    ? Math.min(Math.max(proj * FORWARD_RATIO, MIN_FORWARD_OFFSET), MAX_FORWARD_OFFSET)
-    : Math.min(Math.abs(proj) * REVERSE_RATIO + REVERSE_BASE, MAX_REVERSE_OFFSET);
+const MIN_DYNAMIC_FORWARD = 8;
+const DYNAMIC_FORWARD_RATIO = 0.3;
+const MIN_DYNAMIC_REVERSE = 15;
+const DYNAMIC_REVERSE_RATIO = 0.4;
+
+function computeOffset(proj: number, distance: number): number {
+  const dynamicMinForward = Math.min(
+    Math.max(distance * DYNAMIC_FORWARD_RATIO, MIN_DYNAMIC_FORWARD),
+    MIN_FORWARD_OFFSET,
+  );
+  if (proj > 0) {
+    return Math.min(Math.max(proj * FORWARD_RATIO, dynamicMinForward), MAX_FORWARD_OFFSET);
+  }
+  const dynamicReverseBase = Math.min(
+    Math.max(distance * DYNAMIC_REVERSE_RATIO, MIN_DYNAMIC_REVERSE),
+    REVERSE_BASE,
+  );
+  return Math.min(Math.abs(proj) * REVERSE_RATIO + dynamicReverseBase, MAX_REVERSE_OFFSET);
 }
 
 export function computeBezierControlPoints(
@@ -39,10 +53,11 @@ export function computeBezierControlPoints(
 ): BezierPoints {
   const dx = endX - startX;
   const dy = endY - startY;
+  const distance = Math.hypot(dx, dy);
   const startDir = sideDirection(startSide);
 
   const startProj = dx * startDir.x + dy * startDir.y;
-  const startOffset = computeOffset(startProj);
+  const startOffset = computeOffset(startProj, distance);
 
   let cp1x = startX + startDir.x * startOffset;
   let cp1y = startY + startDir.y * startOffset;
@@ -52,14 +67,17 @@ export function computeBezierControlPoints(
   if (endSide) {
     const endDir = sideDirection(endSide);
     const endProj = -dx * endDir.x + -dy * endDir.y;
-    const endOffset = computeOffset(endProj);
+    const endOffset = computeOffset(endProj, distance);
     cp2x = endX + endDir.x * endOffset;
     cp2y = endY + endDir.y * endOffset;
 
     // Same-side connections need perpendicular displacement to form a U-curve
     if (startSide === endSide) {
       const perpDist = Math.abs(dx * startDir.y - dy * startDir.x);
-      const perpOffset = Math.max(perpDist * SAME_SIDE_PERPENDICULAR_RATIO, SAME_SIDE_MIN_PERPENDICULAR);
+      const dynamicMinPerp = Math.min(
+        Math.max(distance * DYNAMIC_FORWARD_RATIO, 15), SAME_SIDE_MIN_PERPENDICULAR,
+      );
+      const perpOffset = Math.max(perpDist * SAME_SIDE_PERPENDICULAR_RATIO, dynamicMinPerp);
       const perpX = -startDir.y;
       const perpY = startDir.x;
       // Choose direction away from the midpoint between start and end

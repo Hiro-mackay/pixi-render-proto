@@ -1,9 +1,9 @@
 import { Graphics } from "pixi.js";
 import type { Container, FederatedPointerEvent } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
-import { ACCENT_COLOR, type CanvasEdge, type Side } from "../types";
+import { ACCENT_COLOR, type CanvasEdge, type Rect, type Side } from "../types";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
-import { getFixedSideAnchor, getNearestSide } from "../geometry/anchor";
+import { computeOptimalSides, getFixedSideAnchor, getNearestSide } from "../geometry/anchor";
 import { findNodeAt, resolveVisibleElement } from "../geometry/hit-test";
 import { drawHighlight, drawGhostLine } from "./ghost-graphics";
 import type { ViewportPauseController } from "../viewport/pause-controller";
@@ -42,8 +42,7 @@ export function createReconnectHandles(opts: ReconnectHandleOptions): ReconnectH
   layer.addChild(sourceHandle);
   layer.addChild(targetHandle);
 
-  positionHandle(sourceHandle, edge, "source", registry, getScale);
-  positionHandle(targetHandle, edge, "target", registry, getScale);
+  positionBothHandles(sourceHandle, targetHandle, edge, registry, getScale);
 
   const ghostLine = new Graphics();
   ghostLine.visible = false;
@@ -68,17 +67,19 @@ export function createReconnectHandles(opts: ReconnectHandleOptions): ReconnectH
     // Fixed end is the opposite endpoint
     const fixedEndpoint = endpoint === "source" ? "target" : "source";
     const fixedNodeId = fixedEndpoint === "source" ? edge.sourceId : edge.targetId;
-    const fixedNodeSide = fixedEndpoint === "source" ? edge.sourceSide : edge.targetSide;
+    const movingNodeId = endpoint === "source" ? edge.sourceId : edge.targetId;
     const fixedEl = registry.getElement(fixedNodeId);
+    const movingEl = registry.getElement(movingNodeId);
     if (!fixedEl) return;
+
+    const fixedNodeSide = movingEl
+      ? computeOptimalSides(fixedEl, movingEl).srcSide
+      : (fixedEndpoint === "source" ? edge.sourceSide : edge.targetSide);
 
     dragging = true;
     pauseCtrl ? pauseCtrl.acquire() : (viewport.pause = true);
 
-    const anchor = getFixedSideAnchor(
-      { x: fixedEl.x, y: fixedEl.y, width: fixedEl.width, height: fixedEl.height },
-      fixedNodeSide,
-    );
+    const anchor = getFixedSideAnchor(fixedEl, fixedNodeSide);
     fixedAnchor = { x: anchor.x, y: anchor.y };
     fixedSide = fixedNodeSide;
 
@@ -112,10 +113,7 @@ export function createReconnectHandles(opts: ReconnectHandleOptions): ReconnectH
       if (hadHighlight) {
         const targetEl = registry.getElement(hadHighlight);
         if (targetEl) {
-          const side = getNearestSide(
-            { x: targetEl.x, y: targetEl.y, width: targetEl.width, height: targetEl.height },
-            cursorWorld,
-          );
+          const side = getNearestSide(targetEl, cursorWorld);
           onReconnect({
             edgeId: edge.id,
             endpoint,
@@ -152,8 +150,7 @@ export function createReconnectHandles(opts: ReconnectHandleOptions): ReconnectH
     if (!destroyed) {
       sourceHandle.visible = true;
       targetHandle.visible = true;
-      positionHandle(sourceHandle, edge, "source", registry, getScale);
-      positionHandle(targetHandle, edge, "target", registry, getScale);
+      positionBothHandles(sourceHandle, targetHandle, edge, registry, getScale);
     }
   }
 
@@ -173,8 +170,7 @@ export function createReconnectHandles(opts: ReconnectHandleOptions): ReconnectH
   return {
     reposition() {
       if (destroyed || dragging) return;
-      positionHandle(sourceHandle, edge, "source", registry, getScale);
-      positionHandle(targetHandle, edge, "target", registry, getScale);
+      positionBothHandles(sourceHandle, targetHandle, edge, registry, getScale);
     },
     destroy() {
       destroyed = true;
@@ -206,23 +202,35 @@ function createEndpointHandle(getScale: () => number): Graphics {
   return g;
 }
 
-function positionHandle(
-  handle: Graphics,
+function positionBothHandles(
+  sourceHandle: Graphics,
+  targetHandle: Graphics,
   edge: CanvasEdge,
-  endpoint: "source" | "target",
   registry: ReadonlyElementRegistry,
   getScale: () => number,
 ): void {
-  const nodeId = endpoint === "source" ? edge.sourceId : edge.targetId;
-  const side = endpoint === "source" ? edge.sourceSide : edge.targetSide;
-  const visibleId = resolveVisibleElement(nodeId, registry);
-  const el = visibleId ? registry.getElement(visibleId) : registry.getElement(nodeId);
-  if (!el) return;
-  const anchor = getFixedSideAnchor(
-    { x: el.x, y: el.y, width: el.width, height: el.height }, side,
-  );
-  handle.position.set(anchor.x, anchor.y);
+  const srcVisId = resolveVisibleElement(edge.sourceId, registry);
+  const tgtVisId = resolveVisibleElement(edge.targetId, registry);
+  const srcEl = srcVisId ? registry.getElement(srcVisId) : registry.getElement(edge.sourceId);
+  const tgtEl = tgtVisId ? registry.getElement(tgtVisId) : registry.getElement(edge.targetId);
 
+  let srcSide: Side = edge.sourceSide;
+  let tgtSide: Side = edge.targetSide;
+  if (srcEl && tgtEl) {
+    const optimal = computeOptimalSides(srcEl, tgtEl);
+    srcSide = optimal.srcSide;
+    tgtSide = optimal.tgtSide;
+  }
+
+  if (srcEl) drawHandle(sourceHandle, srcEl, srcSide, getScale);
+  if (tgtEl) drawHandle(targetHandle, tgtEl, tgtSide, getScale);
+}
+
+function drawHandle(
+  handle: Graphics, el: Rect, side: Side, getScale: () => number,
+): void {
+  const anchor = getFixedSideAnchor(el, side);
+  handle.position.set(anchor.x, anchor.y);
   const scale = getScale();
   handle.clear();
   handle.circle(0, 0, HANDLE_RADIUS / scale);

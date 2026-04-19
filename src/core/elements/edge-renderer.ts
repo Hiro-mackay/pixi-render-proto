@@ -4,7 +4,7 @@ import { ACCENT_COLOR, getTextResolution } from "../types";
 import type { CanvasEdge, Redrawable } from "../types";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
 import { computeBezierControlPoints, cubicBezierPoint, sideDirection } from "../geometry/bezier";
-import { getFixedSideAnchor } from "../geometry/anchor";
+import { computeOptimalSides, getFixedSideAnchor } from "../geometry/anchor";
 import { resolveVisibleElement } from "../geometry/hit-test";
 
 const EDGE_COLOR = 0xa5b4cb;
@@ -87,12 +87,9 @@ export function updateEdgeGraphics(
 
   setEdgeVisible(edge, true);
 
-  const start = getFixedSideAnchor(
-    { x: srcEl.x, y: srcEl.y, width: srcEl.width, height: srcEl.height }, edge.sourceSide,
-  );
-  const end = getFixedSideAnchor(
-    { x: tgtEl.x, y: tgtEl.y, width: tgtEl.width, height: tgtEl.height }, edge.targetSide,
-  );
+  const { srcSide, tgtSide } = computeOptimalSides(srcEl, tgtEl);
+  const start = getFixedSideAnchor(srcEl, srcSide);
+  const end = getFixedSideAnchor(tgtEl, tgtSide);
   const cp = computeBezierControlPoints(
     start.x, start.y, start.side, end.x, end.y, end.side,
   );
