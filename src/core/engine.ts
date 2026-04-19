@@ -844,7 +844,8 @@ class CanvasEngineImpl implements CanvasEngine {
     this.hoveredId = id;
     this.hoverOutline.clear();
     if (el) {
-      this.hoverOutline.rect(el.x, el.y, el.width, el.height);
+      const r = el.type === "group" ? 12 : 8;
+      this.hoverOutline.roundRect(el.x, el.y, el.width, el.height, r);
       this.hoverOutline.stroke({
         color: CanvasEngineImpl.HOVER_COLOR,
         width: 1.5 / this.scale,
@@ -858,7 +859,8 @@ class CanvasEngineImpl implements CanvasEngine {
       const tgt = tgtId ? this.registry.getElement(tgtId) : undefined;
       for (const n of [src, tgt]) {
         if (n) {
-          this.hoverOutline.rect(n.x, n.y, n.width, n.height);
+          const r = n.type === "group" ? 12 : 8;
+          this.hoverOutline.roundRect(n.x, n.y, n.width, n.height, r);
           this.hoverOutline.stroke({
             color: CanvasEngineImpl.HOVER_COLOR,
             width: 1 / this.scale,
