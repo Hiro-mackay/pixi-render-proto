@@ -69,6 +69,7 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
   let dragRoots: string[] = [];
   let cachedEdges: CanvasEdge[] = [];
   let cachedExcludeIds = new Set<string>();
+  let lastWorldPos = { x: 0, y: 0 };
   let startPositions = new Map<string, { x: number; y: number }>();
   let startParentGroupIds = new Map<string, string | null>();
 
@@ -128,6 +129,7 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
     }
 
     const world = viewport.toWorld(e.global.x, e.global.y);
+    lastWorldPos = world;
     const dx = world.x - initialWorld.x;
     const dy = world.y - initialWorld.y;
 
@@ -144,13 +146,9 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
     }
     selection.update();
 
-    // Highlight the drop-target group
+    // Highlight the drop-target group (use cursor position, not element center)
     if (movedDistance >= CLICK_THRESHOLD_PX) {
-      const firstRoot = dragRoots[0];
-      const rootEl = firstRoot ? registry.getElement(firstRoot) : undefined;
-      const cx = rootEl ? rootEl.x + rootEl.width / 2 : 0;
-      const cy = rootEl ? rootEl.y + rootEl.height / 2 : 0;
-      const targetId = findGroupAt({ x: cx, y: cy }, registry, cachedExcludeIds);
+      const targetId = findGroupAt(lastWorldPos, registry, cachedExcludeIds);
       if (targetId !== highlightedGroupId) {
         highlightedGroupId = targetId;
         const targetEl = targetId ? registry.getElement(targetId) : undefined;
@@ -200,11 +198,8 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
       const sessionId = crypto.randomUUID();
 
       const firstRoot = dragRoots[0];
+      const target = findGroupAt(lastWorldPos, registry, cachedExcludeIds);
       if (dragRoots.length === 1 && firstRoot) {
-        const rootEl = registry.getElement(firstRoot);
-        const cx = rootEl ? rootEl.x + rootEl.width / 2 : 0;
-        const cy = rootEl ? rootEl.y + rootEl.height / 2 : 0;
-        const target = findGroupAt({ x: cx, y: cy }, registry, cachedExcludeIds);
         history.execute(
           new DragCommand(
             firstRoot,
@@ -219,10 +214,6 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
         );
       } else {
         const commands = dragRoots.map((rootId) => {
-          const rootEl = registry.getElement(rootId);
-          const cx = rootEl ? rootEl.x + rootEl.width / 2 : 0;
-          const cy = rootEl ? rootEl.y + rootEl.height / 2 : 0;
-          const target = findGroupAt({ x: cx, y: cy }, registry, cachedExcludeIds);
           return new DragCommand(
             rootId,
             registry,
