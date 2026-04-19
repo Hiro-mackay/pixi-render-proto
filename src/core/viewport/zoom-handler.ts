@@ -49,6 +49,7 @@ export function setupZoomHandler(
 
       viewport.emit("zoomed", { viewport, type: "wheel" });
     } else {
+      e.preventDefault();
       viewport.x -= e.deltaX;
       viewport.y -= e.deltaY;
       viewport.emit("moved", { viewport, type: "wheel" });
