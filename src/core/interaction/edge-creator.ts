@@ -1,14 +1,14 @@
 import { Graphics } from "pixi.js";
 import type { Container } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
-import type { Redrawable, Side } from "../types";
+import { ACCENT_COLOR, type Redrawable, type Side } from "../types";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
 import { getNearestSide } from "../geometry/anchor";
 import { findNodeAt } from "../geometry/hit-test";
 import { drawHighlight, drawGhostLine } from "./ghost-graphics";
 import type { ViewportPauseController } from "../viewport/pause-controller";
 
-const GHOST_COLOR = 0x3b82f6;
+const GHOST_COLOR = ACCENT_COLOR;
 
 export interface EdgeCreatedEvent {
   readonly sourceId: string;

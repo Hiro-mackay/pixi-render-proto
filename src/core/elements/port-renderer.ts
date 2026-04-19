@@ -1,13 +1,13 @@
 import { Container, Graphics } from "pixi.js";
-import type { CanvasElement, Redrawable, Side } from "../types";
+import { ACCENT_COLOR, type CanvasElement, type Redrawable, type Side } from "../types";
 
 const PORT_RADIUS = 5;
 const HIT_RADIUS = 12;
 const ANCHOR_SCREEN_PX = 14;
 const ANCHOR_HIDE_THRESHOLD = 0.3;
 const PORT_DEFAULT_FILL = 0xffffff;
-const PORT_DEFAULT_STROKE = 0x3b82f6;
-const PORT_HOVER_FILL = 0x3b82f6;
+const PORT_DEFAULT_STROKE = ACCENT_COLOR;
+const PORT_HOVER_FILL = ACCENT_COLOR;
 const PORT_HOVER_STROKE = 0xffffff;
 
 const SIDES: readonly Side[] = ["top", "right", "bottom", "left"];

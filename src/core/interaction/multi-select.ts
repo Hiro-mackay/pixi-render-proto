@@ -4,8 +4,9 @@ import type { Viewport } from "pixi-viewport";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
 import type { SelectionState } from "./selection-state";
 import type { ViewportPauseController } from "../viewport/pause-controller";
+import { ACCENT_COLOR } from "../types";
 
-const MARQUEE_COLOR = 0x3b82f6;
+const MARQUEE_COLOR = ACCENT_COLOR;
 const MARQUEE_FILL_ALPHA = 0.08;
 const MARQUEE_STROKE_ALPHA = 0.5;
 const DRAG_THRESHOLD = 5;

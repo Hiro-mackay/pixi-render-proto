@@ -1,7 +1,7 @@
 import { Graphics } from "pixi.js";
 import type { Container, FederatedPointerEvent } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
-import type { CanvasEdge, Side } from "../types";
+import { ACCENT_COLOR, type CanvasEdge, type Side } from "../types";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
 import { getFixedSideAnchor, getNearestSide } from "../geometry/anchor";
 import { findNodeAt, resolveVisibleElement } from "../geometry/hit-test";
@@ -10,7 +10,7 @@ import type { ViewportPauseController } from "../viewport/pause-controller";
 
 const HANDLE_RADIUS = 6;
 const HANDLE_HIT_RADIUS = 14;
-const HANDLE_COLOR = 0x3b82f6;
+const HANDLE_COLOR = ACCENT_COLOR;
 
 export interface ReconnectResult {
   readonly edgeId: string;

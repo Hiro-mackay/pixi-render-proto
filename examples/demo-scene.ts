@@ -67,6 +67,8 @@ export async function buildDemoScene(
 
   const rng = mulberry32(42);
 
+  engine.beginBulkLoad();
+
   for (const g of GROUP_DEFS) {
     engine.addGroup(g.id, g);
   }
@@ -121,4 +123,6 @@ export async function buildDemoScene(
       labelColor: label ? PROTOCOL_COLORS[label] : undefined,
     });
   }
+
+  engine.endBulkLoad();
 }

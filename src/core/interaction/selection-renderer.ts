@@ -1,9 +1,9 @@
 import { Graphics } from "pixi.js";
 import type { Container } from "pixi.js";
-import type { Redrawable } from "../types";
+import { ACCENT_COLOR, type Redrawable } from "../types";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
 
-const OUTLINE_COLOR = 0x3b82f6;
+const OUTLINE_COLOR = ACCENT_COLOR;
 const OUTLINE_WIDTH = 2;
 const HANDLE_SIZE = 8;
 const EDGE_HIT_WIDTH = 6;

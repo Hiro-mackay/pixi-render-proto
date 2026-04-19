@@ -36,6 +36,9 @@ export class ElementRegistry implements ReadonlyElementRegistry {
     if (this.elements.has(id)) {
       throw new ElementExistsError(`Element "${id}" already exists`);
     }
+    if (this.edges.has(id)) {
+      throw new ElementExistsError(`ID "${id}" is already used by an edge`);
+    }
     this.elements.set(id, element);
     this.containerToId.set(element.container, id);
   }
@@ -108,6 +111,9 @@ export class ElementRegistry implements ReadonlyElementRegistry {
   addEdge(id: string, edge: CanvasEdge): void {
     if (this.edges.has(id)) {
       throw new ElementExistsError(`Edge "${id}" already exists`);
+    }
+    if (this.elements.has(id)) {
+      throw new ElementExistsError(`ID "${id}" is already used by an element`);
     }
     if (!this.elements.has(edge.sourceId)) {
       throw new ElementNotFoundError(`Edge source "${edge.sourceId}" not found`);

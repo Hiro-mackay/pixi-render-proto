@@ -1,6 +1,6 @@
 import { Graphics, Text, TextStyle } from "pixi.js";
 import type { Container } from "pixi.js";
-import { getTextResolution } from "../types";
+import { ACCENT_COLOR, getTextResolution } from "../types";
 import type { CanvasEdge, Redrawable } from "../types";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
 import { computeBezierControlPoints, cubicBezierPoint, sideDirection } from "../geometry/bezier";
@@ -12,7 +12,7 @@ const EDGE_ALPHA = 0.75;
 const STROKE_WIDTH = 1.25;
 const ARROW_SIZE = 8;
 const HIT_STROKE_WIDTH = 10;
-const SELECTED_COLOR = 0x3b82f6;
+const SELECTED_COLOR = ACCENT_COLOR;
 const SELECTED_STROKE_WIDTH = 2.5;
 const DEFAULT_LABEL_BG = 0x475569;
 const LABEL_STYLE = new TextStyle({
@@ -44,7 +44,7 @@ export function createEdgeGraphics(
   if (label) {
     labelPill = new Graphics();
     labelParent.addChild(labelPill);
-    labelText = new Text({ text: label, style: LABEL_STYLE.clone(), resolution: getTextResolution() });
+    labelText = new Text({ text: label, style: LABEL_STYLE, resolution: getTextResolution() });
     labelText.anchor.set(0.5, 0.5);
     labelParent.addChild(labelText);
   }
@@ -66,6 +66,8 @@ export function updateEdgeGraphics(
 ): void {
   const srcVisId = resolveVisibleElement(edge.sourceId, registry);
   const tgtVisId = resolveVisibleElement(edge.targetId, registry);
+  // Hide edge when either endpoint is invisible, or when both endpoints resolve
+  // to the same collapsed ancestor (intra-group edge with no visible distinction).
   if (!srcVisId || !tgtVisId || (srcVisId === tgtVisId && srcVisId !== edge.sourceId)) {
     setEdgeVisible(edge, false);
     return;

@@ -1,9 +1,10 @@
 import { Container, Graphics, type FederatedPointerEvent } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
-import type {
-  CanvasEdge, EdgeOptions, EngineOptions,
-  GroupMeta, GroupElement, GroupOptions,
-  NodeMeta, NodeElement, NodeOptions,
+import {
+  ACCENT_COLOR,
+  type CanvasEdge, type EdgeOptions, type EngineOptions,
+  type GroupMeta, type GroupElement, type GroupOptions,
+  type NodeMeta, type NodeElement, type NodeOptions,
 } from "./types";
 import { initViewport, type ViewportContext } from "./viewport/viewport-setup";
 import { ElementRegistry, type ReadonlyElementRegistry } from "./registry/element-registry";
@@ -15,6 +16,7 @@ import { ResizeCommand } from "./commands/resize-command";
 import { createNodeGraphics } from "./elements/node-renderer";
 import { createGroupGraphics, preloadChevronTextures } from "./elements/group-renderer";
 import { createEdgeGraphics, updateEdgeGraphics, removeEdgeGraphics } from "./elements/edge-renderer";
+import { resolveVisibleElement } from "./geometry/hit-test";
 import { createPortGraphics } from "./elements/port-renderer";
 import { SelectionState } from "./interaction/selection-state";
 import { EdgeCreator } from "./interaction/edge-creator";
@@ -65,6 +67,8 @@ export interface CanvasEngine {
   duplicate(): void;
   serialize(): SceneData;
   deserialize(data: SceneData): void;
+  beginBulkLoad(): void;
+  endBulkLoad(): void;
   setZoom(scale: number): void;
   centerOn(x: number, y: number): void;
   fitToContent(padding?: number): void;
@@ -133,10 +137,15 @@ class CanvasEngineImpl implements CanvasEngine {
 
     ctx.onZoom((scale) => {
       this.redraw.updateTextResolutions(scale);
+      this.cullToViewport();
       this.redraw.markAllDirty();
       this.redraw.flush();
     });
-    ctx.onPan(() => { this.redraw.markAllDirty(); this.redraw.flush(); });
+    ctx.onPan(() => {
+      this.cullToViewport();
+      this.redraw.markAllDirty();
+      this.redraw.flush();
+    });
 
     this.selection = new SelectionState(
       this.selectionLayer, this.registry, this.getScale,
@@ -245,7 +254,6 @@ class CanvasEngineImpl implements CanvasEngine {
       visible: true, parentGroupId: null, container: new Container(), meta,
     } satisfies NodeElement;
     element.container = createNodeGraphics(element, this.getScale);
-    createPortGraphics(element, this.getScale);
     this.registry.addElement(id, element);
     this.getCtx().viewport.addChild(element.container);
     this.redraw.registerTree(element.container);
@@ -258,11 +266,27 @@ class CanvasEngineImpl implements CanvasEngine {
         ghostLayer: this.ghostLayer,
       }),
     );
-    this.portDragCleanups.set(id,
-      enablePortDrag(element, this.getCtx().viewport, this.getScale, this.edgeCreator),
-    );
-    element.container.on("pointerenter", () => this.showHover(id));
-    element.container.on("pointerleave", () => { if (this.hoveredId === id) this.clearHover(); });
+    // Defer port creation until first hover or selection (saves 8 Graphics + event listeners per node).
+    let portsCreated = false;
+    let portDragCleanup: (() => void) | null = null;
+    const initPorts = () => {
+      if (portsCreated) return;
+      portsCreated = true;
+      createPortGraphics(element, this.getScale);
+      const ports = element.container.children.find((c) => c.label === "ports");
+      if (ports instanceof Container) this.redraw.registerTree(ports);
+      portDragCleanup = enablePortDrag(element, this.getCtx().viewport, this.getScale, this.edgeCreator);
+    };
+    element.initPorts = initPorts;
+    const onEnter = () => { initPorts(); this.showHover(id); };
+    const onLeave = () => { if (this.hoveredId === id) this.clearHover(); };
+    element.container.on("pointerenter", onEnter);
+    element.container.on("pointerleave", onLeave);
+    this.portDragCleanups.set(id, () => {
+      portDragCleanup?.();
+      element.container.off("pointerenter", onEnter);
+      element.container.off("pointerleave", onLeave);
+    });
     this.events.emit("element:add", { id, type: "node" });
   }
 
@@ -330,8 +354,10 @@ class CanvasEngineImpl implements CanvasEngine {
     });
     gfx.hitLine.on("pointerenter", () => this.showHover(id));
     gfx.hitLine.on("pointerleave", () => { if (this.hoveredId === id) this.clearHover(); });
-    const vp = this.getCtx().viewport;
-    vp.setChildIndex(this.selectionLayer, vp.children.length - 1);
+    if (!this.bulkLoading) {
+      const vp = this.getCtx().viewport;
+      vp.setChildIndex(this.selectionLayer, vp.children.length - 1);
+    }
     this.events.emit("edge:create", { id });
   }
 
@@ -462,6 +488,42 @@ class CanvasEngineImpl implements CanvasEngine {
     this.afterCommand();
   }
 
+  private bulkLoading = false;
+
+  beginBulkLoad(): void {
+    this.bulkLoading = true;
+    this.getCtx().app.ticker.stop();
+  }
+
+  endBulkLoad(): void {
+    this.bulkLoading = false;
+    // Ensure selection layer stays on top after bulk edge additions
+    const vp = this.getCtx().viewport;
+    vp.setChildIndex(this.selectionLayer, vp.children.length - 1);
+    this.selection.update();
+    // Cull off-screen elements before the first render frame to avoid
+    // expensive GPU resource generation for all 1000+ nodes at once.
+    this.cullToViewport();
+    this.getCtx().app.ticker.start();
+  }
+
+  private cullToViewport(): void {
+    const vp = this.getCtx().viewport;
+    const margin = Math.max(vp.screenWidthInWorldPixels, vp.screenHeightInWorldPixels) * 0.2;
+    const left = vp.left - margin;
+    const right = vp.right + margin;
+    const top = vp.top - margin;
+    const bottom = vp.bottom + margin;
+
+    for (const el of this.registry.getAllElements().values()) {
+      // Don't override visibility managed by group collapse
+      if (!el.visible) continue;
+      const inView = el.x + el.width > left && el.x < right &&
+                     el.y + el.height > top && el.y < bottom;
+      if (el.container.visible !== inView) el.container.visible = inView;
+    }
+  }
+
   // --- View control ---
 
   setZoom(scale: number): void { setViewportZoom(this.getCtx().viewport, scale); }
@@ -564,14 +626,15 @@ class CanvasEngineImpl implements CanvasEngine {
     this.afterCommand();
   };
 
-  private static readonly HOVER_COLOR = 0x3b82f6;
+  private static readonly HOVER_COLOR = ACCENT_COLOR;
   private static readonly HOVER_ALPHA = 0.5;
 
   private showHover(id: string): void {
     if (this.selection.isSelected(id) || this.selection.getSelectedEdgeId() === id) return;
-    this.hoveredId = id;
     const el = this.registry.getElement(id);
     const edge = el ? null : this.registry.getEdge(id);
+    if (!el && !edge) return;
+    this.hoveredId = id;
     this.hoverOutline.clear();
     if (el) {
       this.hoverOutline.rect(el.x, el.y, el.width, el.height);
@@ -581,9 +644,11 @@ class CanvasEngineImpl implements CanvasEngine {
         alpha: CanvasEngineImpl.HOVER_ALPHA,
       });
     } else if (edge) {
-      // For edges, highlight source and target nodes
-      const src = this.registry.getElement(edge.sourceId);
-      const tgt = this.registry.getElement(edge.targetId);
+      // For edges, resolve to visible ancestors so collapsed-group hover is correct
+      const srcId = resolveVisibleElement(edge.sourceId, this.registry);
+      const tgtId = resolveVisibleElement(edge.targetId, this.registry);
+      const src = srcId ? this.registry.getElement(srcId) : undefined;
+      const tgt = tgtId ? this.registry.getElement(tgtId) : undefined;
       for (const n of [src, tgt]) {
         if (n) {
           this.hoverOutline.rect(n.x, n.y, n.width, n.height);
@@ -616,7 +681,9 @@ class CanvasEngineImpl implements CanvasEngine {
   }
 
   private afterCommand(): void {
+    if (this.bulkLoading) return;
     this.selection.update();
+    this.cullToViewport();
     this.redraw.markAllDirty();
     this.redraw.flush();
     this.events.emit("history:change", { canUndo: this.history.canUndo, canRedo: this.history.canRedo });

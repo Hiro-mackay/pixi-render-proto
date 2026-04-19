@@ -41,6 +41,9 @@ export function hasRedraw(c: object): c is { __redraw: () => void } {
 
 // --- Canvas element model (single source of truth) ---
 
+/** @internal Shared accent color used for selection, hover, ports, and interaction highlights. */
+export const ACCENT_COLOR = 0x3b82f6;
+
 /** @internal */
 export const HEADER_HEIGHT = 28;
 /** @internal */
@@ -71,6 +74,8 @@ interface ElementBase {
   visible: boolean;
   parentGroupId: string | null;
   container: Container;
+  /** Lazily initializes port graphics on first access (set by engine for nodes). */
+  initPorts?: () => void;
 }
 
 /** @internal */

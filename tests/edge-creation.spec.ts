@@ -258,6 +258,12 @@ async function findSourcePortInfo(page: Page): Promise<{ nodeCenter: { x: number
               nodeCenter: { x: cx, y: cy },
               portScreen: { x: pb.x + pb.width / 2, y: pb.y + pb.height / 2 },
             });
+          } else {
+            // Ports are lazily created; estimate right port position from node bounds
+            results.push({
+              nodeCenter: { x: cx, y: cy },
+              portScreen: { x: b.x + b.width + 14, y: cy },
+            });
           }
         }
         return;

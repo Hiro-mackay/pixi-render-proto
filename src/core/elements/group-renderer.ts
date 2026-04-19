@@ -109,7 +109,7 @@ export function createGroupGraphics(
 
   const label = new Text({
     text: meta.label.toUpperCase(),
-    style: GROUP_LABEL_STYLE.clone(),
+    style: GROUP_LABEL_STYLE,
     resolution: getTextResolution(),
   });
   label.position.set(12, 7);
@@ -127,9 +127,10 @@ export function createGroupGraphics(
   container.addChild(toggleBtn);
 
   loadChevronTextures().then((textures) => {
+    if (iconSprite.destroyed) return;
     iconSprite.texture = meta.collapsed ? textures.right : textures.down;
     drawHeader();
-  }).catch(() => { /* chevrons already preloaded in createCanvasEngine */ });
+  }).catch((err: unknown) => { console.warn("[group-renderer] chevron texture load failed", err); });
 
   const drawHeader = () => {
     headerLine.clear();

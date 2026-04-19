@@ -1,11 +1,22 @@
 import type { Graphics, Container } from "pixi.js";
-import type { Redrawable } from "../types";
+import type { CanvasElement, Redrawable } from "../types";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
 import {
   createOutlineGraphic,
   createSelectionHandles,
   positionSelectionHandles,
 } from "./selection-renderer";
+
+function showPorts(el: CanvasElement): void {
+  el.initPorts?.();
+  const ports = el.container.children.find((c) => c.label === "ports");
+  if (ports) ports.visible = true;
+}
+
+function hidePorts(el: CanvasElement): void {
+  const ports = el.container.children.find((c) => c.label === "ports");
+  if (ports) ports.visible = false;
+}
 
 export class SelectionState {
   private readonly selectedIds = new Set<string>();
@@ -65,8 +76,7 @@ export class SelectionState {
       if (!el) return;
       this.handles = createSelectionHandles(el.x, el.y, el.width, el.height, this.getScale, this.selectionLayer);
       this.onHandlesCreated?.(this.handles);
-      const ports = el.container.children.find((c) => c.label === "ports");
-      if (ports) ports.visible = true;
+      showPorts(el);
     }
     this.notifyChange();
   }
@@ -171,8 +181,7 @@ export class SelectionState {
     if (this.selectedIds.size === 1) {
       this.handles = createSelectionHandles(el.x, el.y, el.width, el.height, this.getScale, this.selectionLayer);
       this.onHandlesCreated?.(this.handles);
-      const ports = el.container.children.find((c) => c.label === "ports");
-      if (ports) ports.visible = true;
+      showPorts(el);
     }
   }
 
@@ -182,8 +191,8 @@ export class SelectionState {
     if (outline) { outline.destroy(); this.outlines.delete(id); }
     this.destroyHandles();
 
-    const ports = this.registry.getElement(id)?.container.children.find((c) => c.label === "ports");
-    if (ports) ports.visible = false;
+    const removedEl = this.registry.getElement(id);
+    if (removedEl) hidePorts(removedEl);
 
     if (this.selectedIds.size === 1) {
       const remainingId = this.selectedIds.values().next().value ?? null;
@@ -191,8 +200,7 @@ export class SelectionState {
       if (remainingEl) {
         this.handles = createSelectionHandles(remainingEl.x, remainingEl.y, remainingEl.width, remainingEl.height, this.getScale, this.selectionLayer);
         this.onHandlesCreated?.(this.handles);
-        const p = remainingEl.container.children.find((c) => c.label === "ports");
-        if (p) p.visible = true;
+        showPorts(remainingEl);
       }
     }
   }
@@ -219,10 +227,7 @@ export class SelectionState {
   private hidePortsForAll(): void {
     for (const id of this.selectedIds) {
       const el = this.registry.getElement(id);
-      if (el) {
-        const ports = el.container.children.find((c) => c.label === "ports");
-        if (ports) ports.visible = false;
-      }
+      if (el) hidePorts(el);
     }
   }
 

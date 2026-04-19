@@ -1,6 +1,6 @@
 import { Graphics, type FederatedPointerEvent } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
-import type { CanvasEdge, CanvasElement } from "../types";
+import { ACCENT_COLOR, type CanvasEdge, type CanvasElement } from "../types";
 import type { ElementRegistry } from "../registry/element-registry";
 import type { CommandHistory } from "../commands/command";
 import type { SelectionState } from "./selection-state";
@@ -30,7 +30,7 @@ export interface ItemDragOptions {
   readonly ghostLayer?: import("pixi.js").Container;
 }
 
-const DROP_HIGHLIGHT_COLOR = 0x3b82f6;
+const DROP_HIGHLIGHT_COLOR = ACCENT_COLOR;
 
 export function enableItemDrag(opts: ItemDragOptions): () => void {
   const { element, viewport, registry, history, selection, getScale, sync,
@@ -41,10 +41,16 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
   let initialWorld = { x: 0, y: 0 };
   let shiftHeld = false;
 
-  // Drop-target highlight
-  const dropHighlight = new Graphics();
-  dropHighlight.visible = false;
-  ghostLayer?.addChild(dropHighlight);
+  // Drop-target highlight (lazy-created on first drag)
+  let dropHighlight: Graphics | null = null;
+  const getDropHighlight = (): Graphics => {
+    if (!dropHighlight) {
+      dropHighlight = new Graphics();
+      dropHighlight.visible = false;
+      ghostLayer?.addChild(dropHighlight);
+    }
+    return dropHighlight;
+  };
   let highlightedGroupId: string | null = null;
 
   // Drag participants: all elements that move together
@@ -133,7 +139,7 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
       if (targetId !== highlightedGroupId) {
         highlightedGroupId = targetId;
         const targetEl = targetId ? registry.getElement(targetId) : undefined;
-        drawHighlight(dropHighlight, targetEl ?? null, getScale(), DROP_HIGHLIGHT_COLOR);
+        drawHighlight(getDropHighlight(), targetEl ?? null, getScale(), DROP_HIGHLIGHT_COLOR);
       }
     }
   };
@@ -145,7 +151,7 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
     pauseCtrl ? pauseCtrl.release() : (viewport.pause = false);
     onDragStateChange?.(false);
     highlightedGroupId = null;
-    drawHighlight(dropHighlight, null, getScale(), DROP_HIGHLIGHT_COLOR);
+    drawHighlight(getDropHighlight(), null, getScale(), DROP_HIGHLIGHT_COLOR);
 
     if (movedDistance < CLICK_THRESHOLD_PX) {
       // Restore original positions and edge graphics
@@ -223,8 +229,10 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
     dragTarget.off("globalpointermove", onPointerMove);
     dragTarget.off("pointerup", onPointerUp);
     dragTarget.off("pointerupoutside", onPointerUp);
-    dropHighlight.removeFromParent();
-    dropHighlight.destroy();
+    if (dropHighlight) {
+      dropHighlight.removeFromParent();
+      dropHighlight.destroy();
+    }
   };
 }
 
