@@ -6,10 +6,10 @@ import type { Anchor, Point, Rect, Side } from "../types";
  */
 export function getNearestSide(rect: Rect, point: Point): Side {
   const sides: readonly { side: Side; dist: number }[] = [
-    { side: "right",  dist: Math.abs(point.x - (rect.x + rect.width)) },
+    { side: "right", dist: Math.abs(point.x - (rect.x + rect.width)) },
     { side: "bottom", dist: Math.abs(point.y - (rect.y + rect.height)) },
-    { side: "left",   dist: Math.abs(point.x - rect.x) },
-    { side: "top",    dist: Math.abs(point.y - rect.y) },
+    { side: "left", dist: Math.abs(point.x - rect.x) },
+    { side: "top", dist: Math.abs(point.y - rect.y) },
   ];
 
   let best = sides[0]!;
@@ -23,7 +23,8 @@ export function getNearestSide(rect: Rect, point: Point): Side {
 const DEAD_ZONE_RATIO = 0.15;
 
 export function computeOptimalSides(
-  srcRect: Rect, tgtRect: Rect,
+  srcRect: Rect,
+  tgtRect: Rect,
 ): { readonly srcSide: Side; readonly tgtSide: Side } {
   const srcCx = srcRect.x + srcRect.width / 2;
   const srcCy = srcRect.y + srcRect.height / 2;
@@ -35,10 +36,8 @@ export function computeOptimalSides(
   const ady = Math.abs(dy);
 
   // Overlap detection
-  const overlapX =
-    srcRect.x < tgtRect.x + tgtRect.width && tgtRect.x < srcRect.x + srcRect.width;
-  const overlapY =
-    srcRect.y < tgtRect.y + tgtRect.height && tgtRect.y < srcRect.y + srcRect.height;
+  const overlapX = srcRect.x < tgtRect.x + tgtRect.width && tgtRect.x < srcRect.x + srcRect.width;
+  const overlapY = srcRect.y < tgtRect.y + tgtRect.height && tgtRect.y < srcRect.y + srcRect.height;
 
   let useHorizontal: boolean;
 
@@ -58,13 +57,9 @@ export function computeOptimalSides(
   }
 
   if (useHorizontal) {
-    return dx >= 0
-      ? { srcSide: "right", tgtSide: "left" }
-      : { srcSide: "left", tgtSide: "right" };
+    return dx >= 0 ? { srcSide: "right", tgtSide: "left" } : { srcSide: "left", tgtSide: "right" };
   }
-  return dy >= 0
-    ? { srcSide: "bottom", tgtSide: "top" }
-    : { srcSide: "top", tgtSide: "bottom" };
+  return dy >= 0 ? { srcSide: "bottom", tgtSide: "top" } : { srcSide: "top", tgtSide: "bottom" };
 }
 
 export function getFixedSideAnchor(rect: Rect, side: Side): Anchor {

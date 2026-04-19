@@ -1,8 +1,8 @@
-import { describe, test, expect, beforeEach } from "vitest";
-import { DragCommand } from "../drag-command";
+import { beforeEach, describe, expect, test } from "vitest";
 import { ElementRegistry } from "../../registry/element-registry";
 import { syncToContainer } from "../../registry/sync";
-import { makeNode, makeGroup } from "./helpers";
+import { DragCommand } from "../drag-command";
+import { makeGroup, makeNode } from "./helpers";
 
 const sync = syncToContainer;
 
@@ -16,10 +16,14 @@ describe("DragCommand", () => {
   test("should move element to final position on execute", () => {
     registry.addElement("n1", makeNode("n1"));
     const cmd = new DragCommand(
-      "n1", registry,
+      "n1",
+      registry,
       new Map([["n1", { x: 100, y: 200 }]]),
       new Map([["n1", { x: 300, y: 400 }]]),
-      sync, "s1", null, null,
+      sync,
+      "s1",
+      null,
+      null,
     );
     cmd.execute();
     const el = registry.getElementOrThrow("n1");
@@ -30,10 +34,14 @@ describe("DragCommand", () => {
   test("should restore element to start position on undo", () => {
     registry.addElement("n1", makeNode("n1"));
     const cmd = new DragCommand(
-      "n1", registry,
+      "n1",
+      registry,
       new Map([["n1", { x: 100, y: 200 }]]),
       new Map([["n1", { x: 300, y: 400 }]]),
-      sync, "s1", null, null,
+      sync,
+      "s1",
+      null,
+      null,
     );
     cmd.execute();
     cmd.undo();
@@ -48,10 +56,20 @@ describe("DragCommand", () => {
     registry.setParentGroup("n1", "g1");
 
     const cmd = new DragCommand(
-      "g1", registry,
-      new Map([["g1", { x: 0, y: 0 }], ["n1", { x: 50, y: 60 }]]),
-      new Map([["g1", { x: 100, y: 100 }], ["n1", { x: 150, y: 160 }]]),
-      sync, "s1", null, null,
+      "g1",
+      registry,
+      new Map([
+        ["g1", { x: 0, y: 0 }],
+        ["n1", { x: 50, y: 60 }],
+      ]),
+      new Map([
+        ["g1", { x: 100, y: 100 }],
+        ["n1", { x: 150, y: 160 }],
+      ]),
+      sync,
+      "s1",
+      null,
+      null,
     );
     cmd.execute();
     expect(registry.getElementOrThrow("g1").x).toBe(100);

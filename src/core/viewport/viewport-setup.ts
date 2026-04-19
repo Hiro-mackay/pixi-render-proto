@@ -1,9 +1,4 @@
-import {
-  Application,
-  Text,
-  TextStyle,
-  Ticker,
-} from "pixi.js";
+import { Application, Text, TextStyle, Ticker } from "pixi.js";
 import { Viewport } from "pixi-viewport";
 import type { EngineOptions } from "../types";
 import { setupZoomHandler } from "./zoom-handler";

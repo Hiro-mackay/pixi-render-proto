@@ -1,13 +1,19 @@
-import { describe, test, expect } from "vitest";
-import { Container } from "pixi.js";
-import { findNodeAt } from "../hit-test";
+import type { Container } from "pixi.js";
+import { describe, expect, test } from "vitest";
 import { ElementRegistry } from "../../registry/element-registry";
 import type { CanvasElement } from "../../types";
+import { findNodeAt } from "../hit-test";
 
 function makeNode(id: string, x = 100, y = 100, w = 140, h = 68): CanvasElement {
   return {
-    id, type: "node", x, y, width: w, height: h,
-    visible: true, parentGroupId: null,
+    id,
+    type: "node",
+    x,
+    y,
+    width: w,
+    height: h,
+    visible: true,
+    parentGroupId: null,
     container: { x, y, visible: true } as unknown as Container,
     meta: { label: id, color: 0x2d3748 },
   };

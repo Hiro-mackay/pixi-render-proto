@@ -21,7 +21,8 @@ export function findGroupAt(
       point.x > group.x + group.width ||
       point.y < bodyTop ||
       point.y > group.y + group.height
-    ) continue;
+    )
+      continue;
 
     const area = group.width * group.height;
     if (area < bestArea) {
@@ -47,9 +48,6 @@ export function isInsideGroup(
   const bodyTop = group.y + HEADER_HEIGHT;
 
   return (
-    cx >= group.x &&
-    cx <= group.x + group.width &&
-    cy >= bodyTop &&
-    cy <= group.y + group.height
+    cx >= group.x && cx <= group.x + group.width && cy >= bodyTop && cy <= group.y + group.height
   );
 }

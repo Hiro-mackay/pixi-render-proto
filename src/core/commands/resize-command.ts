@@ -1,7 +1,7 @@
-import type { CanvasElement } from "../types";
-import type { ReadonlyElementRegistry } from "../registry/element-registry";
-import type { Command } from "./command";
 import type { EventDescriptor } from "../events/event-emitter";
+import type { ReadonlyElementRegistry } from "../registry/element-registry";
+import type { CanvasElement } from "../types";
+import type { Command } from "./command";
 
 export interface ResizeRect {
   readonly x: number;
@@ -40,7 +40,12 @@ export class ResizeCommand implements Command {
 
     const el = opts.registry.getElementOrThrow(opts.elementId);
     this.oldRect = opts.previous
-      ? { x: opts.previous.x, y: opts.previous.y, width: opts.previous.width, height: opts.previous.height }
+      ? {
+          x: opts.previous.x,
+          y: opts.previous.y,
+          width: opts.previous.width,
+          height: opts.previous.height,
+        }
       : { x: el.x, y: el.y, width: el.width, height: el.height };
 
     if (el.type === "group" && !el.meta.collapsed) {
@@ -62,7 +67,9 @@ export class ResizeCommand implements Command {
 
   getDomainEvents(): readonly EventDescriptor[] {
     const el = this.registry.getElementOrThrow(this.elementId);
-    return [{ event: "element:resize", data: { id: this.elementId, width: el.width, height: el.height } }];
+    return [
+      { event: "element:resize", data: { id: this.elementId, width: el.width, height: el.height } },
+    ];
   }
 
   merge(other: Command): Command | null {

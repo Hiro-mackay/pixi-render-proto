@@ -1,10 +1,11 @@
 export class CanvasEngineError extends Error {
   readonly code: string;
+  declare readonly cause?: unknown;
   constructor(message: string, code: string, cause?: unknown) {
     super(message);
     this.code = code;
     this.name = this.constructor.name;
-    if (cause !== undefined) (this as { cause?: unknown }).cause = cause;
+    if (cause !== undefined) this.cause = cause;
   }
 }
 

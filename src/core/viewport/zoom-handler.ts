@@ -1,5 +1,5 @@
 import type { Viewport } from "pixi-viewport";
-import { MIN_ZOOM, MAX_ZOOM } from "./viewport-setup";
+import { MAX_ZOOM, MIN_ZOOM } from "./viewport-setup";
 
 const ZOOM_SENSITIVITY = 0.01;
 
@@ -21,7 +21,10 @@ export function setupZoomHandler(
   const getRect = (): DOMRect => {
     if (!cachedRect) cachedRect = canvasEl.getBoundingClientRect();
     if (!rectRafId) {
-      rectRafId = requestAnimationFrame(() => { cachedRect = null; rectRafId = 0; });
+      rectRafId = requestAnimationFrame(() => {
+        cachedRect = null;
+        rectRafId = 0;
+      });
     }
     return cachedRect;
   };
@@ -69,8 +72,12 @@ export function setupZoomHandler(
   viewport.on("moved", handlePan);
 
   return {
-    onZoom: (callback) => { zoomCallbacks.push(callback); },
-    onPan: (callback) => { panCallbacks.push(callback); },
+    onZoom: (callback) => {
+      zoomCallbacks.push(callback);
+    },
+    onPan: (callback) => {
+      panCallbacks.push(callback);
+    },
     cleanup: () => {
       zoomCallbacks.length = 0;
       panCallbacks.length = 0;

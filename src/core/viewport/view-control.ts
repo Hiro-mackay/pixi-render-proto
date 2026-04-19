@@ -1,6 +1,6 @@
 import type { Viewport } from "pixi-viewport";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
-import { MIN_ZOOM, MAX_ZOOM } from "./viewport-setup";
+import { MAX_ZOOM, MIN_ZOOM } from "./viewport-setup";
 
 export function setViewportZoom(viewport: Viewport, scale: number): void {
   const clamped = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, scale));

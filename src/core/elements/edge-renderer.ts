@@ -1,11 +1,11 @@
-import { Graphics, Text, TextStyle } from "pixi.js";
 import type { Container } from "pixi.js";
-import { ACCENT_COLOR, getTextResolution } from "../types";
-import type { CanvasEdge, Redrawable } from "../types";
-import type { ReadonlyElementRegistry } from "../registry/element-registry";
-import { computeBezierControlPoints, cubicBezierPoint, sideDirection } from "../geometry/bezier";
+import { Graphics, Text, TextStyle } from "pixi.js";
 import { computeOptimalSides, getFixedSideAnchor } from "../geometry/anchor";
+import { computeBezierControlPoints, cubicBezierPoint, sideDirection } from "../geometry/bezier";
 import { resolveVisibleElement } from "../geometry/hit-test";
+import type { ReadonlyElementRegistry } from "../registry/element-registry";
+import type { CanvasEdge, Redrawable } from "../types";
+import { ACCENT_COLOR, getTextResolution } from "../types";
 
 const EDGE_COLOR = 0xa5b4cb;
 const EDGE_ALPHA = 0.75;
@@ -17,7 +17,10 @@ const SELECTED_STROKE_WIDTH = 2.5;
 const DEFAULT_LABEL_BG = 0x475569;
 const LABEL_STYLE = new TextStyle({
   fontFamily: "system-ui, -apple-system, sans-serif",
-  fontSize: 9, fill: 0xffffff, fontWeight: "600", letterSpacing: 0.3,
+  fontSize: 9,
+  fill: 0xffffff,
+  fontWeight: "600",
+  letterSpacing: 0.3,
 });
 
 export interface EdgeGraphicsResult {
@@ -52,7 +55,6 @@ export function createEdgeGraphics(
   return { line, hitLine, labelPill, labelText };
 }
 
-
 function setEdgeVisible(edge: CanvasEdge, visible: boolean): void {
   edge.line.visible = visible;
   edge.hitLine.visible = visible;
@@ -62,7 +64,9 @@ function setEdgeVisible(edge: CanvasEdge, visible: boolean): void {
 }
 
 export function updateEdgeGraphics(
-  edge: CanvasEdge, registry: ReadonlyElementRegistry, getScale: () => number,
+  edge: CanvasEdge,
+  registry: ReadonlyElementRegistry,
+  _getScale: () => number,
 ): void {
   const srcVisId = resolveVisibleElement(edge.sourceId, registry);
   const tgtVisId = resolveVisibleElement(edge.targetId, registry);
@@ -76,12 +80,18 @@ export function updateEdgeGraphics(
   const tgtEl = registry.getElementOrThrow(tgtVisId);
 
   const cache = edge._posCache;
-  if (cache &&
-      cache.srcX === srcEl.x && cache.srcY === srcEl.y &&
-      cache.srcW === srcEl.width && cache.srcH === srcEl.height &&
-      cache.tgtX === tgtEl.x && cache.tgtY === tgtEl.y &&
-      cache.tgtW === tgtEl.width && cache.tgtH === tgtEl.height &&
-      cache.selected === edge.selected) {
+  if (
+    cache &&
+    cache.srcX === srcEl.x &&
+    cache.srcY === srcEl.y &&
+    cache.srcW === srcEl.width &&
+    cache.srcH === srcEl.height &&
+    cache.tgtX === tgtEl.x &&
+    cache.tgtY === tgtEl.y &&
+    cache.tgtW === tgtEl.width &&
+    cache.tgtH === tgtEl.height &&
+    cache.selected === edge.selected
+  ) {
     return;
   }
 
@@ -90,9 +100,7 @@ export function updateEdgeGraphics(
   const { srcSide, tgtSide } = computeOptimalSides(srcEl, tgtEl);
   const start = getFixedSideAnchor(srcEl, srcSide);
   const end = getFixedSideAnchor(tgtEl, tgtSide);
-  const cp = computeBezierControlPoints(
-    start.x, start.y, start.side, end.x, end.y, end.side,
-  );
+  const cp = computeBezierControlPoints(start.x, start.y, start.side, end.x, end.y, end.side);
   const color = edge.selected ? SELECTED_COLOR : EDGE_COLOR;
   const alpha = edge.selected ? 1.0 : EDGE_ALPHA;
   const sw = edge.selected ? SELECTED_STROKE_WIDTH : STROKE_WIDTH;
@@ -112,12 +120,17 @@ export function updateEdgeGraphics(
 
   if (edge.labelText && edge.labelPill) {
     const mid = cubicBezierPoint(
-      0.5, start, { x: cp.cp1x, y: cp.cp1y }, { x: cp.cp2x, y: cp.cp2y }, end,
+      0.5,
+      start,
+      { x: cp.cp1x, y: cp.cp1y },
+      { x: cp.cp2x, y: cp.cp2y },
+      end,
     );
     edge.labelText.position.set(mid.x, mid.y);
     const bg = edge.labelColor ?? DEFAULT_LABEL_BG;
     const b = edge.labelText.getLocalBounds();
-    const w = b.width + 12, h = b.height + 5;
+    const w = b.width + 12,
+      h = b.height + 5;
     edge.labelPill.clear();
     edge.labelPill.roundRect(mid.x - w / 2, mid.y - h / 2, w, h, h / 2);
     edge.labelPill.fill({ color: bg, alpha: 0.95 });
@@ -125,20 +138,35 @@ export function updateEdgeGraphics(
   }
 
   edge._posCache = {
-    srcX: srcEl.x, srcY: srcEl.y, srcW: srcEl.width, srcH: srcEl.height,
-    tgtX: tgtEl.x, tgtY: tgtEl.y, tgtW: tgtEl.width, tgtH: tgtEl.height,
+    srcX: srcEl.x,
+    srcY: srcEl.y,
+    srcW: srcEl.width,
+    srcH: srcEl.height,
+    tgtX: tgtEl.x,
+    tgtY: tgtEl.y,
+    tgtW: tgtEl.width,
+    tgtH: tgtEl.height,
     selected: edge.selected,
   };
 }
 
 function drawArrowHead(
-  g: Graphics, tipX: number, tipY: number,
-  dirX: number, dirY: number, sw: number, color: number, alpha: number,
+  g: Graphics,
+  tipX: number,
+  tipY: number,
+  dirX: number,
+  dirY: number,
+  sw: number,
+  color: number,
+  alpha: number,
 ): void {
   const len = Math.hypot(dirX, dirY) || 1;
-  const nx = dirX / len, ny = dirY / len;
-  const px = -ny, py = nx;
-  const bx = tipX - nx * ARROW_SIZE, by = tipY - ny * ARROW_SIZE;
+  const nx = dirX / len,
+    ny = dirY / len;
+  const px = -ny,
+    py = nx;
+  const bx = tipX - nx * ARROW_SIZE,
+    by = tipY - ny * ARROW_SIZE;
   g.moveTo(tipX, tipY);
   g.lineTo(bx + px * ARROW_SIZE * 0.5, by + py * ARROW_SIZE * 0.5);
   g.lineTo(bx - px * ARROW_SIZE * 0.5, by - py * ARROW_SIZE * 0.5);
@@ -152,6 +180,12 @@ export function removeEdgeGraphics(edge: CanvasEdge): void {
   edge.line.destroy();
   edge.hitLine.removeFromParent();
   edge.hitLine.destroy();
-  if (edge.labelPill) { edge.labelPill.removeFromParent(); edge.labelPill.destroy(); }
-  if (edge.labelText) { edge.labelText.removeFromParent(); edge.labelText.destroy(); }
+  if (edge.labelPill) {
+    edge.labelPill.removeFromParent();
+    edge.labelPill.destroy();
+  }
+  if (edge.labelText) {
+    edge.labelText.removeFromParent();
+    edge.labelText.destroy();
+  }
 }

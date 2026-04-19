@@ -1,6 +1,6 @@
-import { describe, test, expect } from "vitest";
+import { describe, expect, test } from "vitest";
 import { ReconnectEdgeCommand } from "../edge-command";
-import { makeNode, makeEdge, makeRegistry } from "./helpers";
+import { makeEdge, makeNode, makeRegistry } from "./helpers";
 
 describe("ReconnectEdgeCommand", () => {
   function setup() {

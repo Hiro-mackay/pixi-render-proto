@@ -1,7 +1,7 @@
 import { useCallback } from "react";
+import type { CanvasEngine } from "../src/core";
 import { CanvasProvider } from "../src/react";
 import { buildDemoScene } from "./demo-scene";
-import type { CanvasEngine } from "../src/core";
 
 export function App() {
   const handleReady = useCallback(async (engine: CanvasEngine, signal: AbortSignal) => {
@@ -13,7 +13,5 @@ export function App() {
     performance.measure("scene-load", "scene-load-start", "scene-load-end");
   }, []);
 
-  return (
-    <CanvasProvider options={{ debug: import.meta.env.DEV }} onReady={handleReady} />
-  );
+  return <CanvasProvider options={{ debug: import.meta.env.DEV }} onReady={handleReady} />;
 }

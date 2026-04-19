@@ -1,6 +1,6 @@
-import { describe, test, expect, beforeEach, vi } from "vitest";
-import { CommandHistory, type Command } from "../command";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { CommandExecutionError } from "../../errors";
+import { type Command, CommandHistory } from "../command";
 
 function makeCommand(): Command {
   return { type: "move", execute: vi.fn(), undo: vi.fn() };
@@ -19,7 +19,11 @@ function makeMergeableCommand(
       return null;
     },
     sessionId,
-  } as Command & { execute: ReturnType<typeof vi.fn>; undo: ReturnType<typeof vi.fn>; sessionId: string };
+  } as Command & {
+    execute: ReturnType<typeof vi.fn>;
+    undo: ReturnType<typeof vi.fn>;
+    sessionId: string;
+  };
 }
 
 describe("CommandHistory", () => {
@@ -53,8 +57,20 @@ describe("CommandHistory", () => {
 
     test("should undo commands in reverse order", () => {
       const order: string[] = [];
-      const cmd1: Command = { type: "move", execute() {}, undo() { order.push("a"); } };
-      const cmd2: Command = { type: "resize", execute() {}, undo() { order.push("b"); } };
+      const cmd1: Command = {
+        type: "move",
+        execute() {},
+        undo() {
+          order.push("a");
+        },
+      };
+      const cmd2: Command = {
+        type: "resize",
+        execute() {},
+        undo() {
+          order.push("b");
+        },
+      };
       history.execute(cmd1);
       history.execute(cmd2);
       history.undo();
@@ -116,8 +132,24 @@ describe("CommandHistory", () => {
   describe("batch groups multiple commands as one undo unit", () => {
     test("should undo all batched commands together", () => {
       let value = 0;
-      const inc: Command = { type: "move", execute() { value++; }, undo() { value--; } };
-      const dbl: Command = { type: "resize", execute() { value *= 2; }, undo() { value /= 2; } };
+      const inc: Command = {
+        type: "move",
+        execute() {
+          value++;
+        },
+        undo() {
+          value--;
+        },
+      };
+      const dbl: Command = {
+        type: "resize",
+        execute() {
+          value *= 2;
+        },
+        undo() {
+          value /= 2;
+        },
+      };
 
       history.batch([inc, inc, dbl]);
       expect(value).toBe(4); // 0+1+1 = 2, *2 = 4
@@ -143,7 +175,9 @@ describe("CommandHistory", () => {
     test("should not push to undo stack when execute throws", () => {
       const failing: Command = {
         type: "move",
-        execute() { throw new Error("execute failed"); },
+        execute() {
+          throw new Error("execute failed");
+        },
         undo: vi.fn(),
       };
       expect(() => history.execute(failing)).toThrow("execute failed");
@@ -158,7 +192,9 @@ describe("CommandHistory", () => {
 
       const failing: Command = {
         type: "move",
-        execute() { throw new Error("boom"); },
+        execute() {
+          throw new Error("boom");
+        },
         undo: vi.fn(),
       };
       expect(() => history.execute(failing)).toThrow();
@@ -169,7 +205,9 @@ describe("CommandHistory", () => {
       const cause = new Error("root");
       const failing: Command = {
         type: "move",
-        execute() { throw cause; },
+        execute() {
+          throw cause;
+        },
         undo: vi.fn(),
       };
       try {
@@ -183,8 +221,22 @@ describe("CommandHistory", () => {
 
     test("should roll back partial batch when a sub-command fails", () => {
       let value = 0;
-      const inc: Command = { type: "move", execute() { value++; }, undo() { value--; } };
-      const fail: Command = { type: "move", execute() { throw new Error("fail"); }, undo: vi.fn() };
+      const inc: Command = {
+        type: "move",
+        execute() {
+          value++;
+        },
+        undo() {
+          value--;
+        },
+      };
+      const fail: Command = {
+        type: "move",
+        execute() {
+          throw new Error("fail");
+        },
+        undo: vi.fn(),
+      };
 
       expect(() => history.batch([inc, inc, fail])).toThrow(CommandExecutionError);
       expect(value).toBe(0); // rolled back

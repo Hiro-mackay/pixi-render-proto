@@ -1,11 +1,11 @@
-import { describe, test, expect, vi, beforeEach } from "vitest";
-import { deserializeScene, type DeserializeContext } from "../deserialize";
-import { serialize } from "../serialize";
-import { ElementRegistry } from "../../registry/element-registry";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import { makeEdge, makeGroup, makeNode } from "../../commands/__tests__/helpers";
 import { CommandHistory } from "../../commands/command";
-import { makeNode, makeGroup, makeEdge } from "../../commands/__tests__/helpers";
 import type { CanvasEngine } from "../../engine";
+import { ElementRegistry } from "../../registry/element-registry";
+import { type DeserializeContext, deserializeScene } from "../deserialize";
 import type { SceneData } from "../schema";
+import { serialize } from "../serialize";
 
 function createMockEngine(registry: ElementRegistry): CanvasEngine {
   return {
@@ -13,13 +13,20 @@ function createMockEngine(registry: ElementRegistry): CanvasEngine {
       registry.addElement(id, makeNode(id, opts.x, opts.y, opts.width, opts.height));
     }),
     addGroup: vi.fn((id, opts) => {
-      registry.addElement(id, makeGroup(id, { x: opts.x, y: opts.y, width: opts.width, height: opts.height }));
+      registry.addElement(
+        id,
+        makeGroup(id, { x: opts.x, y: opts.y, width: opts.width, height: opts.height }),
+      );
     }),
     addEdge: vi.fn((id, opts) => {
       registry.addEdge(id, makeEdge(id, opts.sourceId, opts.targetId));
     }),
-    removeElement: vi.fn((id) => { registry.removeElement(id); }),
-    removeEdge: vi.fn((id) => { registry.removeEdge(id); }),
+    removeElement: vi.fn((id) => {
+      registry.removeElement(id);
+    }),
+    removeEdge: vi.fn((id) => {
+      registry.removeEdge(id);
+    }),
     toggleCollapse: vi.fn(),
     viewport: { moveCenter: vi.fn(), setZoom: vi.fn() },
   } as unknown as CanvasEngine;
@@ -42,7 +49,19 @@ describe("deserializeScene", () => {
     const data: SceneData = {
       version: 1,
       nodes: [{ id: "n1", x: 10, y: 20, width: 100, height: 50, label: "Node", color: 0x333 }],
-      groups: [{ id: "g1", x: 0, y: 0, width: 400, height: 300, label: "Group", color: 0x555, collapsed: false, expandedHeight: 300 }],
+      groups: [
+        {
+          id: "g1",
+          x: 0,
+          y: 0,
+          width: 400,
+          height: 300,
+          label: "Group",
+          color: 0x555,
+          collapsed: false,
+          expandedHeight: 300,
+        },
+      ],
       edges: [],
       groupMemberships: [],
     };
@@ -61,7 +80,9 @@ describe("deserializeScene", () => {
         { id: "n2", x: 200, y: 0, width: 100, height: 50, label: "B", color: 0x333 },
       ],
       groups: [],
-      edges: [{ id: "e1", sourceId: "n1", sourceSide: "right", targetId: "n2", targetSide: "left" }],
+      edges: [
+        { id: "e1", sourceId: "n1", sourceSide: "right", targetId: "n2", targetSide: "left" },
+      ],
       groupMemberships: [],
     };
 
@@ -75,7 +96,9 @@ describe("deserializeScene", () => {
       version: 1,
       nodes: [{ id: "n1", x: 0, y: 0, width: 100, height: 50, label: "A", color: 0x333 }],
       groups: [],
-      edges: [{ id: "e1", sourceId: "n1", sourceSide: "right", targetId: "missing", targetSide: "left" }],
+      edges: [
+        { id: "e1", sourceId: "n1", sourceSide: "right", targetId: "missing", targetSide: "left" },
+      ],
       groupMemberships: [],
     };
 
@@ -88,7 +111,19 @@ describe("deserializeScene", () => {
     const data: SceneData = {
       version: 1,
       nodes: [{ id: "n1", x: 0, y: 0, width: 100, height: 50, label: "A", color: 0x333 }],
-      groups: [{ id: "g1", x: 0, y: 0, width: 400, height: 300, label: "Group", color: 0x555, collapsed: false, expandedHeight: 300 }],
+      groups: [
+        {
+          id: "g1",
+          x: 0,
+          y: 0,
+          width: 400,
+          height: 300,
+          label: "Group",
+          color: 0x555,
+          collapsed: false,
+          expandedHeight: 300,
+        },
+      ],
       edges: [],
       groupMemberships: [{ childId: "n1", groupId: "g1" }],
     };
@@ -102,7 +137,19 @@ describe("deserializeScene", () => {
     const data: SceneData = {
       version: 1,
       nodes: [],
-      groups: [{ id: "g1", x: 0, y: 0, width: 400, height: 300, label: "Group", color: 0x555, collapsed: true, expandedHeight: 300 }],
+      groups: [
+        {
+          id: "g1",
+          x: 0,
+          y: 0,
+          width: 400,
+          height: 300,
+          label: "Group",
+          color: 0x555,
+          collapsed: true,
+          expandedHeight: 300,
+        },
+      ],
       edges: [],
       groupMemberships: [],
     };
@@ -124,7 +171,11 @@ describe("deserializeScene", () => {
     expect(history.canUndo).toBe(true);
 
     const data: SceneData = {
-      version: 1, nodes: [], groups: [], edges: [], groupMemberships: [],
+      version: 1,
+      nodes: [],
+      groups: [],
+      edges: [],
+      groupMemberships: [],
     };
 
     deserializeScene(data, ctx);
@@ -134,7 +185,11 @@ describe("deserializeScene", () => {
 
   test("should throw on unknown version", () => {
     const data = {
-      version: 99, nodes: [], groups: [], edges: [], groupMemberships: [],
+      version: 99,
+      nodes: [],
+      groups: [],
+      edges: [],
+      groupMemberships: [],
     } as unknown as SceneData;
 
     expect(() => deserializeScene(data, ctx)).toThrow(/version/i);
@@ -142,7 +197,11 @@ describe("deserializeScene", () => {
 
   test("should restore viewport position and zoom", () => {
     const data: SceneData = {
-      version: 1, nodes: [], groups: [], edges: [], groupMemberships: [],
+      version: 1,
+      nodes: [],
+      groups: [],
+      edges: [],
+      groupMemberships: [],
       viewport: { x: 100, y: 200, zoom: 1.5 },
     };
 
@@ -154,7 +213,11 @@ describe("deserializeScene", () => {
 
   test("should not touch viewport when not provided", () => {
     const data: SceneData = {
-      version: 1, nodes: [], groups: [], edges: [], groupMemberships: [],
+      version: 1,
+      nodes: [],
+      groups: [],
+      edges: [],
+      groupMemberships: [],
     };
 
     deserializeScene(data, ctx);
@@ -164,9 +227,18 @@ describe("deserializeScene", () => {
   });
 
   test("should throw when version is a float", () => {
-    expect(() => deserializeScene({
-      version: 1.5, nodes: [], groups: [], edges: [], groupMemberships: [],
-    }, ctx)).toThrow(/version/);
+    expect(() =>
+      deserializeScene(
+        {
+          version: 1.5,
+          nodes: [],
+          groups: [],
+          edges: [],
+          groupMemberships: [],
+        },
+        ctx,
+      ),
+    ).toThrow(/version/);
   });
 
   test("should throw when scene data is null", () => {
@@ -178,15 +250,51 @@ describe("deserializeScene", () => {
   });
 
   test("should throw when edge label is not a string", () => {
-    expect(() => deserializeScene({
-      version: 1, nodes: [], groups: [], edges: [{ id: "e1", sourceId: "n1", sourceSide: "right", targetId: "n2", targetSide: "left", label: 42 }], groupMemberships: [],
-    }, ctx)).toThrow(/label/);
+    expect(() =>
+      deserializeScene(
+        {
+          version: 1,
+          nodes: [],
+          groups: [],
+          edges: [
+            {
+              id: "e1",
+              sourceId: "n1",
+              sourceSide: "right",
+              targetId: "n2",
+              targetSide: "left",
+              label: 42,
+            },
+          ],
+          groupMemberships: [],
+        },
+        ctx,
+      ),
+    ).toThrow(/label/);
   });
 
   test("should throw when edge labelColor is not a number", () => {
-    expect(() => deserializeScene({
-      version: 1, nodes: [], groups: [], edges: [{ id: "e1", sourceId: "n1", sourceSide: "right", targetId: "n2", targetSide: "left", labelColor: "red" }], groupMemberships: [],
-    }, ctx)).toThrow(/labelColor/);
+    expect(() =>
+      deserializeScene(
+        {
+          version: 1,
+          nodes: [],
+          groups: [],
+          edges: [
+            {
+              id: "e1",
+              sourceId: "n1",
+              sourceSide: "right",
+              targetId: "n2",
+              targetSide: "left",
+              labelColor: "red",
+            },
+          ],
+          groupMemberships: [],
+        },
+        ctx,
+      ),
+    ).toThrow(/labelColor/);
   });
 
   test("should rollback on partial import failure", () => {
@@ -195,10 +303,22 @@ describe("deserializeScene", () => {
     // Mock engine that throws when it encounters the node id "n-bomb"
     const badEngine = {
       ...engine,
-      addNode: vi.fn((id: string, opts: { x: number; y: number; width: number; height: number; label: string; color: number }) => {
-        if (id === "n-bomb") throw new Error("boom");
-        registry.addElement(id, makeNode(id, opts.x, opts.y, opts.width, opts.height));
-      }),
+      addNode: vi.fn(
+        (
+          id: string,
+          opts: {
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+            label: string;
+            color: number;
+          },
+        ) => {
+          if (id === "n-bomb") throw new Error("boom");
+          registry.addElement(id, makeNode(id, opts.x, opts.y, opts.width, opts.height));
+        },
+      ),
     } as unknown as CanvasEngine;
     const badCtx: DeserializeContext = { engine: badEngine, registry, history };
 
@@ -208,7 +328,9 @@ describe("deserializeScene", () => {
         { id: "n-ok", x: 0, y: 0, width: 100, height: 50, label: "OK", color: 0x333 },
         { id: "n-bomb", x: 0, y: 0, width: 100, height: 50, label: "Fail", color: 0x333 },
       ],
-      groups: [], edges: [], groupMemberships: [],
+      groups: [],
+      edges: [],
+      groupMemberships: [],
     };
 
     expect(() => deserializeScene(data, badCtx)).toThrow("boom");
@@ -226,12 +348,16 @@ describe("deserializeScene", () => {
     const data = {
       version: 1,
       nodes: [{ id: "n-bomb", x: 0, y: 0, width: 100, height: 50, label: "Fail", color: 0x333 }],
-      groups: [], edges: [], groupMemberships: [],
+      groups: [],
+      edges: [],
+      groupMemberships: [],
     } as unknown as SceneData;
 
     const badEngine = {
       ...engine,
-      addNode: vi.fn(() => { throw new Error("boom"); }),
+      addNode: vi.fn(() => {
+        throw new Error("boom");
+      }),
     } as unknown as CanvasEngine;
 
     expect(() => deserializeScene(data, { engine: badEngine, registry, history })).toThrow("boom");
@@ -252,7 +378,11 @@ describe("deserializeScene", () => {
     // Deserialize into a fresh registry
     const reg2 = new ElementRegistry();
     const eng2 = createMockEngine(reg2);
-    const ctx2: DeserializeContext = { engine: eng2, registry: reg2, history: new CommandHistory() };
+    const ctx2: DeserializeContext = {
+      engine: eng2,
+      registry: reg2,
+      history: new CommandHistory(),
+    };
 
     deserializeScene(serialized, ctx2);
 

@@ -20,17 +20,18 @@ export function getPortPosition(
 ): { x: number; y: number } {
   const offset = ANCHOR_SCREEN_PX / scale;
   switch (side) {
-    case "top": return { x: width / 2, y: -offset };
-    case "right": return { x: width + offset, y: height / 2 };
-    case "bottom": return { x: width / 2, y: height + offset };
-    case "left": return { x: -offset, y: height / 2 };
+    case "top":
+      return { x: width / 2, y: -offset };
+    case "right":
+      return { x: width + offset, y: height / 2 };
+    case "bottom":
+      return { x: width / 2, y: height + offset };
+    case "left":
+      return { x: -offset, y: height / 2 };
   }
 }
 
-export function createPortGraphics(
-  element: CanvasElement,
-  getScale: () => number,
-): Container {
+export function createPortGraphics(element: CanvasElement, getScale: () => number): Container {
   const portsContainer = new Container();
   portsContainer.label = "ports";
 

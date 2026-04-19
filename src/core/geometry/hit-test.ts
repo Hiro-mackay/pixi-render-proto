@@ -1,5 +1,5 @@
-import type { Point, CanvasElement } from "../types";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
+import type { CanvasElement, Point } from "../types";
 
 /**
  * Find the topmost node at the given point.
@@ -16,8 +16,10 @@ export function findNodeAt(
     if (el.id === excludeId) continue;
     if (!el.visible) continue;
     if (
-      point.x >= el.x && point.x <= el.x + el.width &&
-      point.y >= el.y && point.y <= el.y + el.height
+      point.x >= el.x &&
+      point.x <= el.x + el.width &&
+      point.y >= el.y &&
+      point.y <= el.y + el.height
     ) {
       return el;
     }

@@ -1,10 +1,16 @@
-import { Container } from "pixi.js";
+import type { Container } from "pixi.js";
+import {
+  CycleDetectedError,
+  ElementExistsError,
+  ElementNotFoundError,
+  InvalidArgumentError,
+} from "../errors";
 import type { CanvasEdge, CanvasElement, Side } from "../types";
 import { EdgeIndex } from "./edge-index";
-import { ElementNotFoundError, ElementExistsError, CycleDetectedError, InvalidArgumentError } from "../errors";
 
 /** Internal mutable view of CanvasEdge for reconnection within the registry. */
-interface MutableCanvasEdge extends Omit<CanvasEdge, "sourceId" | "sourceSide" | "targetId" | "targetSide"> {
+interface MutableCanvasEdge
+  extends Omit<CanvasEdge, "sourceId" | "sourceSide" | "targetId" | "targetSide"> {
   sourceId: string;
   sourceSide: Side;
   targetId: string;
@@ -153,12 +159,7 @@ export class ElementRegistry implements ReadonlyElementRegistry {
     return result;
   }
 
-  reconnectEdge(
-    id: string,
-    endpoint: "source" | "target",
-    newNodeId: string,
-    newSide: Side,
-  ): void {
+  reconnectEdge(id: string, endpoint: "source" | "target", newNodeId: string, newSide: Side): void {
     const edge = this.edges.get(id);
     if (!edge) throw new ElementNotFoundError(`Edge "${id}" not found`);
     if (!this.elements.has(newNodeId)) {
@@ -188,13 +189,17 @@ export class ElementRegistry implements ReadonlyElementRegistry {
     if (groupId) {
       const group = this.getElementOrThrow(groupId);
       if (group.type !== "group") {
-        throw new InvalidArgumentError(`Element "${groupId}" is not a group (type: "${group.type}")`);
+        throw new InvalidArgumentError(
+          `Element "${groupId}" is not a group (type: "${group.type}")`,
+        );
       }
       // Cycle detection: walk up from target group to ensure child is not an ancestor
       let cursor = group.parentGroupId;
       while (cursor) {
         if (cursor === childId) {
-          throw new CycleDetectedError(`Cannot assign "${childId}" to "${groupId}": would create a cycle`);
+          throw new CycleDetectedError(
+            `Cannot assign "${childId}" to "${groupId}": would create a cycle`,
+          );
         }
         const ancestor = this.elements.get(cursor);
         cursor = ancestor?.parentGroupId ?? null;

@@ -1,12 +1,12 @@
-import type { CanvasEngine } from "../engine";
-import type { ElementRegistry } from "../registry/element-registry";
 import type { CommandHistory } from "../commands/command";
-import type { SceneData } from "./schema";
-import { validateSceneData } from "./validate";
-import { updateVisibility } from "../hierarchy/group-ops";
-import { syncElement } from "../registry/sync";
-import { serialize as serializeScene } from "./serialize";
+import type { CanvasEngine } from "../engine";
 import { SerializationError } from "../errors";
+import { updateVisibility } from "../hierarchy/group-ops";
+import type { ElementRegistry } from "../registry/element-registry";
+import { syncElement } from "../registry/sync";
+import type { SceneData } from "./schema";
+import { serialize as serializeScene } from "./serialize";
+import { validateSceneData } from "./validate";
 
 const CURRENT_VERSION = 1;
 
@@ -36,7 +36,9 @@ export function deserializeScene(data: unknown, ctx: DeserializeContext): void {
   const validated = validateSceneData(data);
 
   if (validated.version > CURRENT_VERSION) {
-    throw new SerializationError(`Unknown scene version: ${validated.version}. Max supported: ${CURRENT_VERSION}`);
+    throw new SerializationError(
+      `Unknown scene version: ${validated.version}. Max supported: ${CURRENT_VERSION}`,
+    );
   }
 
   const scene = validated.version < CURRENT_VERSION ? migrate(validated) : validated;
@@ -57,7 +59,7 @@ export function deserializeScene(data: unknown, ctx: DeserializeContext): void {
       const message = rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr);
       throw new SerializationError(
         `Import failed: ${err instanceof Error ? err.message : String(err)}. ` +
-        `Rollback also failed: ${message}. Scene may be in an inconsistent state.`,
+          `Rollback also failed: ${message}. Scene may be in an inconsistent state.`,
       );
     }
     throw err;
@@ -78,7 +80,12 @@ function clearScene(ctx: DeserializeContext): void {
 function applyScene(scene: SceneData, ctx: DeserializeContext): void {
   for (const g of scene.groups) {
     ctx.engine.addGroup(g.id, {
-      label: g.label, x: g.x, y: g.y, width: g.width, height: g.height, color: g.color,
+      label: g.label,
+      x: g.x,
+      y: g.y,
+      width: g.width,
+      height: g.height,
+      color: g.color,
     });
     if (g.collapsed) {
       const el = ctx.registry.getElement(g.id);
@@ -92,7 +99,12 @@ function applyScene(scene: SceneData, ctx: DeserializeContext): void {
 
   for (const n of scene.nodes) {
     ctx.engine.addNode(n.id, {
-      label: n.label, x: n.x, y: n.y, width: n.width, height: n.height, color: n.color,
+      label: n.label,
+      x: n.x,
+      y: n.y,
+      width: n.width,
+      height: n.height,
+      color: n.color,
     });
   }
 
@@ -111,9 +123,12 @@ function applyScene(scene: SceneData, ctx: DeserializeContext): void {
   for (const e of scene.edges) {
     if (!ctx.registry.getElement(e.sourceId) || !ctx.registry.getElement(e.targetId)) continue;
     ctx.engine.addEdge(e.id, {
-      sourceId: e.sourceId, sourceSide: e.sourceSide,
-      targetId: e.targetId, targetSide: e.targetSide,
-      label: e.label, labelColor: e.labelColor,
+      sourceId: e.sourceId,
+      sourceSide: e.sourceSide,
+      targetId: e.targetId,
+      targetSide: e.targetSide,
+      label: e.label,
+      labelColor: e.labelColor,
     });
   }
 

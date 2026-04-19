@@ -1,13 +1,18 @@
-import { describe, test, expect, beforeEach, vi } from "vitest";
 import { Container, Text } from "pixi.js";
-import { RedrawManager } from "../redraw-manager";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { Redrawable } from "../../types";
+import { RedrawManager } from "../redraw-manager";
 
 function makeItem(visible = true): Redrawable {
   return { visible, __redraw: vi.fn() } as unknown as Redrawable;
 }
 
-function makeContainerTree(): { root: Container; childRedrawable: Redrawable; text: Text; nonRedrawChild: Container } {
+function makeContainerTree(): {
+  root: Container;
+  childRedrawable: Redrawable;
+  text: Text;
+  nonRedrawChild: Container;
+} {
   const root = new Container();
   const childRedrawable = new Container() as unknown as Redrawable;
   childRedrawable.__redraw = vi.fn();

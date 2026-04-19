@@ -1,7 +1,7 @@
-import { Graphics } from "pixi.js";
 import type { Container } from "pixi.js";
-import { ACCENT_COLOR, type Redrawable } from "../types";
+import { Graphics } from "pixi.js";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
+import { ACCENT_COLOR, type Redrawable } from "../types";
 
 const OUTLINE_COLOR = ACCENT_COLOR;
 const OUTLINE_WIDTH = 2;
@@ -10,8 +10,14 @@ const EDGE_HIT_WIDTH = 6;
 const CORNER_COUNT = 4;
 
 const HANDLE_CURSORS = [
-  "nwse-resize", "nesw-resize", "nesw-resize", "nwse-resize",
-  "ns-resize", "ew-resize", "ns-resize", "ew-resize",
+  "nwse-resize",
+  "nesw-resize",
+  "nesw-resize",
+  "nwse-resize",
+  "ns-resize",
+  "ew-resize",
+  "ns-resize",
+  "ew-resize",
 ] as const;
 
 export function createOutlineGraphic(
@@ -35,7 +41,10 @@ export function createOutlineGraphic(
 }
 
 export function createSelectionHandles(
-  x: number, y: number, w: number, h: number,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
   getScale: () => number,
   layer: Container,
 ): Graphics[] {
@@ -66,7 +75,10 @@ export function createSelectionHandles(
 
 export function positionSelectionHandles(
   handles: Graphics[],
-  x: number, y: number, w: number, h: number,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
   scale: number,
 ): void {
   const corners = cornerPositions(x, y, w, h);
@@ -90,22 +102,27 @@ function drawCornerHandle(g: Graphics, cx: number, cy: number, scale: number): v
   g.stroke({ color: OUTLINE_COLOR, width: 1 / scale });
 }
 
-function drawEdgeHandle(
-  g: Graphics, r: { x: number; y: number; w: number; h: number },
-): void {
+function drawEdgeHandle(g: Graphics, r: { x: number; y: number; w: number; h: number }): void {
   g.clear();
   g.rect(r.x, r.y, r.w, r.h);
   g.fill({ color: 0xffffff, alpha: 0.001 });
 }
 
-function cornerPositions(
-  x: number, y: number, w: number, h: number,
-): readonly [number, number][] {
-  return [[x, y], [x + w, y], [x, y + h], [x + w, y + h]];
+function cornerPositions(x: number, y: number, w: number, h: number): readonly [number, number][] {
+  return [
+    [x, y],
+    [x + w, y],
+    [x, y + h],
+    [x + w, y + h],
+  ];
 }
 
 function edgeRects(
-  x: number, y: number, w: number, h: number, scale: number,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  scale: number,
 ): readonly { x: number; y: number; w: number; h: number }[] {
   const half = EDGE_HIT_WIDTH / (2 * scale);
   const inset = HANDLE_SIZE / scale;

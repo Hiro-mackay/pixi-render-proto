@@ -1,12 +1,15 @@
-import { describe, test, expect, vi } from "vitest";
-import { AddEdgeCommand, RemoveEdgeCommand } from "../add-remove-command";
+import { describe, expect, test, vi } from "vitest";
 import type { EdgeOptions } from "../../types";
-import { makeNode, makeEdge, makeRegistry } from "./helpers";
+import { AddEdgeCommand, RemoveEdgeCommand } from "../add-remove-command";
+import { makeEdge, makeNode, makeRegistry } from "./helpers";
 
 const EDGE_OPTS: EdgeOptions = {
-  sourceId: "n1", sourceSide: "right",
-  targetId: "n2", targetSide: "left",
-  label: "HTTPS :443", labelColor: 0x3b82f6,
+  sourceId: "n1",
+  sourceSide: "right",
+  targetId: "n2",
+  targetSide: "left",
+  label: "HTTPS :443",
+  labelColor: 0x3b82f6,
 };
 
 describe("AddEdgeCommand", () => {
@@ -68,10 +71,15 @@ describe("RemoveEdgeCommand", () => {
     cmd.execute();
     cmd.undo();
 
-    expect(doAddEdge).toHaveBeenCalledWith("e1", expect.objectContaining({
-      sourceId: "n1", sourceSide: "right",
-      targetId: "n2", targetSide: "left",
-    }));
+    expect(doAddEdge).toHaveBeenCalledWith(
+      "e1",
+      expect.objectContaining({
+        sourceId: "n1",
+        sourceSide: "right",
+        targetId: "n2",
+        targetSide: "left",
+      }),
+    );
   });
 
   test("should have type add-remove", () => {
@@ -80,7 +88,10 @@ describe("RemoveEdgeCommand", () => {
     const registry = makeRegistry(n1, n2);
     registry.addEdge("e1", makeEdge("e1", "n1", "n2"));
 
-    const cmd = new RemoveEdgeCommand("e1", registry, { doAddEdge: vi.fn(), doRemoveEdge: vi.fn() });
+    const cmd = new RemoveEdgeCommand("e1", registry, {
+      doAddEdge: vi.fn(),
+      doRemoveEdge: vi.fn(),
+    });
     expect(cmd.type).toBe("add-remove");
   });
 });

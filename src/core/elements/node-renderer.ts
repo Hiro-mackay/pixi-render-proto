@@ -1,6 +1,6 @@
-import { Container, Graphics, Text, TextStyle, Sprite } from "pixi.js";
-import { getTextResolution } from "../types";
+import { Container, Graphics, Sprite, Text, TextStyle } from "pixi.js";
 import type { NodeElement, Redrawable } from "../types";
+import { getTextResolution } from "../types";
 
 const NODE_STROKE_WIDTH = 1.5;
 const NODE_STROKE_COLOR = 0x4a5568;
@@ -17,10 +17,7 @@ const LABEL_STYLE = new TextStyle({
   align: "center",
 });
 
-export function createNodeGraphics(
-  element: NodeElement,
-  getScale: () => number,
-): Container {
+export function createNodeGraphics(element: NodeElement, _getScale: () => number): Container {
   const container = new Container();
   container.label = element.id;
   container.position.set(element.x, element.y);

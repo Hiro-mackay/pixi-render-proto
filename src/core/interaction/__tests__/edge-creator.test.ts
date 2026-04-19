@@ -1,16 +1,22 @@
-import { describe, test, expect, beforeEach } from "vitest";
 import { Container } from "pixi.js";
-import { EdgeCreator, type EdgeCreatedEvent } from "../edge-creator";
+import type { Viewport } from "pixi-viewport";
+import { beforeEach, describe, expect, test } from "vitest";
 import { ElementRegistry } from "../../registry/element-registry";
 import type { CanvasElement } from "../../types";
-import type { Viewport } from "pixi-viewport";
+import { type EdgeCreatedEvent, EdgeCreator } from "../edge-creator";
 
 type MockViewport = Pick<Viewport, "pause" | "toWorld" | "on" | "off" | "addChild">;
 
 function makeNode(id: string, x = 100, y = 100, w = 140, h = 68): CanvasElement {
   return {
-    id, type: "node", x, y, width: w, height: h,
-    visible: true, parentGroupId: null,
+    id,
+    type: "node",
+    x,
+    y,
+    width: w,
+    height: h,
+    visible: true,
+    parentGroupId: null,
     container: new Container(),
     meta: { label: id, color: 0x2d3748 },
   };
@@ -19,8 +25,10 @@ function makeNode(id: string, x = 100, y = 100, w = 140, h = 68): CanvasElement 
 function createMockViewport(): MockViewport {
   const vp = new Container() as unknown as MockViewport;
   (vp as { pause: boolean }).pause = false;
-  (vp as { toWorld: (sx: number, sy: number) => { x: number; y: number } }).toWorld =
-    (sx: number, sy: number) => ({ x: sx, y: sy });
+  (vp as { toWorld: (sx: number, sy: number) => { x: number; y: number } }).toWorld = (
+    sx: number,
+    sy: number,
+  ) => ({ x: sx, y: sy });
   return vp;
 }
 
@@ -39,9 +47,14 @@ describe("EdgeCreator", () => {
     ghostLayer = new Container();
     viewport = createMockViewport();
     onEdgeCreatedCalls = [];
-    onEdgeCreated = (event: EdgeCreatedEvent) => { onEdgeCreatedCalls.push(event); };
+    onEdgeCreated = (event: EdgeCreatedEvent) => {
+      onEdgeCreatedCalls.push(event);
+    };
     edgeCreator = new EdgeCreator(
-      ghostLayer, viewport as unknown as Viewport, registry, () => 1,
+      ghostLayer,
+      viewport as unknown as Viewport,
+      registry,
+      () => 1,
       onEdgeCreated,
     );
   });

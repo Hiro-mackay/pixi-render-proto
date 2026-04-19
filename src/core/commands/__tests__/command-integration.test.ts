@@ -1,12 +1,12 @@
-import { describe, test, expect, beforeEach } from "vitest";
-import { CommandHistory } from "../command";
-import { AssignCommand } from "../assign-command";
-import { DeleteCommand } from "../delete-command";
+import { beforeEach, describe, expect, test } from "vitest";
+import { updateVisibility } from "../../hierarchy/group-ops";
 import { ElementRegistry } from "../../registry/element-registry";
 import { syncToContainer } from "../../registry/sync";
-import { updateVisibility } from "../../hierarchy/group-ops";
-import type { GroupMeta, NodeOptions, GroupOptions } from "../../types";
-import { makeNode, makeGroup } from "./helpers";
+import type { GroupMeta, GroupOptions, NodeOptions } from "../../types";
+import { AssignCommand } from "../assign-command";
+import { CommandHistory } from "../command";
+import { DeleteCommand } from "../delete-command";
+import { makeGroup, makeNode } from "./helpers";
 
 const sync = syncToContainer;
 
@@ -57,14 +57,21 @@ describe("Command integration: undo/redo round-trips", () => {
     updateVisibility("g1", registry);
     expect(registry.getElementOrThrow("n1").visible).toBe(false);
 
-    const doRemove = (id: string) => { registry.removeElement(id); };
+    const doRemove = (id: string) => {
+      registry.removeElement(id);
+    };
     const doAddNode = (id: string, opts: NodeOptions) => {
       registry.addElement(id, makeNode(id, opts.x, opts.y));
     };
     const doAddGroup = () => {};
     const doAddEdge = () => {};
 
-    const cmd = new DeleteCommand("n1", registry, sync, { doRemove, doAddNode, doAddGroup, doAddEdge });
+    const cmd = new DeleteCommand("n1", registry, sync, {
+      doRemove,
+      doAddNode,
+      doAddGroup,
+      doAddEdge,
+    });
     history.execute(cmd);
     expect(registry.getElement("n1")).toBeUndefined();
 
@@ -97,7 +104,12 @@ describe("Command integration: undo/redo round-trips", () => {
     };
     const doAddEdge = () => {};
 
-    const cmd = new DeleteCommand("g1", registry, sync, { doRemove, doAddNode, doAddGroup, doAddEdge });
+    const cmd = new DeleteCommand("g1", registry, sync, {
+      doRemove,
+      doAddNode,
+      doAddGroup,
+      doAddEdge,
+    });
     history.execute(cmd);
     expect(registry.getElement("g1")).toBeUndefined();
     expect(registry.getElementOrThrow("n1").parentGroupId).toBeNull();
@@ -138,7 +150,12 @@ describe("Command integration: undo/redo round-trips", () => {
     };
     const doAddEdge = () => {};
 
-    const cmd = new DeleteCommand("g1", registry, sync, { doRemove, doAddNode, doAddGroup, doAddEdge });
+    const cmd = new DeleteCommand("g1", registry, sync, {
+      doRemove,
+      doAddNode,
+      doAddGroup,
+      doAddEdge,
+    });
 
     // Cycle 1
     history.execute(cmd);

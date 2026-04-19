@@ -75,13 +75,15 @@ export function computeBezierControlPoints(
     if (startSide === endSide) {
       const perpDist = Math.abs(dx * startDir.y - dy * startDir.x);
       const dynamicMinPerp = Math.min(
-        Math.max(distance * DYNAMIC_FORWARD_RATIO, 15), SAME_SIDE_MIN_PERPENDICULAR,
+        Math.max(distance * DYNAMIC_FORWARD_RATIO, 15),
+        SAME_SIDE_MIN_PERPENDICULAR,
       );
       const perpOffset = Math.max(perpDist * SAME_SIDE_PERPENDICULAR_RATIO, dynamicMinPerp);
       const perpX = -startDir.y;
       const perpY = startDir.x;
       // Choose direction away from the midpoint between start and end
-      const midPerpProj = ((startX + endX) / 2 - startX) * perpX + ((startY + endY) / 2 - startY) * perpY;
+      const midPerpProj =
+        ((startX + endX) / 2 - startX) * perpX + ((startY + endY) / 2 - startY) * perpY;
       const sign = midPerpProj >= 0 ? 1 : -1;
       cp1x += perpX * perpOffset * sign;
       cp1y += perpY * perpOffset * sign;
@@ -95,13 +97,7 @@ export function computeBezierControlPoints(
   return { cp1x, cp1y, cp2x, cp2y };
 }
 
-export function cubicBezierPoint(
-  t: number,
-  p0: Point,
-  p1: Point,
-  p2: Point,
-  p3: Point,
-): Point {
+export function cubicBezierPoint(t: number, p0: Point, p1: Point, p2: Point, p3: Point): Point {
   const ct = Math.max(0, Math.min(1, t));
   const mt = 1 - ct;
   const mt2 = mt * mt;

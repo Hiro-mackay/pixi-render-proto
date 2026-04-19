@@ -1,8 +1,8 @@
-import { describe, test, expect, beforeEach } from "vitest";
-import { AssignCommand } from "../assign-command";
+import { beforeEach, describe, expect, test } from "vitest";
 import { ElementRegistry } from "../../registry/element-registry";
 import { syncToContainer } from "../../registry/sync";
-import { makeNode, makeGroup } from "./helpers";
+import { AssignCommand } from "../assign-command";
+import { makeGroup, makeNode } from "./helpers";
 
 describe("AssignCommand", () => {
   let registry: ElementRegistry;

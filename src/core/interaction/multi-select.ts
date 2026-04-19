@@ -1,10 +1,10 @@
-import { Graphics } from "pixi.js";
 import type { FederatedPointerEvent } from "pixi.js";
+import { Graphics } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
-import type { SelectionState } from "./selection-state";
-import type { ViewportPauseController } from "../viewport/pause-controller";
 import { ACCENT_COLOR } from "../types";
+import type { ViewportPauseController } from "../viewport/pause-controller";
+import type { SelectionState } from "./selection-state";
 
 const MARQUEE_COLOR = ACCENT_COLOR;
 const MARQUEE_FILL_ALPHA = 0.08;
@@ -37,7 +37,11 @@ export function enableMarqueeSelect(
     canMarquee = onBackground || (onGroupBg && cmdHeld);
     if (!canMarquee) return;
     if (onGroupBg) e.stopPropagation(); // prevent bg's own selection handler
-    pauseCtrl ? pauseCtrl.acquire() : (viewport.pause = true);
+    if (pauseCtrl) {
+      pauseCtrl.acquire();
+    } else {
+      viewport.pause = true;
+    }
     downScreen = { x: e.globalX, y: e.globalY };
     shiftHeld = e.shiftKey;
     const world = viewport.toWorld(e.global.x, e.global.y);
@@ -74,7 +78,11 @@ export function enableMarqueeSelect(
       active = false;
       marquee.clear();
       marquee.visible = false;
-      pauseCtrl ? pauseCtrl.release() : (viewport.pause = false);
+      if (pauseCtrl) {
+        pauseCtrl.release();
+      } else {
+        viewport.pause = false;
+      }
 
       const world = viewport.toWorld(e.global.x, e.global.y);
       const x1 = Math.min(startWorld.x, world.x);
@@ -88,10 +96,12 @@ export function enableMarqueeSelect(
       const hitSet = new Set<string>();
       for (const el of registry.getAllElements().values()) {
         if (!el.visible) continue;
-        const intersects = el.x + el.width >= x1 && el.x <= x2 && el.y + el.height >= y1 && el.y <= y2;
+        const intersects =
+          el.x + el.width >= x1 && el.x <= x2 && el.y + el.height >= y1 && el.y <= y2;
         if (!intersects) continue;
         if (el.type === "group") {
-          const fullyEnclosed = el.x >= x1 && el.y >= y1 && el.x + el.width <= x2 && el.y + el.height <= y2;
+          const fullyEnclosed =
+            el.x >= x1 && el.y >= y1 && el.x + el.width <= x2 && el.y + el.height <= y2;
           if (!fullyEnclosed) continue;
         }
         hitSet.add(el.id);
@@ -111,7 +121,11 @@ export function enableMarqueeSelect(
       }
     } else {
       // Click on background (no drag) → clear selection
-      pauseCtrl ? pauseCtrl.release() : (viewport.pause = false);
+      if (pauseCtrl) {
+        pauseCtrl.release();
+      } else {
+        viewport.pause = false;
+      }
       const dist = Math.hypot(e.globalX - downScreen.x, e.globalY - downScreen.y);
       if (dist < DRAG_THRESHOLD) onClearSelection();
     }

@@ -1,13 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   CanvasEngineError,
-  ElementNotFoundError,
-  ElementExistsError,
-  InvalidArgumentError,
+  CommandExecutionError,
   CycleDetectedError,
   DestroyedEngineError,
+  ElementExistsError,
+  ElementNotFoundError,
+  InvalidArgumentError,
   SerializationError,
-  CommandExecutionError,
 } from "./errors";
 
 describe("CanvasEngineError hierarchy", () => {

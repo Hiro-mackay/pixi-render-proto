@@ -14,15 +14,17 @@ export class KeyboardManager {
   private _enabled = true;
 
   constructor(private readonly cb: KeyboardCallbacks) {
-    window.addEventListener(
-      "keydown",
-      (e: KeyboardEvent) => this.handleKey(e),
-      { signal: this.abort.signal },
-    );
+    window.addEventListener("keydown", (e: KeyboardEvent) => this.handleKey(e), {
+      signal: this.abort.signal,
+    });
   }
 
-  get enabled(): boolean { return this._enabled; }
-  set enabled(v: boolean) { this._enabled = v; }
+  get enabled(): boolean {
+    return this._enabled;
+  }
+  set enabled(v: boolean) {
+    this._enabled = v;
+  }
 
   destroy(): void {
     this.abort.abort();
@@ -33,14 +35,43 @@ export class KeyboardManager {
     if (isEditableTarget(e.target)) return;
     const mod = e.metaKey || e.ctrlKey;
 
-    if (mod && e.shiftKey && e.key === "z") { e.preventDefault(); this.cb.onRedo(); return; }
-    if (mod && e.key === "z") { e.preventDefault(); this.cb.onUndo(); return; }
-    if (mod && e.key === "c") { e.preventDefault(); this.cb.onCopy(); return; }
-    if (mod && e.key === "v") { e.preventDefault(); this.cb.onPaste(); return; }
-    if (mod && e.key === "d") { e.preventDefault(); this.cb.onDuplicate(); return; }
-    if (mod && e.key === "a") { e.preventDefault(); this.cb.onSelectAll(); return; }
-    if (e.key === "Delete" || e.key === "Backspace") { this.cb.onDelete(); return; }
-    if (e.key === "Escape") { this.cb.onEscape(); }
+    if (mod && e.shiftKey && e.key === "z") {
+      e.preventDefault();
+      this.cb.onRedo();
+      return;
+    }
+    if (mod && e.key === "z") {
+      e.preventDefault();
+      this.cb.onUndo();
+      return;
+    }
+    if (mod && e.key === "c") {
+      e.preventDefault();
+      this.cb.onCopy();
+      return;
+    }
+    if (mod && e.key === "v") {
+      e.preventDefault();
+      this.cb.onPaste();
+      return;
+    }
+    if (mod && e.key === "d") {
+      e.preventDefault();
+      this.cb.onDuplicate();
+      return;
+    }
+    if (mod && e.key === "a") {
+      e.preventDefault();
+      this.cb.onSelectAll();
+      return;
+    }
+    if (e.key === "Delete" || e.key === "Backspace") {
+      this.cb.onDelete();
+      return;
+    }
+    if (e.key === "Escape") {
+      this.cb.onEscape();
+    }
   }
 }
 

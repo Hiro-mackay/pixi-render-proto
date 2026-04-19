@@ -1,6 +1,6 @@
-import { describe, test, expect } from "vitest";
-import { computeOptimalSides, getFixedSideAnchor, getNearestSide } from "../anchor";
+import { describe, expect, test } from "vitest";
 import type { Rect } from "../../types";
+import { computeOptimalSides, getFixedSideAnchor, getNearestSide } from "../anchor";
 
 const NODE: Rect = { x: 100, y: 100, width: 200, height: 100 };
 
@@ -116,19 +116,13 @@ describe("computeOptimalSides", () => {
 
     test("one node contains the other (target center right of source center)", () => {
       // Large center (250,250), small center (325,325) → target is right-and-below
-      const result = computeOptimalSides(
-        rect(0, 0, 500, 500),
-        rect(300, 300, 50, 50),
-      );
+      const result = computeOptimalSides(rect(0, 0, 500, 500), rect(300, 300, 50, 50));
       expect(result.srcSide).toBe("right");
       expect(result.tgtSide).toBe("left");
     });
 
     test("same center but different sizes", () => {
-      const result = computeOptimalSides(
-        rect(0, 0, 100, 100),
-        rect(25, 25, 50, 50),
-      );
+      const result = computeOptimalSides(rect(0, 0, 100, 100), rect(25, 25, 50, 50));
       expect(result).toEqual({ srcSide: "right", tgtSide: "left" });
     });
   });

@@ -26,6 +26,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "lint": "biome check",
+    "lint:fix": "biome check --fix",
+    "format": "biome format --write",
     "test:all": "vitest run && playwright test"
   },
   "dependencies": {
@@ -37,6 +40,7 @@
     "react-dom": ">=18"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.4.12",
     "@playwright/test": "^1.59.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

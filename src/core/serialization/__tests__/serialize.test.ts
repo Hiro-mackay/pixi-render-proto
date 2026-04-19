@@ -1,7 +1,7 @@
-import { describe, test, expect, beforeEach } from "vitest";
-import { serialize } from "../serialize";
+import { beforeEach, describe, expect, test } from "vitest";
+import { makeEdge, makeGroup, makeNode } from "../../commands/__tests__/helpers";
 import { ElementRegistry } from "../../registry/element-registry";
-import { makeNode, makeGroup, makeEdge } from "../../commands/__tests__/helpers";
+import { serialize } from "../serialize";
 
 describe("serialize", () => {
   let registry: ElementRegistry;

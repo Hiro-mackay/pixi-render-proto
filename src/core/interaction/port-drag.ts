@@ -1,7 +1,7 @@
 import type { FederatedPointerEvent } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
-import type { CanvasElement, Side } from "../types";
 import { getPortPosition } from "../elements/port-renderer";
+import type { CanvasElement, Side } from "../types";
 import type { EdgeCreator } from "./edge-creator";
 
 const SIDES: readonly Side[] = ["top", "right", "bottom", "left"];
@@ -12,17 +12,13 @@ export function enablePortDrag(
   getScale: () => number,
   edgeCreator: EdgeCreator,
 ): () => void {
-  const portsContainer = element.container.children.find(
-    (c) => c.label === "ports",
-  );
+  const portsContainer = element.container.children.find((c) => c.label === "ports");
   if (!portsContainer) return () => {};
 
   const cleanups: (() => void)[] = [];
 
   for (const side of SIDES) {
-    const portContainer = portsContainer.children.find(
-      (c) => c.label === side,
-    );
+    const portContainer = portsContainer.children.find((c) => c.label === side);
     if (!portContainer) continue;
 
     const onPointerDown = (e: FederatedPointerEvent) => {
@@ -63,5 +59,7 @@ export function enablePortDrag(
     cleanups.push(() => portContainer.off("pointerdown", onPointerDown));
   }
 
-  return () => { for (const fn of cleanups) fn(); };
+  return () => {
+    for (const fn of cleanups) fn();
+  };
 }

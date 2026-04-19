@@ -1,8 +1,8 @@
-import type { CanvasElement } from "../types";
-import type { ElementRegistry } from "../registry/element-registry";
-import type { Command } from "./command";
 import type { EventDescriptor } from "../events/event-emitter";
 import { applyParentChange } from "../hierarchy/group-ops";
+import type { ElementRegistry } from "../registry/element-registry";
+import type { CanvasElement } from "../types";
+import type { Command } from "./command";
 
 type PositionMap = ReadonlyMap<string, { readonly x: number; readonly y: number }>;
 
@@ -23,7 +23,9 @@ export class DragCommand implements Command {
   execute(): void {
     for (const [id, pos] of this.finalPositions) {
       const el = this.registry.getElementOrThrow(id);
-      el.x = pos.x; el.y = pos.y; this.sync(el);
+      el.x = pos.x;
+      el.y = pos.y;
+      this.sync(el);
     }
     if (this.oldParent !== this.newParent) {
       applyParentChange(this.elementId, this.newParent, this.registry, this.sync);
@@ -33,7 +35,9 @@ export class DragCommand implements Command {
   undo(): void {
     for (const [id, pos] of this.startPositions) {
       const el = this.registry.getElementOrThrow(id);
-      el.x = pos.x; el.y = pos.y; this.sync(el);
+      el.x = pos.x;
+      el.y = pos.y;
+      this.sync(el);
     }
     if (this.oldParent !== this.newParent) {
       applyParentChange(this.elementId, this.oldParent, this.registry, this.sync);

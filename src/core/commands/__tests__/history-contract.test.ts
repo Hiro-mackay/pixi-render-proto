@@ -1,22 +1,32 @@
-import { describe, test, expect, beforeEach } from "vitest";
-import { CommandHistory } from "../command";
-import { MoveCommand } from "../move-command";
-import { ResizeCommand } from "../resize-command";
-import { AssignCommand } from "../assign-command";
-import { DragCommand } from "../drag-command";
+import { beforeEach, describe, expect, test } from "vitest";
 import { ElementRegistry } from "../../registry/element-registry";
 import { syncToContainer } from "../../registry/sync";
+import { AssignCommand } from "../assign-command";
 import type { Command } from "../command";
-import { makeNode, makeGroup } from "./helpers";
+import { CommandHistory } from "../command";
+import { DragCommand } from "../drag-command";
+import { MoveCommand } from "../move-command";
+import { ResizeCommand } from "../resize-command";
+import { makeGroup, makeNode } from "./helpers";
 
 const sync = syncToContainer;
 
-type Snapshot = Record<string, { x: number; y: number; w: number; h: number; visible: boolean; parentGroupId: string | null }>;
+type Snapshot = Record<
+  string,
+  { x: number; y: number; w: number; h: number; visible: boolean; parentGroupId: string | null }
+>;
 
 function snapshotRegistry(registry: ElementRegistry): Snapshot {
   const result: Snapshot = {};
   for (const [id, el] of registry.getAllElements()) {
-    result[id] = { x: el.x, y: el.y, w: el.width, h: el.height, visible: el.visible, parentGroupId: el.parentGroupId };
+    result[id] = {
+      x: el.x,
+      y: el.y,
+      w: el.width,
+      h: el.height,
+      visible: el.visible,
+      parentGroupId: el.parentGroupId,
+    };
   }
   return result;
 }
@@ -55,7 +65,8 @@ describe("History contract: execute → undo → redo round-trip", () => {
   test("MoveCommand satisfies round-trip contract", () => {
     registry.addElement("n1", makeNode("n1"));
     assertContractHolds(
-      registry, history,
+      registry,
+      history,
       new MoveCommand("n1", registry, 300, 400, sync, "s1"),
       "MoveCommand",
     );
@@ -64,9 +75,13 @@ describe("History contract: execute → undo → redo round-trip", () => {
   test("ResizeCommand satisfies round-trip contract", () => {
     registry.addElement("n1", makeNode("n1"));
     assertContractHolds(
-      registry, history,
+      registry,
+      history,
       new ResizeCommand({
-        elementId: "n1", registry, sync, sessionId: "s1",
+        elementId: "n1",
+        registry,
+        sync,
+        sessionId: "s1",
         target: { x: 100, y: 200, width: 200, height: 100 },
       }),
       "ResizeCommand",
@@ -77,7 +92,8 @@ describe("History contract: execute → undo → redo round-trip", () => {
     registry.addElement("g1", makeGroup("g1"));
     registry.addElement("n1", makeNode("n1"));
     assertContractHolds(
-      registry, history,
+      registry,
+      history,
       new AssignCommand("n1", "g1", registry, sync),
       "AssignCommand",
     );
@@ -88,7 +104,8 @@ describe("History contract: execute → undo → redo round-trip", () => {
     registry.addElement("n1", makeNode("n1"));
     registry.setParentGroup("n1", "g1");
     assertContractHolds(
-      registry, history,
+      registry,
+      history,
       new AssignCommand("n1", null, registry, sync),
       "AssignCommand(remove)",
     );
@@ -99,7 +116,8 @@ describe("History contract: execute → undo → redo round-trip", () => {
     const startPositions = new Map([["n1", { x: 100, y: 200 }]]);
     const finalPositions = new Map([["n1", { x: 300, y: 400 }]]);
     assertContractHolds(
-      registry, history,
+      registry,
+      history,
       new DragCommand("n1", registry, startPositions, finalPositions, sync, "s1", null, null),
       "DragCommand",
     );
@@ -111,7 +129,8 @@ describe("History contract: execute → undo → redo round-trip", () => {
     const startPositions = new Map([["n1", { x: 100, y: 200 }]]);
     const finalPositions = new Map([["n1", { x: 50, y: 80 }]]);
     assertContractHolds(
-      registry, history,
+      registry,
+      history,
       new DragCommand("n1", registry, startPositions, finalPositions, sync, "s1", null, "g1"),
       "DragCommand(reparent)",
     );
@@ -122,10 +141,17 @@ describe("History contract: execute → undo → redo round-trip", () => {
     const n1 = makeNode("n1", 50, 60);
     registry.addElement("n1", n1);
     registry.setParentGroup("n1", "g1");
-    const startPositions = new Map([["g1", { x: 0, y: 0 }], ["n1", { x: 50, y: 60 }]]);
-    const finalPositions = new Map([["g1", { x: 100, y: 100 }], ["n1", { x: 150, y: 160 }]]);
+    const startPositions = new Map([
+      ["g1", { x: 0, y: 0 }],
+      ["n1", { x: 50, y: 60 }],
+    ]);
+    const finalPositions = new Map([
+      ["g1", { x: 100, y: 100 }],
+      ["n1", { x: 150, y: 160 }],
+    ]);
     assertContractHolds(
-      registry, history,
+      registry,
+      history,
       new DragCommand("g1", registry, startPositions, finalPositions, sync, "s1", null, null),
       "DragCommand(group+descendants)",
     );

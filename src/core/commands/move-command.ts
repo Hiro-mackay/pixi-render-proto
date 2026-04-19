@@ -1,7 +1,7 @@
-import type { CanvasElement } from "../types";
-import type { ReadonlyElementRegistry } from "../registry/element-registry";
-import type { Command } from "./command";
 import type { EventDescriptor } from "../events/event-emitter";
+import type { ReadonlyElementRegistry } from "../registry/element-registry";
+import type { CanvasElement } from "../types";
+import type { Command } from "./command";
 
 export class MoveCommand implements Command {
   readonly type = "move";
@@ -45,8 +45,14 @@ export class MoveCommand implements Command {
   merge(other: Command): Command | null {
     if (other instanceof MoveCommand && other.sessionId === this.sessionId) {
       return new MoveCommand(
-        this.elementId, this.registry, other.newX, other.newY,
-        this.sync, this.sessionId, this.oldX, this.oldY,
+        this.elementId,
+        this.registry,
+        other.newX,
+        other.newY,
+        this.sync,
+        this.sessionId,
+        this.oldX,
+        this.oldY,
       );
     }
     return null;

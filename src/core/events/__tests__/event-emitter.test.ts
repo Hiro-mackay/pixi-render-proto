@@ -1,4 +1,4 @@
-import { describe, test, expect, vi } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { CanvasEventEmitter } from "../event-emitter";
 
 describe("CanvasEventEmitter", () => {
@@ -55,7 +55,11 @@ describe("CanvasEventEmitter", () => {
     const emitter = new CanvasEventEmitter();
     const handler = vi.fn();
     emitter.on("element:move", handler);
-    expect(() => emitter.suppress(() => { throw new Error("boom"); })).toThrow("boom");
+    expect(() =>
+      emitter.suppress(() => {
+        throw new Error("boom");
+      }),
+    ).toThrow("boom");
     emitter.emit("element:move", { id: "n1", x: 10, y: 20 });
     expect(handler).toHaveBeenCalledOnce();
   });
@@ -77,7 +81,9 @@ describe("CanvasEventEmitter", () => {
   test("should continue calling remaining handlers when one throws", () => {
     const emitter = new CanvasEventEmitter();
     const h1 = vi.fn();
-    const h2 = vi.fn(() => { throw new Error("bad handler"); });
+    const h2 = vi.fn(() => {
+      throw new Error("bad handler");
+    });
     const h3 = vi.fn();
     emitter.on("element:move", h1);
     emitter.on("element:move", h2);
@@ -95,15 +101,14 @@ describe("CanvasEventEmitter", () => {
   test("should console.error when a handler throws", () => {
     const emitter = new CanvasEventEmitter();
     const error = new Error("handler error");
-    emitter.on("edge:create", () => { throw error; });
+    emitter.on("edge:create", () => {
+      throw error;
+    });
 
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     emitter.emit("edge:create", { id: "e1" });
 
-    expect(spy).toHaveBeenCalledWith(
-      expect.stringContaining("edge:create"),
-      error,
-    );
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining("edge:create"), error);
     vi.restoreAllMocks();
   });
 });

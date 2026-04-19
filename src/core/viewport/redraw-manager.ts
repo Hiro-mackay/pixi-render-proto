@@ -40,17 +40,25 @@ export class RedrawManager {
   }
 
   registerTree(container: Container): void {
-    this.walkTree(container, (r) => this.register(r), (t) => this.textItems.add(t));
+    this.walkTree(
+      container,
+      (r) => this.register(r),
+      (t) => this.textItems.add(t),
+    );
   }
 
   unregisterTree(container: Container): void {
-    this.walkTree(container, (r) => this.unregister(r), (t) => this.textItems.delete(t));
+    this.walkTree(
+      container,
+      (r) => this.unregister(r),
+      (t) => this.textItems.delete(t),
+    );
   }
 
   private lastTargetRes = 0;
 
   updateTextResolutions(scale: number): void {
-    const dpr = typeof window !== "undefined" ? (window.devicePixelRatio || 1) : 1;
+    const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
     const targetRes = Math.min(Math.ceil(scale * dpr), MAX_TEXT_RESOLUTION);
     if (targetRes === this.lastTargetRes) return;
     this.lastTargetRes = targetRes;
@@ -62,7 +70,13 @@ export class RedrawManager {
   }
 
   markTreeDirty(container: Container): void {
-    this.walkTree(container, (r) => { if (this.items.has(r)) this.dirty.add(r); }, () => {});
+    this.walkTree(
+      container,
+      (r) => {
+        if (this.items.has(r)) this.dirty.add(r);
+      },
+      () => {},
+    );
   }
 
   clear(): void {

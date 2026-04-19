@@ -1,45 +1,67 @@
-import { Container, Graphics, type FederatedPointerEvent } from "pixi.js";
+import { Container, type FederatedPointerEvent, Graphics } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
+import { CanvasClipboard } from "./clipboard/clipboard";
 import {
-  ACCENT_COLOR,
-  type CanvasEdge, type EdgeOptions, type EngineOptions,
-  type GroupMeta, type GroupElement, type GroupOptions,
-  type NodeMeta, type NodeElement, type NodeOptions,
-} from "./types";
-import { initViewport, type ViewportContext } from "./viewport/viewport-setup";
-import { ElementRegistry, type ReadonlyElementRegistry } from "./registry/element-registry";
-import { syncToContainer, syncElement } from "./registry/sync";
-import { RedrawManager } from "./viewport/redraw-manager";
-import { CommandHistory } from "./commands/command";
-import { MoveCommand } from "./commands/move-command";
-import { ResizeCommand } from "./commands/resize-command";
-import { createNodeGraphics } from "./elements/node-renderer";
-import { createGroupGraphics, preloadChevronTextures } from "./elements/group-renderer";
-import { createEdgeGraphics, updateEdgeGraphics, removeEdgeGraphics } from "./elements/edge-renderer";
-import { resolveVisibleElement } from "./geometry/hit-test";
-import { createPortGraphics } from "./elements/port-renderer";
-import { SelectionState } from "./interaction/selection-state";
-import { EdgeCreator } from "./interaction/edge-creator";
-import { enableItemDrag } from "./interaction/drag-handler";
-import { enablePortDrag } from "./interaction/port-drag";
-import { enableResizeHandles } from "./interaction/resize-handles";
-import { enableMarqueeSelect } from "./interaction/multi-select";
-import { KeyboardManager } from "./interaction/keyboard-manager";
-import { applyParentChange } from "./hierarchy/group-ops";
+  AddEdgeCommand,
+  type AddRemoveOps,
+  RemoveEdgeCommand,
+} from "./commands/add-remove-command";
 import { AssignCommand } from "./commands/assign-command";
 import { CollapseCommand } from "./commands/collapse-command";
+import { CommandHistory } from "./commands/command";
 import { DeleteCommand, type DeleteCommandOps } from "./commands/delete-command";
-import { AddEdgeCommand, RemoveEdgeCommand, type AddRemoveOps } from "./commands/add-remove-command";
 import { ReconnectEdgeCommand } from "./commands/edge-command";
-import { createReconnectHandles, type ReconnectResult, type ReconnectHandleControls } from "./interaction/edge-reconnect";
+import { MoveCommand } from "./commands/move-command";
+import { ResizeCommand } from "./commands/resize-command";
+import {
+  createEdgeGraphics,
+  removeEdgeGraphics,
+  updateEdgeGraphics,
+} from "./elements/edge-renderer";
+import { createGroupGraphics, preloadChevronTextures } from "./elements/group-renderer";
+import { createNodeGraphics } from "./elements/node-renderer";
+import { createPortGraphics } from "./elements/port-renderer";
+import { DestroyedEngineError, InvalidArgumentError } from "./errors";
+import {
+  CanvasEventEmitter,
+  type CanvasEventMap,
+  type CanvasEventName,
+} from "./events/event-emitter";
+import { resolveVisibleElement } from "./geometry/hit-test";
+import { applyParentChange } from "./hierarchy/group-ops";
+import { enableItemDrag } from "./interaction/drag-handler";
+import { EdgeCreator } from "./interaction/edge-creator";
+import {
+  createReconnectHandles,
+  type ReconnectHandleControls,
+  type ReconnectResult,
+} from "./interaction/edge-reconnect";
+import { KeyboardManager } from "./interaction/keyboard-manager";
+import { enableMarqueeSelect } from "./interaction/multi-select";
+import { enablePortDrag } from "./interaction/port-drag";
+import { enableResizeHandles } from "./interaction/resize-handles";
+import { SelectionState } from "./interaction/selection-state";
+import { ElementRegistry, type ReadonlyElementRegistry } from "./registry/element-registry";
+import { syncElement, syncToContainer } from "./registry/sync";
+import { deserializeScene } from "./serialization/deserialize";
 import type { SceneData } from "./serialization/schema";
 import { serialize as serializeScene } from "./serialization/serialize";
-import { deserializeScene } from "./serialization/deserialize";
-import { CanvasClipboard } from "./clipboard/clipboard";
-import { CanvasEventEmitter, type CanvasEventName, type CanvasEventMap } from "./events/event-emitter";
-import { setViewportZoom, centerViewportOn, fitViewportToContent } from "./viewport/view-control";
+import {
+  ACCENT_COLOR,
+  type CanvasEdge,
+  type EdgeOptions,
+  type EngineOptions,
+  type GroupElement,
+  type GroupMeta,
+  type GroupOptions,
+  type NodeElement,
+  type NodeMeta,
+  type NodeOptions,
+} from "./types";
 import { ViewportPauseController } from "./viewport/pause-controller";
-import { InvalidArgumentError, DestroyedEngineError } from "./errors";
+import { RedrawManager } from "./viewport/redraw-manager";
+import { centerViewportOn, fitViewportToContent, setViewportZoom } from "./viewport/view-control";
+import { initViewport, type ViewportContext } from "./viewport/viewport-setup";
 
 export interface CanvasEngine {
   readonly viewport: Viewport;
@@ -79,7 +101,8 @@ export interface CanvasEngine {
 const DEFAULT_NODE_COLOR = 0x2d3748;
 
 function assertFinite(value: number, name: string): void {
-  if (!Number.isFinite(value)) throw new InvalidArgumentError(`${name} must be a finite number, got ${value}`);
+  if (!Number.isFinite(value))
+    throw new InvalidArgumentError(`${name} must be a finite number, got ${value}`);
 }
 
 function assertPositive(value: number, name: string): void {
@@ -147,13 +170,21 @@ class CanvasEngineImpl implements CanvasEngine {
     });
 
     this.selection = new SelectionState(
-      this.selectionLayer, this.registry, this.getScale,
+      this.selectionLayer,
+      this.registry,
+      this.getScale,
       (handles) => {
         this.resizeCleanup?.();
         this.resizeCleanup = enableResizeHandles({
-          handles, selection: this.selection, viewport: ctx.viewport,
-          registry: this.registry, history: this.history, getScale: this.getScale,
-          sync: syncElement, gridSize: this.gridSize, pauseCtrl: this.pauseCtrl,
+          handles,
+          selection: this.selection,
+          viewport: ctx.viewport,
+          registry: this.registry,
+          history: this.history,
+          getScale: this.getScale,
+          sync: syncElement,
+          gridSize: this.gridSize,
+          pauseCtrl: this.pauseCtrl,
           onResizeEnd: this.emitResizedElement,
         });
       },
@@ -192,13 +223,24 @@ class CanvasEngineImpl implements CanvasEngine {
     });
 
     this.edgeCreator = new EdgeCreator(
-      this.ghostLayer, ctx.viewport, this.registry, this.getScale,
+      this.ghostLayer,
+      ctx.viewport,
+      this.registry,
+      this.getScale,
       (event) => {
         const edgeId = crypto.randomUUID();
-        this.history.execute(new AddEdgeCommand(edgeId, {
-          sourceId: event.sourceId, sourceSide: event.sourceSide,
-          targetId: event.targetId, targetSide: event.targetSide,
-        }, this.addRemoveOps));
+        this.history.execute(
+          new AddEdgeCommand(
+            edgeId,
+            {
+              sourceId: event.sourceId,
+              sourceSide: event.sourceSide,
+              targetId: event.targetId,
+              targetSide: event.targetSide,
+            },
+            this.addRemoveOps,
+          ),
+        );
         this.afterCommand();
       },
       this.pauseCtrl,
@@ -207,18 +249,27 @@ class CanvasEngineImpl implements CanvasEngine {
     this.redraw.register(this.edgeCreator.getHighlightGraphic());
 
     this.marqueeCleanup = enableMarqueeSelect(
-      ctx.viewport, this.registry, this.selection, this.getScale,
-      () => this.clearSelection(), this.pauseCtrl,
+      ctx.viewport,
+      this.registry,
+      this.selection,
+      this.getScale,
+      () => this.clearSelection(),
+      this.pauseCtrl,
     );
   }
 
   private getCtx(): ViewportContext {
-    if (this.destroyed || !this.ctx) throw new DestroyedEngineError("CanvasEngine has been destroyed");
+    if (this.destroyed || !this.ctx)
+      throw new DestroyedEngineError("CanvasEngine has been destroyed");
     return this.ctx;
   }
 
-  get viewport(): Viewport { return this.getCtx().viewport; }
-  get scale(): number { return this.getCtx().getScale(); }
+  get viewport(): Viewport {
+    return this.getCtx().viewport;
+  }
+  get scale(): number {
+    return this.getCtx().getScale();
+  }
   private getScale = (): number => this.scale;
   private onDragStateChange = (dragging: boolean): void => {
     this.keyboard.enabled = !dragging;
@@ -245,23 +296,45 @@ class CanvasEngineImpl implements CanvasEngine {
   // --- CRUD ---
 
   addNode(id: string, opts: NodeOptions): void {
-    assertFinite(opts.x, "x"); assertFinite(opts.y, "y");
-    assertPositive(opts.width, "width"); assertPositive(opts.height, "height");
-    const meta: NodeMeta = { label: opts.label, color: opts.color ?? DEFAULT_NODE_COLOR, icon: opts.icon };
-    const element = {
-      id, type: "node" as const, x: opts.x, y: opts.y, width: opts.width, height: opts.height,
-      visible: true, parentGroupId: null, container: new Container(), meta,
-    } satisfies NodeElement;
+    assertFinite(opts.x, "x");
+    assertFinite(opts.y, "y");
+    assertPositive(opts.width, "width");
+    assertPositive(opts.height, "height");
+    const meta: NodeMeta = {
+      label: opts.label,
+      color: opts.color ?? DEFAULT_NODE_COLOR,
+      icon: opts.icon,
+    };
+    const element: NodeElement = {
+      id,
+      type: "node" as const,
+      x: opts.x,
+      y: opts.y,
+      width: opts.width,
+      height: opts.height,
+      visible: true as boolean,
+      parentGroupId: null as string | null,
+      container: new Container(),
+      meta,
+    };
     element.container = createNodeGraphics(element, this.getScale);
     this.registry.addElement(id, element);
     this.getCtx().viewport.addChild(element.container);
     this.redraw.registerTree(element.container);
-    this.dragCleanups.set(id,
+    this.dragCleanups.set(
+      id,
       enableItemDrag({
-        element, viewport: this.getCtx().viewport, registry: this.registry, history: this.history,
-        selection: this.selection, getScale: this.getScale, sync: syncToContainer,
-        onDragStateChange: this.onDragStateChange, gridSize: this.gridSize,
-        pauseCtrl: this.pauseCtrl, onDragEnd: this.emitMovedElements,
+        element,
+        viewport: this.getCtx().viewport,
+        registry: this.registry,
+        history: this.history,
+        selection: this.selection,
+        getScale: this.getScale,
+        sync: syncToContainer,
+        onDragStateChange: this.onDragStateChange,
+        gridSize: this.gridSize,
+        pauseCtrl: this.pauseCtrl,
+        onDragEnd: this.emitMovedElements,
         ghostLayer: this.ghostLayer,
       }),
     );
@@ -274,11 +347,21 @@ class CanvasEngineImpl implements CanvasEngine {
       createPortGraphics(element, this.getScale);
       const ports = element.container.children.find((c) => c.label === "ports");
       if (ports instanceof Container) this.redraw.registerTree(ports);
-      portDragCleanup = enablePortDrag(element, this.getCtx().viewport, this.getScale, this.edgeCreator);
+      portDragCleanup = enablePortDrag(
+        element,
+        this.getCtx().viewport,
+        this.getScale,
+        this.edgeCreator,
+      );
     };
     element.initPorts = initPorts;
-    const onEnter = () => { initPorts(); this.showHover(id); };
-    const onLeave = () => { if (this.hoveredId === id) this.clearHover(); };
+    const onEnter = () => {
+      initPorts();
+      this.showHover(id);
+    };
+    const onLeave = () => {
+      if (this.hoveredId === id) this.clearHover();
+    };
     element.container.on("pointerenter", onEnter);
     element.container.on("pointerleave", onLeave);
     this.portDragCleanups.set(id, () => {
@@ -290,12 +373,27 @@ class CanvasEngineImpl implements CanvasEngine {
   }
 
   addGroup(id: string, opts: GroupOptions): void {
-    assertFinite(opts.x, "x"); assertFinite(opts.y, "y");
-    assertPositive(opts.width, "width"); assertPositive(opts.height, "height");
-    const meta: GroupMeta = { label: opts.label, color: opts.color, collapsed: false, expandedHeight: opts.height };
+    assertFinite(opts.x, "x");
+    assertFinite(opts.y, "y");
+    assertPositive(opts.width, "width");
+    assertPositive(opts.height, "height");
+    const meta: GroupMeta = {
+      label: opts.label,
+      color: opts.color,
+      collapsed: false,
+      expandedHeight: opts.height,
+    };
     const element = {
-      id, type: "group" as const, x: opts.x, y: opts.y, width: opts.width, height: opts.height,
-      visible: true, parentGroupId: null, container: new Container(), meta,
+      id,
+      type: "group" as const,
+      x: opts.x,
+      y: opts.y,
+      width: opts.width,
+      height: opts.height,
+      visible: true,
+      parentGroupId: null,
+      container: new Container(),
+      meta,
     } satisfies GroupElement;
     element.container = createGroupGraphics(element, this.getScale);
     this.registry.addElement(id, element);
@@ -303,7 +401,10 @@ class CanvasEngineImpl implements CanvasEngine {
     this.redraw.registerTree(element.container);
     const toggleBtn = element.container.children.find((c) => c.label === "group-toggle");
     if (toggleBtn) {
-      toggleBtn.on("pointerdown", (e) => { e.stopPropagation(); this.toggleCollapse(id); });
+      toggleBtn.on("pointerdown", (e) => {
+        e.stopPropagation();
+        this.toggleCollapse(id);
+      });
     }
     // Body click selects the group (bg sits below drag-handle in z-order,
     // so header clicks reach drag-handle first for drag initiation)
@@ -312,18 +413,31 @@ class CanvasEngineImpl implements CanvasEngine {
       groupBg.on("pointerdown", (e: FederatedPointerEvent) => {
         if (e.metaKey || e.ctrlKey) return;
         e.stopPropagation();
-        if (e.shiftKey) { this.selection.toggle(id); }
-        else { this.selection.select(id); }
+        if (e.shiftKey) {
+          this.selection.toggle(id);
+        } else {
+          this.selection.select(id);
+        }
       });
       groupBg.on("pointerenter", () => this.showHover(id));
-      groupBg.on("pointerleave", () => { if (this.hoveredId === id) this.clearHover(); });
+      groupBg.on("pointerleave", () => {
+        if (this.hoveredId === id) this.clearHover();
+      });
     }
-    this.dragCleanups.set(id,
+    this.dragCleanups.set(
+      id,
       enableItemDrag({
-        element, viewport: this.getCtx().viewport, registry: this.registry, history: this.history,
-        selection: this.selection, getScale: this.getScale, sync: syncToContainer,
-        onDragStateChange: this.onDragStateChange, gridSize: this.gridSize,
-        pauseCtrl: this.pauseCtrl, onDragEnd: this.emitMovedElements,
+        element,
+        viewport: this.getCtx().viewport,
+        registry: this.registry,
+        history: this.history,
+        selection: this.selection,
+        getScale: this.getScale,
+        sync: syncToContainer,
+        onDragStateChange: this.onDragStateChange,
+        gridSize: this.gridSize,
+        pauseCtrl: this.pauseCtrl,
+        onDragEnd: this.emitMovedElements,
         ghostLayer: this.ghostLayer,
       }),
     );
@@ -335,14 +449,25 @@ class CanvasEngineImpl implements CanvasEngine {
     this.registry.getElementOrThrow(opts.targetId);
     const gfx = createEdgeGraphics(opts.label, this.edgeLineLayer, this.edgeLabelLayer);
     const edge: CanvasEdge = {
-      id, sourceId: opts.sourceId, sourceSide: opts.sourceSide,
-      targetId: opts.targetId, targetSide: opts.targetSide,
-      label: opts.label ?? null, labelColor: opts.labelColor ?? null,
-      line: gfx.line, hitLine: gfx.hitLine,
-      labelPill: gfx.labelPill, labelText: gfx.labelText, selected: false,
+      id,
+      sourceId: opts.sourceId,
+      sourceSide: opts.sourceSide,
+      targetId: opts.targetId,
+      targetSide: opts.targetSide,
+      label: opts.label ?? null,
+      labelColor: opts.labelColor ?? null,
+      line: gfx.line,
+      hitLine: gfx.hitLine,
+      labelPill: gfx.labelPill,
+      labelText: gfx.labelText,
+      selected: false,
     };
-    try { this.registry.addEdge(id, edge); }
-    catch (err) { removeEdgeGraphics(edge); throw err; }
+    try {
+      this.registry.addEdge(id, edge);
+    } catch (err) {
+      removeEdgeGraphics(edge);
+      throw err;
+    }
     updateEdgeGraphics(edge, this.registry, this.getScale);
     gfx.line.__redraw = () => updateEdgeGraphics(edge, this.registry, this.getScale);
     this.redraw.register(gfx.line);
@@ -352,7 +477,9 @@ class CanvasEngineImpl implements CanvasEngine {
       this.selectEdge(id);
     });
     gfx.hitLine.on("pointerenter", () => this.showHover(id));
-    gfx.hitLine.on("pointerleave", () => { if (this.hoveredId === id) this.clearHover(); });
+    gfx.hitLine.on("pointerleave", () => {
+      if (this.hoveredId === id) this.clearHover();
+    });
     if (!this.bulkLoading) {
       const vp = this.getCtx().viewport;
       vp.setChildIndex(this.selectionLayer, vp.children.length - 1);
@@ -362,8 +489,10 @@ class CanvasEngineImpl implements CanvasEngine {
 
   removeElement(id: string): void {
     const element = this.registry.getElementOrThrow(id);
-    this.dragCleanups.get(id)?.(); this.dragCleanups.delete(id);
-    this.portDragCleanups.get(id)?.(); this.portDragCleanups.delete(id);
+    this.dragCleanups.get(id)?.();
+    this.dragCleanups.delete(id);
+    this.portDragCleanups.get(id)?.();
+    this.portDragCleanups.delete(id);
     if (element.type === "group") {
       for (const child of [...this.registry.getChildrenOf(id)]) {
         applyParentChange(child.id, element.parentGroupId, this.registry, syncElement);
@@ -391,20 +520,28 @@ class CanvasEngineImpl implements CanvasEngine {
   // --- Mutations ---
 
   moveElement(id: string, x: number, y: number): void {
-    assertFinite(x, "x"); assertFinite(y, "y");
-    this.history.execute(new MoveCommand(id, this.registry, x, y, syncToContainer, crypto.randomUUID()));
+    assertFinite(x, "x");
+    assertFinite(y, "y");
+    this.history.execute(
+      new MoveCommand(id, this.registry, x, y, syncToContainer, crypto.randomUUID()),
+    );
     this.events.emit("element:move", { id, x, y });
     this.afterCommand([id]);
   }
 
   resizeElement(id: string, width: number, height: number): void {
-    assertPositive(width, "width"); assertPositive(height, "height");
+    assertPositive(width, "width");
+    assertPositive(height, "height");
     const el = this.registry.getElementOrThrow(id);
-    this.history.execute(new ResizeCommand({
-      elementId: id, registry: this.registry,
-      target: { x: el.x, y: el.y, width, height },
-      sync: syncElement, sessionId: crypto.randomUUID(),
-    }));
+    this.history.execute(
+      new ResizeCommand({
+        elementId: id,
+        registry: this.registry,
+        target: { x: el.x, y: el.y, width, height },
+        sync: syncElement,
+        sessionId: crypto.randomUUID(),
+      }),
+    );
     this.events.emit("element:resize", { id, width, height });
     this.afterCommand([id]);
   }
@@ -437,39 +574,74 @@ class CanvasEngineImpl implements CanvasEngine {
   // --- Selection ---
 
   select(ids: readonly string[]): void {
-    this.reconnectHandles?.destroy(); this.reconnectHandles = null; this.selection.setOnEdgeUpdate(undefined);
+    this.reconnectHandles?.destroy();
+    this.reconnectHandles = null;
+    this.selection.setOnEdgeUpdate(undefined);
     const [first] = ids;
-    if (!first) { this.selection.clear(); }
-    else if (ids.length === 1) { this.selection.select(first); }
-    else { this.selection.selectMultiple(ids); }
+    if (!first) {
+      this.selection.clear();
+    } else if (ids.length === 1) {
+      this.selection.select(first);
+    } else {
+      this.selection.selectMultiple(ids);
+    }
   }
 
-  selectAll(): void { this.select([...this.registry.getAllElements().keys()]); }
+  selectAll(): void {
+    this.select([...this.registry.getAllElements().keys()]);
+  }
 
   clearSelection(): void {
-    this.reconnectHandles?.destroy(); this.reconnectHandles = null; this.selection.setOnEdgeUpdate(undefined);
+    this.reconnectHandles?.destroy();
+    this.reconnectHandles = null;
+    this.selection.setOnEdgeUpdate(undefined);
     this.selection.clear();
   }
 
-  getSelection(): readonly string[] { return [...this.selection.getSelectedIds()]; }
+  getSelection(): readonly string[] {
+    return [...this.selection.getSelectedIds()];
+  }
 
   // --- Undo/Redo ---
 
-  undo(): void { this.history.undo(); this.afterCommand(); }
-  redo(): void { this.history.redo(); this.afterCommand(); }
+  undo(): void {
+    this.history.undo();
+    this.afterCommand();
+  }
+  redo(): void {
+    this.history.redo();
+    this.afterCommand();
+  }
 
   // --- Clipboard ---
 
-  copy(): void { this.clipboard.copy(this.copyTargetIds(), this.registry); }
+  copy(): void {
+    this.clipboard.copy(this.copyTargetIds(), this.registry);
+  }
   paste(): void {
-    const ids = this.clipboard.paste(this.registry, this.history, this.elementOps, this.addRemoveOps);
-    if (ids.length > 0) { this.select(ids); this.afterCommand(); }
+    const ids = this.clipboard.paste(
+      this.registry,
+      this.history,
+      this.elementOps,
+      this.addRemoveOps,
+    );
+    if (ids.length > 0) {
+      this.select(ids);
+      this.afterCommand();
+    }
   }
   duplicate(): void {
     const ids = this.clipboard.duplicate(
-      this.copyTargetIds(), this.registry, this.history, this.elementOps, this.addRemoveOps,
+      this.copyTargetIds(),
+      this.registry,
+      this.history,
+      this.elementOps,
+      this.addRemoveOps,
     );
-    if (ids.length > 0) { this.select(ids); this.afterCommand(); }
+    if (ids.length > 0) {
+      this.select(ids);
+      this.afterCommand();
+    }
   }
 
   // --- Serialization ---
@@ -517,8 +689,8 @@ class CanvasEngineImpl implements CanvasEngine {
     for (const el of this.registry.getAllElements().values()) {
       // Don't override visibility managed by group collapse
       if (!el.visible) continue;
-      const inView = el.x + el.width > left && el.x < right &&
-                     el.y + el.height > top && el.y < bottom;
+      const inView =
+        el.x + el.width > left && el.x < right && el.y + el.height > top && el.y < bottom;
       if (el.container.visible !== inView) {
         el.container.visible = inView;
         if (inView) {
@@ -534,15 +706,23 @@ class CanvasEngineImpl implements CanvasEngine {
 
   // --- View control ---
 
-  setZoom(scale: number): void { setViewportZoom(this.getCtx().viewport, scale); }
-  centerOn(x: number, y: number): void { centerViewportOn(this.getCtx().viewport, x, y); }
-  fitToContent(padding?: number): void { fitViewportToContent(this.getCtx().viewport, this.registry, padding); }
+  setZoom(scale: number): void {
+    setViewportZoom(this.getCtx().viewport, scale);
+  }
+  centerOn(x: number, y: number): void {
+    centerViewportOn(this.getCtx().viewport, x, y);
+  }
+  fitToContent(padding?: number): void {
+    fitViewportToContent(this.getCtx().viewport, this.registry, padding);
+  }
 
   toDataURL(type?: "image/png" | "image/jpeg"): string {
     const ctx = this.getCtx();
     const canvas = ctx.app.renderer.extract.canvas(ctx.app.stage);
     if (!(canvas instanceof HTMLCanvasElement)) {
-      throw new InvalidArgumentError("toDataURL requires an HTMLCanvasElement (not available in OffscreenCanvas environments)");
+      throw new InvalidArgumentError(
+        "toDataURL requires an HTMLCanvasElement (not available in OffscreenCanvas environments)",
+      );
     }
     return canvas.toDataURL(type ?? "image/png");
   }
@@ -562,14 +742,25 @@ class CanvasEngineImpl implements CanvasEngine {
     const edge = this.registry.getEdge(edgeId);
     if (edge) {
       this.reconnectHandles = createReconnectHandles({
-        edge, layer: this.selectionLayer, viewport: this.getCtx().viewport,
-        registry: this.registry, getScale: this.getScale, ghostLayer: this.ghostLayer,
+        edge,
+        layer: this.selectionLayer,
+        viewport: this.getCtx().viewport,
+        registry: this.registry,
+        getScale: this.getScale,
+        ghostLayer: this.ghostLayer,
         onReconnect: (r: ReconnectResult) => {
           this.reconnectHandles?.destroy();
           this.reconnectHandles = null;
           this.selection.setOnEdgeUpdate(undefined);
-          this.history.execute(new ReconnectEdgeCommand(r.edgeId, r.endpoint, r.newNodeId, r.newSide, this.registry));
-          this.events.emit("edge:reconnect", { id: r.edgeId, endpoint: r.endpoint, newNodeId: r.newNodeId, newSide: r.newSide });
+          this.history.execute(
+            new ReconnectEdgeCommand(r.edgeId, r.endpoint, r.newNodeId, r.newSide, this.registry),
+          );
+          this.events.emit("edge:reconnect", {
+            id: r.edgeId,
+            endpoint: r.endpoint,
+            newNodeId: r.newNodeId,
+            newSide: r.newSide,
+          });
           this.afterCommand();
           this.selectEdge(r.edgeId);
         },
@@ -582,7 +773,11 @@ class CanvasEngineImpl implements CanvasEngine {
   }
 
   private handleEscape(): void {
-    if (this.edgeCreator.isActive()) { this.edgeCreator.cancel(); this.clearSelection(); return; }
+    if (this.edgeCreator.isActive()) {
+      this.edgeCreator.cancel();
+      this.clearSelection();
+      return;
+    }
     this.clearSelection();
   }
 
@@ -600,12 +795,17 @@ class CanvasEngineImpl implements CanvasEngine {
     const restored: string[] = [];
     const restoreOps: DeleteCommandOps = {
       ...this.elementOps,
-      onRestore: (eid: string) => { restored.push(eid); this.selection.selectMultiple(restored); },
+      onRestore: (eid: string) => {
+        restored.push(eid);
+        this.selection.selectMultiple(restored);
+      },
     };
     if (ids.length === 1) {
       this.history.execute(new DeleteCommand(ids[0]!, this.registry, syncElement, restoreOps));
     } else {
-      this.history.batch(ids.map((id) => new DeleteCommand(id, this.registry, syncElement, restoreOps)));
+      this.history.batch(
+        ids.map((id) => new DeleteCommand(id, this.registry, syncElement, restoreOps)),
+      );
     }
     this.afterCommand();
   }
@@ -698,7 +898,10 @@ class CanvasEngineImpl implements CanvasEngine {
       this.redraw.markAllDirty();
     }
     this.redraw.flush();
-    this.events.emit("history:change", { canUndo: this.history.canUndo, canRedo: this.history.canRedo });
+    this.events.emit("history:change", {
+      canUndo: this.history.canUndo,
+      canRedo: this.history.canRedo,
+    });
   }
 
   private markAffectedDirty(ids: readonly string[]): void {
@@ -724,8 +927,14 @@ export async function createCanvasEngine(
 ): Promise<CanvasEngine> {
   if (options.signal?.aborted) throw new DOMException("Aborted", "AbortError");
   const ctx = await initViewport(container, options);
-  if (options.signal?.aborted) { ctx.destroy(); throw new DOMException("Aborted", "AbortError"); }
+  if (options.signal?.aborted) {
+    ctx.destroy();
+    throw new DOMException("Aborted", "AbortError");
+  }
   await preloadChevronTextures();
-  if (options.signal?.aborted) { ctx.destroy(); throw new DOMException("Aborted", "AbortError"); }
+  if (options.signal?.aborted) {
+    ctx.destroy();
+    throw new DOMException("Aborted", "AbortError");
+  }
   return new CanvasEngineImpl(ctx, options);
 }

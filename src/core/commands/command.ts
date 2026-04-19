@@ -1,10 +1,15 @@
-import type { EventDescriptor } from "../events/event-emitter";
 import { CommandExecutionError } from "../errors";
+import type { EventDescriptor } from "../events/event-emitter";
 
 export type CommandType =
-  | "move" | "resize" | "drag"
-  | "assign" | "delete" | "collapse"
-  | "add-remove" | "edge"
+  | "move"
+  | "resize"
+  | "drag"
+  | "assign"
+  | "delete"
+  | "collapse"
+  | "add-remove"
+  | "edge"
   | "batch";
 
 export interface Command {
@@ -42,10 +47,7 @@ export class CommandHistory {
     try {
       command.execute();
     } catch (err) {
-      throw new CommandExecutionError(
-        err instanceof Error ? err.message : String(err),
-        err,
-      );
+      throw new CommandExecutionError(err instanceof Error ? err.message : String(err), err);
     }
 
     const prev = this.undoStack[this.undoStack.length - 1];
@@ -93,14 +95,13 @@ export class CommandHistory {
             executed++;
           }
         } catch (err) {
-          for (let i = executed - 1; i >= 0; i--) commands[i]!.undo();
-          throw new CommandExecutionError(
-            err instanceof Error ? err.message : String(err),
-            err,
-          );
+          for (let i = executed - 1; i >= 0; i--) commands[i]?.undo();
+          throw new CommandExecutionError(err instanceof Error ? err.message : String(err), err);
         }
       },
-      undo() { for (let i = commands.length - 1; i >= 0; i--) commands[i]!.undo(); },
+      undo() {
+        for (let i = commands.length - 1; i >= 0; i--) commands[i]?.undo();
+      },
       getDomainEvents(direction) {
         return commands.flatMap((c) => c.getDomainEvents?.(direction) ?? []);
       },

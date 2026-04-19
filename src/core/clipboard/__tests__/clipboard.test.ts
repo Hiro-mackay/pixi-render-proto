@@ -1,9 +1,9 @@
-import { describe, test, expect, beforeEach } from "vitest";
-import { CanvasClipboard } from "../clipboard";
-import { ElementRegistry } from "../../registry/element-registry";
-import { CommandHistory } from "../../commands/command";
-import { makeNode, makeGroup, makeEdge } from "../../commands/__tests__/helpers";
+import { beforeEach, describe, expect, test } from "vitest";
+import { makeEdge, makeGroup, makeNode } from "../../commands/__tests__/helpers";
 import type { AddElementOps, AddRemoveOps } from "../../commands/add-remove-command";
+import { CommandHistory } from "../../commands/command";
+import { ElementRegistry } from "../../registry/element-registry";
+import { CanvasClipboard } from "../clipboard";
 
 function createMockOps() {
   const added: Array<{ id: string; type: string }> = [];
@@ -12,13 +12,23 @@ function createMockOps() {
   const edgesRemoved: string[] = [];
 
   const elementOps: AddElementOps = {
-    doAddNode: (id) => { added.push({ id, type: "node" }); },
-    doAddGroup: (id) => { added.push({ id, type: "group" }); },
-    doRemove: (id) => { removed.push(id); },
+    doAddNode: (id) => {
+      added.push({ id, type: "node" });
+    },
+    doAddGroup: (id) => {
+      added.push({ id, type: "group" });
+    },
+    doRemove: (id) => {
+      removed.push(id);
+    },
   };
   const edgeOps: AddRemoveOps = {
-    doAddEdge: (id) => { edgesAdded.push({ id }); },
-    doRemoveEdge: (id) => { edgesRemoved.push(id); },
+    doAddEdge: (id) => {
+      edgesAdded.push({ id });
+    },
+    doRemoveEdge: (id) => {
+      edgesRemoved.push(id);
+    },
   };
 
   return { elementOps, edgeOps, added, removed, edgesAdded, edgesRemoved };
@@ -121,10 +131,15 @@ describe("CanvasClipboard", () => {
         added.push({ id, type: "node" });
       },
       doAddGroup: (id, opts) => {
-        pasteRegistry.addElement(id, makeGroup(id, { x: opts.x, y: opts.y, width: opts.width, height: opts.height }));
+        pasteRegistry.addElement(
+          id,
+          makeGroup(id, { x: opts.x, y: opts.y, width: opts.width, height: opts.height }),
+        );
         added.push({ id, type: "group" });
       },
-      doRemove: (id) => { pasteRegistry.removeElement(id); },
+      doRemove: (id) => {
+        pasteRegistry.removeElement(id);
+      },
     };
     const edgeOps: AddRemoveOps = { doAddEdge: () => {}, doRemoveEdge: () => {} };
 
@@ -143,7 +158,7 @@ describe("CanvasClipboard", () => {
     const pasteRegistry = new ElementRegistry();
     // Use Container with children array to satisfy syncElement/updateVisibility
     const makeContainerMock = (x: number, y: number) =>
-      ({ x, y, visible: true, children: [] } as unknown as import("pixi.js").Container);
+      ({ x, y, visible: true, children: [] }) as unknown as import("pixi.js").Container;
 
     const elementOps: AddElementOps = {
       doAddNode: (id, opts) => {
@@ -158,7 +173,9 @@ describe("CanvasClipboard", () => {
           container: makeContainerMock(opts.x, opts.y),
         });
       },
-      doRemove: (id) => { pasteRegistry.removeElement(id); },
+      doRemove: (id) => {
+        pasteRegistry.removeElement(id);
+      },
     };
     const edgeOps: AddRemoveOps = { doAddEdge: () => {}, doRemoveEdge: () => {} };
 
@@ -181,7 +198,13 @@ describe("CanvasClipboard", () => {
     registry.addElement("n2", makeNode("n2"));
 
     clipboard.copy(new Set(["n1"]), registry);
-    clipboard.duplicate(new Set(["n2"]), registry, history, createMockOps().elementOps, createMockOps().edgeOps);
+    clipboard.duplicate(
+      new Set(["n2"]),
+      registry,
+      history,
+      createMockOps().elementOps,
+      createMockOps().edgeOps,
+    );
 
     // Clipboard should still have n1 data
     const { elementOps, edgeOps, added } = createMockOps();

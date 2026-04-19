@@ -1,32 +1,27 @@
-import type { Command } from "./command";
-import type { AddElementOps } from "./add-remove-command";
-import type { CanvasElement, NodeOptions, GroupOptions, EdgeOptions } from "../types";
-import { COLLAPSED_HEIGHT } from "../types";
-import type { ElementRegistry } from "../registry/element-registry";
-import { applyParentChange } from "../hierarchy/group-ops";
 import { ElementNotFoundError } from "../errors";
+import { applyParentChange } from "../hierarchy/group-ops";
+import type { ElementRegistry } from "../registry/element-registry";
+import type { CanvasElement, EdgeOptions, GroupOptions, NodeOptions } from "../types";
+import { COLLAPSED_HEIGHT } from "../types";
+import type { AddElementOps } from "./add-remove-command";
+import type { Command } from "./command";
 
 type ElementSnapshot =
   | {
-    readonly type: "node";
-    readonly id: string;
-    readonly parentGroupId: string | null;
-    readonly opts: NodeOptions;
-  }
+      readonly type: "node";
+      readonly id: string;
+      readonly parentGroupId: string | null;
+      readonly opts: NodeOptions;
+    }
   | {
-    readonly type: "group";
-    readonly id: string;
-    readonly parentGroupId: string | null;
-    readonly opts: GroupOptions;
-    readonly childIds: readonly string[];
-    readonly collapsed: boolean;
-    readonly expandedHeight: number;
-  };
-
-interface EdgeSnapshot {
-  readonly id: string;
-  readonly opts: EdgeOptions;
-}
+      readonly type: "group";
+      readonly id: string;
+      readonly parentGroupId: string | null;
+      readonly opts: GroupOptions;
+      readonly childIds: readonly string[];
+      readonly collapsed: boolean;
+      readonly expandedHeight: number;
+    };
 
 export interface DeleteCommandOps extends AddElementOps {
   readonly doAddEdge: (id: string, opts: EdgeOptions) => void;
@@ -36,7 +31,7 @@ export interface DeleteCommandOps extends AddElementOps {
 export class DeleteCommand implements Command {
   readonly type = "delete";
   private readonly element: ElementSnapshot;
-  private readonly edges: readonly EdgeSnapshot[];
+  private readonly edges: readonly { readonly id: string; readonly opts: EdgeOptions }[];
 
   constructor(
     elementId: string,
@@ -47,22 +42,23 @@ export class DeleteCommand implements Command {
     const el = registry.getElement(elementId);
     if (!el) throw new ElementNotFoundError(`Element "${elementId}" not found`);
 
-    this.element = el.type === "node"
-      ? {
-        type: "node",
-        id: el.id,
-        parentGroupId: el.parentGroupId,
-        opts: snapshotNodeOpts(el),
-      }
-      : {
-        type: "group",
-        id: el.id,
-        parentGroupId: el.parentGroupId,
-        opts: snapshotGroupOpts(el),
-        childIds: registry.getChildrenOf(el.id).map((c) => c.id),
-        collapsed: el.meta.collapsed,
-        expandedHeight: el.meta.expandedHeight,
-      };
+    this.element =
+      el.type === "node"
+        ? {
+            type: "node",
+            id: el.id,
+            parentGroupId: el.parentGroupId,
+            opts: snapshotNodeOpts(el),
+          }
+        : {
+            type: "group",
+            id: el.id,
+            parentGroupId: el.parentGroupId,
+            opts: snapshotGroupOpts(el),
+            childIds: registry.getChildrenOf(el.id).map((c) => c.id),
+            collapsed: el.meta.collapsed,
+            expandedHeight: el.meta.expandedHeight,
+          };
 
     this.edges = registry.getEdgesForNode(el.id).map((edge) => ({
       id: edge.id,
@@ -72,7 +68,7 @@ export class DeleteCommand implements Command {
         targetId: edge.targetId,
         targetSide: edge.targetSide,
         label: edge.label ?? undefined,
-      labelColor: edge.labelColor ?? undefined,
+        labelColor: edge.labelColor ?? undefined,
       },
     }));
   }
@@ -124,14 +120,23 @@ export class DeleteCommand implements Command {
 
 function snapshotNodeOpts(el: CanvasElement & { type: "node" }): NodeOptions {
   return {
-    label: el.meta.label, x: el.x, y: el.y, width: el.width, height: el.height,
-    color: el.meta.color, icon: el.meta.icon,
+    label: el.meta.label,
+    x: el.x,
+    y: el.y,
+    width: el.width,
+    height: el.height,
+    color: el.meta.color,
+    icon: el.meta.icon,
   };
 }
 
 function snapshotGroupOpts(el: CanvasElement & { type: "group" }): GroupOptions {
   return {
-    label: el.meta.label, x: el.x, y: el.y, width: el.width, height: el.height,
+    label: el.meta.label,
+    x: el.x,
+    y: el.y,
+    width: el.width,
+    height: el.height,
     color: el.meta.color,
   };
 }

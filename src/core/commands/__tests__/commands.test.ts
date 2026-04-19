@@ -1,9 +1,9 @@
-import { describe, test, expect } from "vitest";
+import { describe, expect, test } from "vitest";
+import { syncToContainer } from "../../registry/sync";
+import type { CanvasElement } from "../../types";
 import { CommandHistory } from "../command";
 import { MoveCommand } from "../move-command";
 import { ResizeCommand } from "../resize-command";
-import { syncToContainer } from "../../registry/sync";
-import type { CanvasElement } from "../../types";
 import { makeNode, makeRegistry } from "./helpers";
 
 describe("MoveCommand", () => {
@@ -59,7 +59,10 @@ describe("ResizeCommand", () => {
     const el = makeNode("n1", 0, 0, 100, 50);
     const registry = makeRegistry(el);
     const cmd = new ResizeCommand({
-      elementId: "n1", registry, sync: syncToContainer, sessionId: "s1",
+      elementId: "n1",
+      registry,
+      sync: syncToContainer,
+      sessionId: "s1",
       target: { x: 0, y: 0, width: 200, height: 100 },
     });
     cmd.execute();
@@ -71,7 +74,10 @@ describe("ResizeCommand", () => {
     const el = makeNode("n1", 10, 20, 100, 50);
     const registry = makeRegistry(el);
     const cmd = new ResizeCommand({
-      elementId: "n1", registry, sync: syncToContainer, sessionId: "s1",
+      elementId: "n1",
+      registry,
+      sync: syncToContainer,
+      sessionId: "s1",
       target: { x: 5, y: 15, width: 200, height: 100 },
     });
     cmd.execute();
@@ -87,14 +93,24 @@ describe("ResizeCommand", () => {
     const el = makeNode("n1", 0, 0, 100, 50);
     const registry = makeRegistry(el);
 
-    history.execute(new ResizeCommand({
-      elementId: "n1", registry, sync: syncToContainer, sessionId: "r1",
-      target: { x: 0, y: 0, width: 120, height: 60 },
-    }));
-    history.execute(new ResizeCommand({
-      elementId: "n1", registry, sync: syncToContainer, sessionId: "r1",
-      target: { x: 0, y: 0, width: 150, height: 80 },
-    }));
+    history.execute(
+      new ResizeCommand({
+        elementId: "n1",
+        registry,
+        sync: syncToContainer,
+        sessionId: "r1",
+        target: { x: 0, y: 0, width: 120, height: 60 },
+      }),
+    );
+    history.execute(
+      new ResizeCommand({
+        elementId: "n1",
+        registry,
+        sync: syncToContainer,
+        sessionId: "r1",
+        target: { x: 0, y: 0, width: 150, height: 80 },
+      }),
+    );
 
     history.undo();
     expect(el.width).toBe(100);
@@ -105,10 +121,16 @@ describe("ResizeCommand", () => {
     const el = makeNode("n1", 10, 20, 100, 50);
     const registry = makeRegistry(el);
 
-    el.x = 5; el.y = 15; el.width = 200; el.height = 100;
+    el.x = 5;
+    el.y = 15;
+    el.width = 200;
+    el.height = 100;
 
     const cmd = new ResizeCommand({
-      elementId: "n1", registry, sync: syncToContainer, sessionId: "s1",
+      elementId: "n1",
+      registry,
+      sync: syncToContainer,
+      sessionId: "s1",
       target: { x: 5, y: 15, width: 200, height: 100 },
       previous: { x: 10, y: 20, width: 100, height: 50 },
     });
@@ -125,9 +147,14 @@ describe("ResizeCommand", () => {
 describe("expandedHeight tracking for groups", () => {
   test("should restore height after collapse/expand even if resized while expanded", () => {
     const el: CanvasElement = {
-      id: "g1", type: "group",
-      x: 0, y: 0, width: 400, height: 300,
-      visible: true, parentGroupId: null,
+      id: "g1",
+      type: "group",
+      x: 0,
+      y: 0,
+      width: 400,
+      height: 300,
+      visible: true,
+      parentGroupId: null,
       container: { x: 0, y: 0, visible: true } as never,
       meta: { label: "test", color: 0, collapsed: false, expandedHeight: 300 },
     };

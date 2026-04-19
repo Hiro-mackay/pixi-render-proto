@@ -1,7 +1,7 @@
 import type { Graphics } from "pixi.js";
-import type { Rect, Side } from "../types";
 import { getFixedSideAnchor, getNearestSide } from "../geometry/anchor";
 import { computeBezierControlPoints } from "../geometry/bezier";
+import type { Rect, Side } from "../types";
 
 const GHOST_STROKE_WIDTH = 1.5;
 const GHOST_ENDPOINT_RADIUS = 4;
@@ -15,7 +15,10 @@ export function drawHighlight(
   color: number,
 ): void {
   graphics.clear();
-  if (!el) { graphics.visible = false; return; }
+  if (!el) {
+    graphics.visible = false;
+    return;
+  }
   const pad = HIGHLIGHT_PAD / scale;
   const strokeW = HIGHLIGHT_STROKE_WIDTH / scale;
   graphics.roundRect(el.x - pad, el.y - pad, el.width + pad * 2, el.height + pad * 2, 10);
@@ -45,7 +48,12 @@ export function drawGhostLine(
   }
 
   const { cp1x, cp1y, cp2x, cp2y } = computeBezierControlPoints(
-    from.x, from.y, fromSide, endX, endY, endSide,
+    from.x,
+    from.y,
+    fromSide,
+    endX,
+    endY,
+    endSide,
   );
 
   graphics.clear();

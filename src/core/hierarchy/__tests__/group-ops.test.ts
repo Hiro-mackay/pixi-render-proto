@@ -1,16 +1,16 @@
-import { describe, test, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, test } from "vitest";
+import { makeGroup, makeNode } from "../../commands/__tests__/helpers";
 import { ElementRegistry } from "../../registry/element-registry";
+import type { GroupMeta } from "../../types";
 import {
-  canAssign,
+  applyParentChange,
   assignToGroup,
-  removeFromGroup,
+  canAssign,
   getDescendants,
   isDescendantOf,
+  removeFromGroup,
   updateVisibility,
-  applyParentChange,
 } from "../group-ops";
-import type { GroupMeta } from "../../types";
-import { makeNode, makeGroup } from "../../commands/__tests__/helpers";
 
 describe("group hierarchy operations", () => {
   let registry: ElementRegistry;

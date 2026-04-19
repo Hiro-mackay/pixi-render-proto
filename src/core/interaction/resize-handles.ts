@@ -1,13 +1,13 @@
 import type { Container, FederatedPointerEvent } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
-import type { CanvasElement } from "../types";
-import type { ElementRegistry } from "../registry/element-registry";
 import type { CommandHistory } from "../commands/command";
-import type { ViewportPauseController } from "../viewport/pause-controller";
 import { ResizeCommand } from "../commands/resize-command";
-import type { SelectionState } from "./selection-state";
 import { updateEdgeGraphics } from "../elements/edge-renderer";
 import { snapToGrid } from "../geometry/snap";
+import type { ElementRegistry } from "../registry/element-registry";
+import type { CanvasElement } from "../types";
+import type { ViewportPauseController } from "../viewport/pause-controller";
+import type { SelectionState } from "./selection-state";
 
 const MIN_WIDTH = 60;
 const MIN_HEIGHT = 40;
@@ -24,14 +24,14 @@ interface HandleMeta {
 }
 
 const HANDLE_META: readonly HandleMeta[] = [
-  { axis: "both",       anchorX: "right", anchorY: "bottom" }, // NW
-  { axis: "both",       anchorX: "left",  anchorY: "bottom" }, // NE
-  { axis: "both",       anchorX: "right", anchorY: "top" },    // SW
-  { axis: "both",       anchorX: "left",  anchorY: "top" },    // SE
-  { axis: "vertical",   anchorX: "none",  anchorY: "bottom" }, // N
-  { axis: "horizontal", anchorX: "left",  anchorY: "none" },   // E
-  { axis: "vertical",   anchorX: "none",  anchorY: "top" },    // S
-  { axis: "horizontal", anchorX: "right", anchorY: "none" },   // W
+  { axis: "both", anchorX: "right", anchorY: "bottom" }, // NW
+  { axis: "both", anchorX: "left", anchorY: "bottom" }, // NE
+  { axis: "both", anchorX: "right", anchorY: "top" }, // SW
+  { axis: "both", anchorX: "left", anchorY: "top" }, // SE
+  { axis: "vertical", anchorX: "none", anchorY: "bottom" }, // N
+  { axis: "horizontal", anchorX: "left", anchorY: "none" }, // E
+  { axis: "vertical", anchorX: "none", anchorY: "top" }, // S
+  { axis: "horizontal", anchorX: "right", anchorY: "none" }, // W
 ] as const;
 
 export interface ResizeHandleOptions {
@@ -48,8 +48,18 @@ export interface ResizeHandleOptions {
 }
 
 export function enableResizeHandles(opts: ResizeHandleOptions): () => void {
-  const { handles, selection, viewport, registry, history, getScale, sync,
-    gridSize, pauseCtrl, onResizeEnd } = opts;
+  const {
+    handles,
+    selection,
+    viewport,
+    registry,
+    history,
+    getScale,
+    sync,
+    gridSize,
+    pauseCtrl,
+    onResizeEnd,
+  } = opts;
   const cleanups: (() => void)[] = [];
 
   for (let i = 0; i < handles.length; i++) {
@@ -72,7 +82,11 @@ export function enableResizeHandles(opts: ResizeHandleOptions): () => void {
       active = true;
       sessionId = crypto.randomUUID();
       selection.setResizing(true);
-      pauseCtrl ? pauseCtrl.acquire() : (viewport.pause = true);
+      if (pauseCtrl) {
+        pauseCtrl.acquire();
+      } else {
+        viewport.pause = true;
+      }
 
       anchorX = resolveAnchorX(meta, element);
       anchorY = resolveAnchorY(meta, element);
@@ -113,18 +127,30 @@ export function enableResizeHandles(opts: ResizeHandleOptions): () => void {
       if (!active || !element) return;
       active = false;
       selection.setResizing(false);
-      pauseCtrl ? pauseCtrl.release() : (viewport.pause = false);
+      if (pauseCtrl) {
+        pauseCtrl.release();
+      } else {
+        viewport.pause = false;
+      }
 
       // Preview applies geometry during pointermove; execute() re-applies idempotently.
       // This contract is verified by history-contract.test.ts.
-      history.execute(new ResizeCommand({
-        elementId: element.id, registry, sessionId, sync,
-        target: { x: element.x, y: element.y, width: element.width, height: element.height },
-        previous: {
-          x: startRect.x, y: startRect.y, width: startRect.w, height: startRect.h,
-          expandedHeight: element.type === "group" ? element.meta.expandedHeight : null,
-        },
-      }));
+      history.execute(
+        new ResizeCommand({
+          elementId: element.id,
+          registry,
+          sessionId,
+          sync,
+          target: { x: element.x, y: element.y, width: element.width, height: element.height },
+          previous: {
+            x: startRect.x,
+            y: startRect.y,
+            width: startRect.w,
+            height: startRect.h,
+            expandedHeight: element.type === "group" ? element.meta.expandedHeight : null,
+          },
+        }),
+      );
 
       for (const edge of registry.getEdgesForNode(element.id)) {
         updateEdgeGraphics(edge, registry, getScale);
@@ -153,16 +179,22 @@ export function enableResizeHandles(opts: ResizeHandleOptions): () => void {
 
 function resolveAnchorX(meta: HandleMeta, el: CanvasElement): number {
   switch (meta.anchorX) {
-    case "left": return el.x;
-    case "right": return el.x + el.width;
-    case "none": return el.x;
+    case "left":
+      return el.x;
+    case "right":
+      return el.x + el.width;
+    case "none":
+      return el.x;
   }
 }
 
 function resolveAnchorY(meta: HandleMeta, el: CanvasElement): number {
   switch (meta.anchorY) {
-    case "top": return el.y;
-    case "bottom": return el.y + el.height;
-    case "none": return el.y;
+    case "top":
+      return el.y;
+    case "bottom":
+      return el.y + el.height;
+    case "none":
+      return el.y;
   }
 }

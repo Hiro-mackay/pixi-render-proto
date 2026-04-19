@@ -95,8 +95,14 @@ export type CanvasElement = NodeElement | GroupElement;
 
 /** @internal */
 export interface EdgePositionCache {
-  srcX: number; srcY: number; srcW: number; srcH: number;
-  tgtX: number; tgtY: number; tgtW: number; tgtH: number;
+  srcX: number;
+  srcY: number;
+  srcW: number;
+  srcH: number;
+  tgtX: number;
+  tgtY: number;
+  tgtW: number;
+  tgtH: number;
   selected: boolean;
 }
 

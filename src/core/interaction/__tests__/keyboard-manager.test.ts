@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { KeyboardManager } from "../keyboard-manager";
 
 type Listener = (e: KeyboardEvent) => void;
@@ -17,7 +17,10 @@ vi.stubGlobal("window", {
   removeEventListener: () => {},
 });
 
-function dispatch(key: string, opts: Partial<{ ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }> = {}): { preventDefault: ReturnType<typeof vi.fn> } {
+function dispatch(
+  key: string,
+  opts: Partial<{ ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }> = {},
+): { preventDefault: ReturnType<typeof vi.fn> } {
   const preventDefault = vi.fn();
   const event = {
     key,

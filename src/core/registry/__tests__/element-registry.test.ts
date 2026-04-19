@@ -1,6 +1,6 @@
-import { describe, test, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, test } from "vitest";
+import { makeEdge, makeGroup, makeNode } from "../../commands/__tests__/helpers";
 import { ElementRegistry } from "../element-registry";
-import { makeNode, makeGroup, makeEdge } from "../../commands/__tests__/helpers";
 
 describe("ElementRegistry", () => {
   let registry: ElementRegistry;
@@ -230,7 +230,17 @@ describe("ElementRegistry", () => {
       registry.addEdge("e1", makeEdge("e1", "n1", "n2"));
 
       const edge = registry.getEdgeOrThrow("e1");
-      edge._posCache = { srcX: 0, srcY: 0, srcW: 0, srcH: 0, tgtX: 0, tgtY: 0, tgtW: 0, tgtH: 0, scale: 1, selected: false };
+      edge._posCache = {
+        srcX: 0,
+        srcY: 0,
+        srcW: 0,
+        srcH: 0,
+        tgtX: 0,
+        tgtY: 0,
+        tgtW: 0,
+        tgtH: 0,
+        selected: false,
+      };
 
       registry.reconnectEdge("e1", "target", "n3", "top");
       expect(edge._posCache).toBeUndefined();

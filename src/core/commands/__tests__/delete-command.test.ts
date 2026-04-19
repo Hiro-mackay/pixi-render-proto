@@ -1,10 +1,10 @@
-import { describe, test, expect, vi, beforeEach } from "vitest";
-import { DeleteCommand } from "../delete-command";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import { updateVisibility } from "../../hierarchy/group-ops";
 import { ElementRegistry } from "../../registry/element-registry";
 import { syncToContainer } from "../../registry/sync";
-import { updateVisibility } from "../../hierarchy/group-ops";
-import type { GroupMeta, NodeOptions, EdgeOptions } from "../../types";
-import { makeNode, makeGroup, makeEdge } from "./helpers";
+import type { EdgeOptions, GroupMeta, NodeOptions } from "../../types";
+import { DeleteCommand } from "../delete-command";
+import { makeEdge, makeGroup, makeNode } from "./helpers";
 
 describe("DeleteCommand", () => {
   let registry: ElementRegistry;
@@ -27,7 +27,12 @@ describe("DeleteCommand", () => {
 
   test("should call doRemove on execute", () => {
     registry.addElement("n1", makeNode("n1"));
-    const cmd = new DeleteCommand("n1", registry, sync, { doRemove, doAddNode, doAddGroup, doAddEdge });
+    const cmd = new DeleteCommand("n1", registry, sync, {
+      doRemove,
+      doAddNode,
+      doAddGroup,
+      doAddEdge,
+    });
     cmd.execute();
     expect(doRemove).toHaveBeenCalledWith("n1");
   });
@@ -35,7 +40,12 @@ describe("DeleteCommand", () => {
   test("should call doAddNode on undo for a node", () => {
     const n1 = makeNode("n1", 50, 60);
     registry.addElement("n1", n1);
-    const cmd = new DeleteCommand("n1", registry, sync, { doRemove, doAddNode, doAddGroup, doAddEdge });
+    const cmd = new DeleteCommand("n1", registry, sync, {
+      doRemove,
+      doAddNode,
+      doAddGroup,
+      doAddEdge,
+    });
     cmd.execute();
     cmd.undo();
     expect(doAddNode).toHaveBeenCalledOnce();
@@ -52,7 +62,12 @@ describe("DeleteCommand", () => {
     const reAddNode = vi.fn<(id: string, opts: NodeOptions) => void>((id) => {
       registry.addElement(id, makeNode(id));
     });
-    const cmd = new DeleteCommand("n1", registry, sync, { doRemove, doAddNode: reAddNode, doAddGroup, doAddEdge });
+    const cmd = new DeleteCommand("n1", registry, sync, {
+      doRemove,
+      doAddNode: reAddNode,
+      doAddGroup,
+      doAddEdge,
+    });
     cmd.execute();
     cmd.undo();
     expect(doAddEdge).toHaveBeenCalledOnce();
@@ -67,7 +82,12 @@ describe("DeleteCommand", () => {
     const reAddNode = vi.fn<(id: string, opts: NodeOptions) => void>(() => {
       registry.addElement("n1", makeNode("n1"));
     });
-    const cmd = new DeleteCommand("n1", registry, sync, { doRemove, doAddNode: reAddNode, doAddGroup, doAddEdge });
+    const cmd = new DeleteCommand("n1", registry, sync, {
+      doRemove,
+      doAddNode: reAddNode,
+      doAddGroup,
+      doAddEdge,
+    });
     cmd.execute();
     cmd.undo();
     expect(registry.getElementOrThrow("n1").parentGroupId).toBe("g1");
@@ -90,7 +110,12 @@ describe("DeleteCommand", () => {
     const engineAddGroup = vi.fn<(id: string, opts: unknown) => void>(() => {
       registry.addElement("g1", makeGroup("g1"));
     });
-    const cmd = new DeleteCommand("g1", registry, sync, { doRemove: engineRemove, doAddNode, doAddGroup: engineAddGroup, doAddEdge });
+    const cmd = new DeleteCommand("g1", registry, sync, {
+      doRemove: engineRemove,
+      doAddNode,
+      doAddGroup: engineAddGroup,
+      doAddEdge,
+    });
     cmd.execute();
     cmd.undo();
 
@@ -109,7 +134,12 @@ describe("DeleteCommand", () => {
     const engineAddGroup = vi.fn<(id: string, opts: unknown) => void>(() => {
       registry.addElement("g1", makeGroup("g1"));
     });
-    const cmd = new DeleteCommand("g1", registry, sync, { doRemove: engineRemove, doAddNode, doAddGroup: engineAddGroup, doAddEdge });
+    const cmd = new DeleteCommand("g1", registry, sync, {
+      doRemove: engineRemove,
+      doAddNode,
+      doAddGroup: engineAddGroup,
+      doAddEdge,
+    });
     cmd.execute();
     cmd.undo();
 
@@ -133,7 +163,12 @@ describe("DeleteCommand", () => {
     const engineAddNode = vi.fn<(id: string, opts: NodeOptions) => void>(() => {
       registry.addElement("n1", makeNode("n1"));
     });
-    const cmd = new DeleteCommand("n1", registry, sync, { doRemove: engineRemoveNode, doAddNode: engineAddNode, doAddGroup, doAddEdge });
+    const cmd = new DeleteCommand("n1", registry, sync, {
+      doRemove: engineRemoveNode,
+      doAddNode: engineAddNode,
+      doAddGroup,
+      doAddEdge,
+    });
     cmd.execute();
     cmd.undo();
 

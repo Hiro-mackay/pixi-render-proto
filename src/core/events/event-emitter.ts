@@ -29,7 +29,11 @@ export class CanvasEventEmitter {
 
   suppress(fn: () => void): void {
     this._suppressed = true;
-    try { fn(); } finally { this._suppressed = false; }
+    try {
+      fn();
+    } finally {
+      this._suppressed = false;
+    }
   }
 
   on<E extends CanvasEventName>(event: E, handler: Handler<E>): () => void {

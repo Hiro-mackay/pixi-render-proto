@@ -1,6 +1,6 @@
-import type { Graphics, Container } from "pixi.js";
-import type { CanvasElement, Redrawable } from "../types";
+import type { Container, Graphics } from "pixi.js";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
+import type { CanvasElement, Redrawable } from "../types";
 import {
   createOutlineGraphic,
   createSelectionHandles,
@@ -67,14 +67,24 @@ export class SelectionState {
       const el = this.registry.getElement(id);
       if (!el) continue;
       this.selectedIds.add(id);
-      this.outlines.set(id, createOutlineGraphic(id, this.registry, this.getScale, this.selectionLayer));
+      this.outlines.set(
+        id,
+        createOutlineGraphic(id, this.registry, this.getScale, this.selectionLayer),
+      );
     }
     if (this.selectedIds.size === 1) {
       const id = this.selectedIds.values().next().value ?? null;
       if (!id) return;
       const el = this.registry.getElement(id);
       if (!el) return;
-      this.handles = createSelectionHandles(el.x, el.y, el.width, el.height, this.getScale, this.selectionLayer);
+      this.handles = createSelectionHandles(
+        el.x,
+        el.y,
+        el.width,
+        el.height,
+        this.getScale,
+        this.selectionLayer,
+      );
       this.onHandlesCreated?.(this.handles);
       showPorts(el);
     }
@@ -132,8 +142,12 @@ export class SelectionState {
 
   // --- Resize state ---
 
-  isResizing(): boolean { return this.resizing; }
-  setResizing(v: boolean): void { this.resizing = v; }
+  isResizing(): boolean {
+    return this.resizing;
+  }
+  setResizing(v: boolean): void {
+    this.resizing = v;
+  }
 
   // --- Update (reposition outlines + handles after command) ---
 
@@ -176,10 +190,20 @@ export class SelectionState {
     }
 
     this.selectedIds.add(id);
-    this.outlines.set(id, createOutlineGraphic(id, this.registry, this.getScale, this.selectionLayer));
+    this.outlines.set(
+      id,
+      createOutlineGraphic(id, this.registry, this.getScale, this.selectionLayer),
+    );
 
     if (this.selectedIds.size === 1) {
-      this.handles = createSelectionHandles(el.x, el.y, el.width, el.height, this.getScale, this.selectionLayer);
+      this.handles = createSelectionHandles(
+        el.x,
+        el.y,
+        el.width,
+        el.height,
+        this.getScale,
+        this.selectionLayer,
+      );
       this.onHandlesCreated?.(this.handles);
       showPorts(el);
     }
@@ -188,7 +212,10 @@ export class SelectionState {
   private removeFromSelection(id: string): void {
     this.selectedIds.delete(id);
     const outline = this.outlines.get(id);
-    if (outline) { outline.destroy(); this.outlines.delete(id); }
+    if (outline) {
+      outline.destroy();
+      this.outlines.delete(id);
+    }
     this.destroyHandles();
 
     const removedEl = this.registry.getElement(id);
@@ -198,7 +225,14 @@ export class SelectionState {
       const remainingId = this.selectedIds.values().next().value ?? null;
       const remainingEl = remainingId ? this.registry.getElement(remainingId) : undefined;
       if (remainingEl) {
-        this.handles = createSelectionHandles(remainingEl.x, remainingEl.y, remainingEl.width, remainingEl.height, this.getScale, this.selectionLayer);
+        this.handles = createSelectionHandles(
+          remainingEl.x,
+          remainingEl.y,
+          remainingEl.width,
+          remainingEl.height,
+          this.getScale,
+          this.selectionLayer,
+        );
         this.onHandlesCreated?.(this.handles);
         showPorts(remainingEl);
       }

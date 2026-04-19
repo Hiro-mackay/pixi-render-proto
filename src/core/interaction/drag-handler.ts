@@ -1,17 +1,16 @@
-import { Graphics, type FederatedPointerEvent } from "pixi.js";
+import { type FederatedPointerEvent, Graphics } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
-import { ACCENT_COLOR, type CanvasEdge, type CanvasElement } from "../types";
-import type { ElementRegistry } from "../registry/element-registry";
 import type { CommandHistory } from "../commands/command";
-import type { SelectionState } from "./selection-state";
-import type { ViewportPauseController } from "../viewport/pause-controller";
 import { DragCommand } from "../commands/drag-command";
+import { updateEdgeGraphics } from "../elements/edge-renderer";
+import { snapToGrid } from "../geometry/snap";
 import { getDescendants } from "../hierarchy/group-ops";
 import { findGroupAt } from "../hierarchy/membership";
-import { updateEdgeGraphics } from "../elements/edge-renderer";
+import type { ElementRegistry } from "../registry/element-registry";
+import { ACCENT_COLOR, type CanvasEdge, type CanvasElement } from "../types";
+import type { ViewportPauseController } from "../viewport/pause-controller";
 import { drawHighlight } from "./ghost-graphics";
-
-import { snapToGrid } from "../geometry/snap";
+import type { SelectionState } from "./selection-state";
 
 const CLICK_THRESHOLD_PX = 5;
 
@@ -33,8 +32,20 @@ export interface ItemDragOptions {
 const DROP_HIGHLIGHT_COLOR = ACCENT_COLOR;
 
 export function enableItemDrag(opts: ItemDragOptions): () => void {
-  const { element, viewport, registry, history, selection, getScale, sync,
-    onDragStateChange, gridSize, pauseCtrl, onDragEnd, ghostLayer } = opts;
+  const {
+    element,
+    viewport,
+    registry,
+    history,
+    selection,
+    getScale,
+    sync,
+    onDragStateChange,
+    gridSize,
+    pauseCtrl,
+    onDragEnd,
+    ghostLayer,
+  } = opts;
   let dragging = false;
   let movedDistance = 0;
   let downPos = { x: 0, y: 0 };
@@ -67,7 +78,11 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
     movedDistance = 0;
     shiftHeld = e.shiftKey;
     dragTarget.cursor = "grabbing";
-    pauseCtrl ? pauseCtrl.acquire() : (viewport.pause = true);
+    if (pauseCtrl) {
+      pauseCtrl.acquire();
+    } else {
+      viewport.pause = true;
+    }
     onDragStateChange?.(true);
 
     // Select on pointerdown so outline/handles are visible during drag (Figma behavior)
@@ -148,7 +163,11 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
     if (!dragging) return;
     dragging = false;
     dragTarget.cursor = "grab";
-    pauseCtrl ? pauseCtrl.release() : (viewport.pause = false);
+    if (pauseCtrl) {
+      pauseCtrl.release();
+    } else {
+      viewport.pause = false;
+    }
     onDragStateChange?.(false);
     highlightedGroupId = null;
     drawHighlight(getDropHighlight(), null, getScale(), DROP_HIGHLIGHT_COLOR);
@@ -157,7 +176,11 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
       // Restore original positions and edge graphics
       for (const [id, pos] of startPositions) {
         const el = registry.getElement(id);
-        if (el) { el.x = pos.x; el.y = pos.y; sync(el); }
+        if (el) {
+          el.x = pos.x;
+          el.y = pos.y;
+          sync(el);
+        }
       }
       for (const edge of cachedEdges) {
         updateEdgeGraphics(edge, registry, getScale);
@@ -182,10 +205,18 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
         const cx = rootEl ? rootEl.x + rootEl.width / 2 : 0;
         const cy = rootEl ? rootEl.y + rootEl.height / 2 : 0;
         const target = findGroupAt({ x: cx, y: cy }, registry, cachedExcludeIds);
-        history.execute(new DragCommand(
-          firstRoot, registry, startPositions, finalPositions,
-          sync, sessionId, startParentGroupIds.get(firstRoot) ?? null, target,
-        ));
+        history.execute(
+          new DragCommand(
+            firstRoot,
+            registry,
+            startPositions,
+            finalPositions,
+            sync,
+            sessionId,
+            startParentGroupIds.get(firstRoot) ?? null,
+            target,
+          ),
+        );
       } else {
         const commands = dragRoots.map((rootId) => {
           const rootEl = registry.getElement(rootId);
@@ -193,8 +224,14 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
           const cy = rootEl ? rootEl.y + rootEl.height / 2 : 0;
           const target = findGroupAt({ x: cx, y: cy }, registry, cachedExcludeIds);
           return new DragCommand(
-            rootId, registry, startPositions, finalPositions,
-            sync, sessionId, startParentGroupIds.get(rootId) ?? null, target,
+            rootId,
+            registry,
+            startPositions,
+            finalPositions,
+            sync,
+            sessionId,
+            startParentGroupIds.get(rootId) ?? null,
+            target,
           );
         });
         history.batch(commands);
@@ -212,9 +249,11 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
 
   // For groups, bind to the drag-handle child so edges behind the group body remain clickable.
   // For nodes, bind to the container directly.
-  const dragTarget = element.type === "group"
-    ? element.container.children.find((c) => c.label === "group-drag-handle") ?? element.container
-    : element.container;
+  const dragTarget =
+    element.type === "group"
+      ? (element.container.children.find((c) => c.label === "group-drag-handle") ??
+        element.container)
+      : element.container;
   if (element.type !== "group") {
     element.container.eventMode = "static";
     element.container.cursor = "grab";
@@ -242,7 +281,10 @@ function filterToRoots(ids: ReadonlySet<string>, registry: ElementRegistry): str
     let el = registry.getElement(id);
     let ancestorSelected = false;
     while (el?.parentGroupId) {
-      if (ids.has(el.parentGroupId)) { ancestorSelected = true; break; }
+      if (ids.has(el.parentGroupId)) {
+        ancestorSelected = true;
+        break;
+      }
       el = registry.getElement(el.parentGroupId);
     }
     if (!ancestorSelected) roots.push(id);

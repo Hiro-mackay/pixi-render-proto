@@ -1,9 +1,20 @@
-import type { ReadonlyElementRegistry, ElementRegistry } from "../registry/element-registry";
+import {
+  AddEdgeCommand,
+  type AddElementOps,
+  AddGroupCommand,
+  AddNodeCommand,
+  type AddRemoveOps,
+} from "../commands/add-remove-command";
 import type { Command, CommandHistory } from "../commands/command";
-import type { SerializedNode, SerializedGroup, SerializedEdge, GroupMembership } from "../serialization/schema";
-import { AddNodeCommand, AddGroupCommand, AddEdgeCommand, type AddElementOps, type AddRemoveOps } from "../commands/add-remove-command";
 import { getDescendants, updateVisibility } from "../hierarchy/group-ops";
+import type { ElementRegistry, ReadonlyElementRegistry } from "../registry/element-registry";
 import { syncElement } from "../registry/sync";
+import type {
+  GroupMembership,
+  SerializedEdge,
+  SerializedGroup,
+  SerializedNode,
+} from "../serialization/schema";
 
 interface ClipboardData {
   readonly nodes: readonly SerializedNode[];
@@ -18,7 +29,10 @@ export class CanvasClipboard {
   private data: ClipboardData | null = null;
 
   copy(selectedIds: ReadonlySet<string>, registry: ReadonlyElementRegistry): void {
-    if (selectedIds.size === 0) { this.data = null; return; }
+    if (selectedIds.size === 0) {
+      this.data = null;
+      return;
+    }
 
     // Collect all element IDs (including group descendants)
     const collected = new Set<string>();
@@ -40,14 +54,25 @@ export class CanvasClipboard {
       if (!el) continue;
       if (el.type === "node") {
         nodes.push({
-          id: el.id, x: el.x, y: el.y, width: el.width, height: el.height,
-          label: el.meta.label, color: el.meta.color,
+          id: el.id,
+          x: el.x,
+          y: el.y,
+          width: el.width,
+          height: el.height,
+          label: el.meta.label,
+          color: el.meta.color,
         });
       } else {
         groups.push({
-          id: el.id, x: el.x, y: el.y, width: el.width, height: el.height,
-          label: el.meta.label, color: el.meta.color,
-          collapsed: el.meta.collapsed, expandedHeight: el.meta.expandedHeight,
+          id: el.id,
+          x: el.x,
+          y: el.y,
+          width: el.width,
+          height: el.height,
+          label: el.meta.label,
+          color: el.meta.color,
+          collapsed: el.meta.collapsed,
+          expandedHeight: el.meta.expandedHeight,
         });
       }
       if (el.parentGroupId && collected.has(el.parentGroupId)) {
@@ -61,8 +86,10 @@ export class CanvasClipboard {
       if (collected.has(edge.sourceId) && collected.has(edge.targetId)) {
         edges.push({
           id: edge.id,
-          sourceId: edge.sourceId, sourceSide: edge.sourceSide,
-          targetId: edge.targetId, targetSide: edge.targetSide,
+          sourceId: edge.sourceId,
+          sourceSide: edge.sourceSide,
+          targetId: edge.targetId,
+          targetSide: edge.targetSide,
           ...(edge.label !== null ? { label: edge.label } : {}),
           ...(edge.labelColor !== null ? { labelColor: edge.labelColor } : {}),
         });
@@ -92,11 +119,20 @@ export class CanvasClipboard {
     const collapsedGroups: Array<{ newId: string; expandedHeight: number; height: number }> = [];
     for (const g of this.data.groups) {
       const newId = idMap.get(g.id)!;
-      commands.push(new AddGroupCommand(newId, {
-        label: g.label, color: g.color,
-        x: g.x + offset.x, y: g.y + offset.y,
-        width: g.width, height: g.collapsed ? g.expandedHeight : g.height,
-      }, elementOps));
+      commands.push(
+        new AddGroupCommand(
+          newId,
+          {
+            label: g.label,
+            color: g.color,
+            x: g.x + offset.x,
+            y: g.y + offset.y,
+            width: g.width,
+            height: g.collapsed ? g.expandedHeight : g.height,
+          },
+          elementOps,
+        ),
+      );
       if (g.collapsed) {
         collapsedGroups.push({ newId, expandedHeight: g.expandedHeight, height: g.height });
       }
@@ -104,11 +140,20 @@ export class CanvasClipboard {
 
     // Nodes
     for (const n of this.data.nodes) {
-      commands.push(new AddNodeCommand(idMap.get(n.id)!, {
-        label: n.label, color: n.color,
-        x: n.x + offset.x, y: n.y + offset.y,
-        width: n.width, height: n.height,
-      }, elementOps));
+      commands.push(
+        new AddNodeCommand(
+          idMap.get(n.id)!,
+          {
+            label: n.label,
+            color: n.color,
+            x: n.x + offset.x,
+            y: n.y + offset.y,
+            width: n.width,
+            height: n.height,
+          },
+          elementOps,
+        ),
+      );
     }
 
     // Memberships as inline commands (inside the batch for atomic undo)
@@ -167,11 +212,20 @@ export class CanvasClipboard {
       const newSourceId = idMap.get(e.sourceId);
       const newTargetId = idMap.get(e.targetId);
       if (!newSourceId || !newTargetId) continue;
-      commands.push(new AddEdgeCommand(idMap.get(e.id)!, {
-        sourceId: newSourceId, sourceSide: e.sourceSide,
-        targetId: newTargetId, targetSide: e.targetSide,
-        label: e.label, labelColor: e.labelColor,
-      }, edgeOps));
+      commands.push(
+        new AddEdgeCommand(
+          idMap.get(e.id)!,
+          {
+            sourceId: newSourceId,
+            sourceSide: e.sourceSide,
+            targetId: newTargetId,
+            targetSide: e.targetSide,
+            label: e.label,
+            labelColor: e.labelColor,
+          },
+          edgeOps,
+        ),
+      );
     }
 
     if (commands.length === 0) return [];
@@ -202,4 +256,3 @@ export class CanvasClipboard {
     return this.data === null;
   }
 }
-

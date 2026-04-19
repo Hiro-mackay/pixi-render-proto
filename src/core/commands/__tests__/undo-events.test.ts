@@ -1,10 +1,10 @@
-import { describe, test, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, test } from "vitest";
+import type { EventDescriptor } from "../../events/event-emitter";
+import { ElementRegistry } from "../../registry/element-registry";
 import { CommandHistory } from "../command";
 import { MoveCommand } from "../move-command";
 import { ResizeCommand } from "../resize-command";
-import { ElementRegistry } from "../../registry/element-registry";
 import { makeNode } from "./helpers";
-import type { EventDescriptor } from "../../events/event-emitter";
 
 describe("Undo/Redo domain events", () => {
   let registry: ElementRegistry;
@@ -44,15 +44,23 @@ describe("Undo/Redo domain events", () => {
 
   test("should emit element:resize on undo of ResizeCommand", () => {
     registry.addElement("n1", makeNode("n1", 0, 0, 100, 50));
-    history.execute(new ResizeCommand({
-      elementId: "n1", registry, target: { x: 0, y: 0, width: 200, height: 100 },
-      sync: noopSync, sessionId: "s1",
-    }));
+    history.execute(
+      new ResizeCommand({
+        elementId: "n1",
+        registry,
+        target: { x: 0, y: 0, width: 200, height: 100 },
+        sync: noopSync,
+        sessionId: "s1",
+      }),
+    );
     emitted.length = 0;
 
     history.undo();
     expect(emitted).toHaveLength(1);
-    expect(emitted[0]).toEqual({ event: "element:resize", data: { id: "n1", width: 100, height: 50 } });
+    expect(emitted[0]).toEqual({
+      event: "element:resize",
+      data: { id: "n1", width: 100, height: 50 },
+    });
   });
 
   test("should emit events for all commands in a batch on undo", () => {

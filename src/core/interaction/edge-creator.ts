@@ -1,12 +1,12 @@
-import { Graphics } from "pixi.js";
 import type { Container } from "pixi.js";
+import { Graphics } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
-import { ACCENT_COLOR, type Redrawable, type Side } from "../types";
-import type { ReadonlyElementRegistry } from "../registry/element-registry";
 import { getNearestSide } from "../geometry/anchor";
 import { findNodeAt } from "../geometry/hit-test";
-import { drawHighlight, drawGhostLine } from "./ghost-graphics";
+import type { ReadonlyElementRegistry } from "../registry/element-registry";
+import { ACCENT_COLOR, type Redrawable, type Side } from "../types";
 import type { ViewportPauseController } from "../viewport/pause-controller";
+import { drawGhostLine, drawHighlight } from "./ghost-graphics";
 
 const GHOST_COLOR = ACCENT_COLOR;
 
@@ -49,21 +49,24 @@ export class EdgeCreator {
     this.highlightGraphic.__redraw = () => this.updateHighlight();
   }
 
-  getGhostLine(): Redrawable { return this.ghostLine; }
-  getHighlightGraphic(): Redrawable { return this.highlightGraphic; }
+  getGhostLine(): Redrawable {
+    return this.ghostLine;
+  }
+  getHighlightGraphic(): Redrawable {
+    return this.highlightGraphic;
+  }
 
-  start(
-    sourceId: string,
-    side: Side,
-    anchorX: number,
-    anchorY: number,
-  ): void {
+  start(sourceId: string, side: Side, anchorX: number, anchorY: number): void {
     this.sourceId = sourceId;
     this.sourceSide = side;
     this.sourceAnchor = { x: anchorX, y: anchorY };
     this.cursorWorld = { x: anchorX, y: anchorY };
     this.ghostLine.visible = true;
-    this.pauseCtrl ? this.pauseCtrl.acquire() : (this.viewport.pause = true);
+    if (this.pauseCtrl) {
+      this.pauseCtrl.acquire();
+    } else {
+      this.viewport.pause = true;
+    }
     this.redraw();
   }
 
@@ -71,9 +74,7 @@ export class EdgeCreator {
     if (!this.sourceId) return;
     this.cursorWorld = { x: worldX, y: worldY };
 
-    const candidate = findNodeAt(
-      { x: worldX, y: worldY }, this.registry, this.sourceId,
-    );
+    const candidate = findNodeAt({ x: worldX, y: worldY }, this.registry, this.sourceId);
     const validId = candidate?.id ?? null;
 
     if (validId !== this.highlightedNodeId) {
@@ -88,9 +89,7 @@ export class EdgeCreator {
     if (!this.sourceId || !this.sourceSide) return;
 
     const world = this.viewport.toWorld(screenX, screenY);
-    const target = findNodeAt(
-      { x: world.x, y: world.y }, this.registry, this.sourceId,
-    );
+    const target = findNodeAt({ x: world.x, y: world.y }, this.registry, this.sourceId);
 
     try {
       if (target) {
@@ -119,7 +118,11 @@ export class EdgeCreator {
     this.ghostLine.visible = false;
     this.highlightGraphic.clear();
     this.highlightGraphic.visible = false;
-    this.pauseCtrl ? this.pauseCtrl.release() : (this.viewport.pause = false);
+    if (this.pauseCtrl) {
+      this.pauseCtrl.release();
+    } else {
+      this.viewport.pause = false;
+    }
   }
 
   isActive(): boolean {
@@ -135,13 +138,28 @@ export class EdgeCreator {
   }
 
   private updateHighlight(): void {
-    const el = this.highlightedNodeId ? this.registry.getElement(this.highlightedNodeId) ?? null : null;
+    const el = this.highlightedNodeId
+      ? (this.registry.getElement(this.highlightedNodeId) ?? null)
+      : null;
     drawHighlight(this.highlightGraphic, el, this.getScale(), GHOST_COLOR);
   }
 
   private redraw(): void {
-    if (!this.sourceAnchor || !this.sourceSide) { this.ghostLine.clear(); return; }
-    const snapTarget = this.highlightedNodeId ? this.registry.getElement(this.highlightedNodeId) ?? null : null;
-    drawGhostLine(this.ghostLine, this.sourceAnchor, this.sourceSide, this.cursorWorld, snapTarget, this.getScale(), GHOST_COLOR);
+    if (!this.sourceAnchor || !this.sourceSide) {
+      this.ghostLine.clear();
+      return;
+    }
+    const snapTarget = this.highlightedNodeId
+      ? (this.registry.getElement(this.highlightedNodeId) ?? null)
+      : null;
+    drawGhostLine(
+      this.ghostLine,
+      this.sourceAnchor,
+      this.sourceSide,
+      this.cursorWorld,
+      snapTarget,
+      this.getScale(),
+      GHOST_COLOR,
+    );
   }
 }

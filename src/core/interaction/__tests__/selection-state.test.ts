@@ -1,8 +1,8 @@
-import { describe, test, expect, beforeEach, vi } from "vitest";
 import { Container, Graphics } from "pixi.js";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { ElementRegistry } from "../../registry/element-registry";
-import { SelectionState } from "../selection-state";
 import type { CanvasEdge, CanvasElement, Redrawable } from "../../types";
+import { SelectionState } from "../selection-state";
 
 function makeNode(id: string): CanvasElement {
   const container = new Container();
@@ -12,9 +12,14 @@ function makeNode(id: string): CanvasElement {
   ports.visible = false;
   container.addChild(ports);
   return {
-    id, type: "node",
-    x: 100, y: 100, width: 140, height: 68,
-    visible: true, parentGroupId: null,
+    id,
+    type: "node",
+    x: 100,
+    y: 100,
+    width: 140,
+    height: 68,
+    visible: true,
+    parentGroupId: null,
     container,
     meta: { label: id, color: 0x2d3748 },
   };
@@ -228,11 +233,18 @@ describe("SelectionState", () => {
   describe("edge selection", () => {
     function makeEdge(id: string): CanvasEdge {
       return {
-        id, sourceId: "n1", sourceSide: "right",
-        targetId: "n2", targetSide: "left",
-        label: null, labelColor: null,
-        line: new Graphics() as Redrawable, hitLine: new Graphics(),
-        labelPill: null, labelText: null, selected: false,
+        id,
+        sourceId: "n1",
+        sourceSide: "right",
+        targetId: "n2",
+        targetSide: "left",
+        label: null,
+        labelColor: null,
+        line: new Graphics() as Redrawable,
+        hitLine: new Graphics(),
+        labelPill: null,
+        labelText: null,
+        selected: false,
       };
     }
 

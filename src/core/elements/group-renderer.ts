@@ -1,9 +1,8 @@
-import { Assets, Container, Graphics, Sprite, Text, TextStyle, Texture } from "pixi.js";
-import { getTextResolution, HEADER_HEIGHT } from "../types";
-import type { GroupElement, Redrawable } from "../types";
-
+import { Assets, Container, Graphics, Sprite, Text, TextStyle, type Texture } from "pixi.js";
 import chevronDownSvg from "../../assets/icons/chevron-down.svg";
 import chevronRightSvg from "../../assets/icons/chevron-right.svg";
+import type { GroupElement, Redrawable } from "../types";
+import { getTextResolution, HEADER_HEIGHT } from "../types";
 
 /** @internal Exported for testing only */
 export function halveColor(color: number): number {
@@ -51,10 +50,7 @@ export function preloadChevronTextures(): Promise<void> {
   return loadChevronTextures().then(() => undefined);
 }
 
-export function createGroupGraphics(
-  element: GroupElement,
-  getScale: () => number,
-): Container {
+export function createGroupGraphics(element: GroupElement, _getScale: () => number): Container {
   const container = new Container();
   container.label = element.id;
   container.position.set(element.x, element.y);
@@ -92,7 +88,9 @@ export function createGroupGraphics(
       return x >= 0 && x <= element.width && y >= 0 && y <= h;
     },
   };
-  (dragHandle as unknown as { setCoversBody: (v: boolean) => void }).setCoversBody = (v: boolean) => {
+  (dragHandle as unknown as { setCoversBody: (v: boolean) => void }).setCoversBody = (
+    v: boolean,
+  ) => {
     dragHandleCoversBody = v;
   };
   container.addChild(dragHandle);
@@ -126,11 +124,15 @@ export function createGroupGraphics(
   toggleBtn.addChild(iconSprite);
   container.addChild(toggleBtn);
 
-  loadChevronTextures().then((textures) => {
-    if (iconSprite.destroyed) return;
-    iconSprite.texture = meta.collapsed ? textures.right : textures.down;
-    drawHeader();
-  }).catch((err: unknown) => { console.warn("[group-renderer] chevron texture load failed", err); });
+  loadChevronTextures()
+    .then((textures) => {
+      if (iconSprite.destroyed) return;
+      iconSprite.texture = meta.collapsed ? textures.right : textures.down;
+      drawHeader();
+    })
+    .catch((err: unknown) => {
+      console.warn("[group-renderer] chevron texture load failed", err);
+    });
 
   const drawHeader = () => {
     headerLine.clear();

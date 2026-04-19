@@ -1,5 +1,5 @@
-import { createContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { createCanvasEngine, type CanvasEngine, type EngineOptions } from "../core";
+import { createContext, type ReactNode, useEffect, useRef, useState } from "react";
+import { type CanvasEngine, createCanvasEngine, type EngineOptions } from "../core";
 
 export const CanvasContext = createContext<CanvasEngine | null>(null);
 
@@ -23,7 +23,10 @@ export function CanvasProvider({ children, options, onReady }: CanvasProviderPro
 
     (async () => {
       const e = await createCanvasEngine(container, { ...options, signal: ac.signal });
-      if (ac.signal.aborted) { e.destroy(); return; }
+      if (ac.signal.aborted) {
+        e.destroy();
+        return;
+      }
       eng = e;
       setEngine(e);
       if (onReady) {
@@ -41,15 +44,13 @@ export function CanvasProvider({ children, options, onReady }: CanvasProviderPro
       eng?.destroy();
       setEngine(null);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- engine created once
+  }, [options, onReady]); // eslint-disable-line react-hooks/exhaustive-deps -- engine created once
 
   if (initError) throw initError;
 
   return (
     <div ref={containerRef} style={{ width: "100%", height: "100%", position: "relative" }}>
-      <CanvasContext value={engine}>
-        {children}
-      </CanvasContext>
+      <CanvasContext value={engine}>{children}</CanvasContext>
     </div>
   );
 }

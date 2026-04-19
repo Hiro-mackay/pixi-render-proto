@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
+import type { CanvasEventMap, CanvasEventName } from "../core";
 import { useCanvas } from "./useCanvas";
-import type { CanvasEventName, CanvasEventMap } from "../core";
 
 export function useCanvasEvent<E extends CanvasEventName>(
   event: E,

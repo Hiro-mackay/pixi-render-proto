@@ -1,7 +1,7 @@
-import type { Command } from "./command";
 import type { EventDescriptor } from "../events/event-emitter";
-import type { CanvasEdge, Side } from "../types";
 import type { ElementRegistry } from "../registry/element-registry";
+import type { CanvasEdge, Side } from "../types";
+import type { Command } from "./command";
 
 /** Minimal registry surface needed for reconnection. */
 export type ReconnectRegistry = Pick<ElementRegistry, "reconnectEdge" | "getEdgeOrThrow">;
@@ -42,14 +42,16 @@ export class ReconnectEdgeCommand implements Command {
   }
 
   getDomainEvents(direction: "execute" | "undo"): readonly EventDescriptor[] {
-    return [{
-      event: "edge:reconnect",
-      data: {
-        id: this.edgeId,
-        endpoint: this.endpoint,
-        newNodeId: direction === "execute" ? this.newNodeId : this.oldNodeId,
-        newSide: direction === "execute" ? this.newSide : this.oldSide,
+    return [
+      {
+        event: "edge:reconnect",
+        data: {
+          id: this.edgeId,
+          endpoint: this.endpoint,
+          newNodeId: direction === "execute" ? this.newNodeId : this.oldNodeId,
+          newSide: direction === "execute" ? this.newSide : this.oldSide,
+        },
       },
-    }];
+    ];
   }
 }

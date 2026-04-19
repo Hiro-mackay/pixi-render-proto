@@ -1,6 +1,6 @@
-import type { Command } from "./command";
-import type { EdgeOptions, GroupOptions, NodeOptions } from "../types";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
+import type { EdgeOptions, GroupOptions, NodeOptions } from "../types";
+import type { Command } from "./command";
 
 export interface AddRemoveOps {
   readonly doAddEdge: (id: string, opts: EdgeOptions) => void;
@@ -20,8 +20,12 @@ export class AddNodeCommand implements Command {
     private readonly opts: NodeOptions,
     private readonly ops: AddElementOps,
   ) {}
-  execute(): void { this.ops.doAddNode(this.id, this.opts); }
-  undo(): void { this.ops.doRemove(this.id); }
+  execute(): void {
+    this.ops.doAddNode(this.id, this.opts);
+  }
+  undo(): void {
+    this.ops.doRemove(this.id);
+  }
 }
 
 export class AddGroupCommand implements Command {
@@ -31,8 +35,12 @@ export class AddGroupCommand implements Command {
     private readonly opts: GroupOptions,
     private readonly ops: AddElementOps,
   ) {}
-  execute(): void { this.ops.doAddGroup(this.id, this.opts); }
-  undo(): void { this.ops.doRemove(this.id); }
+  execute(): void {
+    this.ops.doAddGroup(this.id, this.opts);
+  }
+  undo(): void {
+    this.ops.doRemove(this.id);
+  }
 }
 
 export class AddEdgeCommand implements Command {

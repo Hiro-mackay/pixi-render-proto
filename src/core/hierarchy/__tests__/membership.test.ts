@@ -1,7 +1,7 @@
-import { describe, test, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, test } from "vitest";
+import { makeGroup, makeNode } from "../../commands/__tests__/helpers";
 import { ElementRegistry } from "../../registry/element-registry";
 import { findGroupAt, isInsideGroup } from "../membership";
-import { makeNode, makeGroup } from "../../commands/__tests__/helpers";
 
 describe("findGroupAt", () => {
   let registry: ElementRegistry;

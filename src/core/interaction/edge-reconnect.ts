@@ -1,12 +1,12 @@
-import { Graphics } from "pixi.js";
 import type { Container, FederatedPointerEvent } from "pixi.js";
+import { Graphics } from "pixi.js";
 import type { Viewport } from "pixi-viewport";
-import { ACCENT_COLOR, type CanvasEdge, type Rect, type Side } from "../types";
-import type { ReadonlyElementRegistry } from "../registry/element-registry";
 import { computeOptimalSides, getFixedSideAnchor, getNearestSide } from "../geometry/anchor";
 import { findNodeAt, resolveVisibleElement } from "../geometry/hit-test";
-import { drawHighlight, drawGhostLine } from "./ghost-graphics";
+import type { ReadonlyElementRegistry } from "../registry/element-registry";
+import { ACCENT_COLOR, type CanvasEdge, type Rect, type Side } from "../types";
 import type { ViewportPauseController } from "../viewport/pause-controller";
+import { drawGhostLine, drawHighlight } from "./ghost-graphics";
 
 const HANDLE_RADIUS = 6;
 const HANDLE_HIT_RADIUS = 14;
@@ -74,10 +74,16 @@ export function createReconnectHandles(opts: ReconnectHandleOptions): ReconnectH
 
     const fixedNodeSide = movingEl
       ? computeOptimalSides(fixedEl, movingEl).srcSide
-      : (fixedEndpoint === "source" ? edge.sourceSide : edge.targetSide);
+      : fixedEndpoint === "source"
+        ? edge.sourceSide
+        : edge.targetSide;
 
     dragging = true;
-    pauseCtrl ? pauseCtrl.acquire() : (viewport.pause = true);
+    if (pauseCtrl) {
+      pauseCtrl.acquire();
+    } else {
+      viewport.pause = true;
+    }
 
     const anchor = getFixedSideAnchor(fixedEl, fixedNodeSide);
     fixedAnchor = { x: anchor.x, y: anchor.y };
@@ -141,7 +147,11 @@ export function createReconnectHandles(opts: ReconnectHandleOptions): ReconnectH
     detachDragListeners?.();
     dragging = false;
     highlightedNodeId = null;
-    pauseCtrl ? pauseCtrl.release() : (viewport.pause = false);
+    if (pauseCtrl) {
+      pauseCtrl.release();
+    } else {
+      viewport.pause = false;
+    }
     ghostLine.clear();
     ghostLine.visible = false;
     highlight.clear();
@@ -160,8 +170,16 @@ export function createReconnectHandles(opts: ReconnectHandleOptions): ReconnectH
   }
 
   function redrawGhostLine() {
-    const snapTarget = highlightedNodeId ? registry.getElement(highlightedNodeId) ?? null : null;
-    drawGhostLine(ghostLine, fixedAnchor, fixedSide, cursorWorld, snapTarget, getScale(), HANDLE_COLOR);
+    const snapTarget = highlightedNodeId ? (registry.getElement(highlightedNodeId) ?? null) : null;
+    drawGhostLine(
+      ghostLine,
+      fixedAnchor,
+      fixedSide,
+      cursorWorld,
+      snapTarget,
+      getScale(),
+      HANDLE_COLOR,
+    );
   }
 
   sourceHandle.on("pointerdown", (e: FederatedPointerEvent) => startDrag("source", e));
@@ -226,9 +244,7 @@ function positionBothHandles(
   if (tgtEl) drawHandle(targetHandle, tgtEl, tgtSide, getScale);
 }
 
-function drawHandle(
-  handle: Graphics, el: Rect, side: Side, getScale: () => number,
-): void {
+function drawHandle(handle: Graphics, el: Rect, side: Side, getScale: () => number): void {
   const anchor = getFixedSideAnchor(el, side);
   handle.position.set(anchor.x, anchor.y);
   const scale = getScale();
