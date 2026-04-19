@@ -46,17 +46,16 @@ import { syncElement, syncToContainer } from "./registry/sync";
 import { deserializeScene } from "./serialization/deserialize";
 import type { SceneData } from "./serialization/schema";
 import { serialize as serializeScene } from "./serialization/serialize";
-import {
-  ACCENT_COLOR,
-  type CanvasEdge,
-  type EdgeOptions,
-  type EngineOptions,
-  type GroupElement,
-  type GroupMeta,
-  type GroupOptions,
-  type NodeElement,
-  type NodeMeta,
-  type NodeOptions,
+import type {
+  CanvasEdge,
+  EdgeOptions,
+  EngineOptions,
+  GroupElement,
+  GroupMeta,
+  GroupOptions,
+  NodeElement,
+  NodeMeta,
+  NodeOptions,
 } from "./types";
 import { ViewportPauseController } from "./viewport/pause-controller";
 import { RedrawManager } from "./viewport/redraw-manager";
@@ -834,7 +833,7 @@ class CanvasEngineImpl implements CanvasEngine {
     this.afterCommand([id]);
   };
 
-  private static readonly HOVER_COLOR = ACCENT_COLOR;
+  private static readonly HOVER_COLOR = 0x3b82f6;
   private static readonly HOVER_ALPHA = 0.5;
 
   private showHover(id: string): void {

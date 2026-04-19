@@ -7,14 +7,14 @@ import type { ReadonlyElementRegistry } from "../registry/element-registry";
 import type { CanvasEdge, Redrawable } from "../types";
 import { ACCENT_COLOR, getTextResolution } from "../types";
 
-const EDGE_COLOR = 0xa5b4cb;
-const EDGE_ALPHA = 0.75;
+const EDGE_COLOR = 0xb0c4de;
+const EDGE_ALPHA = 0.88;
 const STROKE_WIDTH = 1.25;
-const ARROW_SIZE = 8;
+const ARROW_SIZE = 10;
 const HIT_STROKE_WIDTH = 10;
 const SELECTED_COLOR = ACCENT_COLOR;
 const SELECTED_STROKE_WIDTH = 2.5;
-const DEFAULT_LABEL_BG = 0x475569;
+const DEFAULT_LABEL_BG = 0x586d84;
 const LABEL_STYLE = new TextStyle({
   fontFamily: "system-ui, -apple-system, sans-serif",
   fontSize: 9,

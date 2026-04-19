@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { getPortPosition } from "../port-renderer";
 
-const ANCHOR_SCREEN_PX = 14;
+const ANCHOR_SCREEN_PX = 16;
 
 describe("getPortPosition", () => {
   const width = 100;
