@@ -1,11 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { Rect } from "../../types";
-import {
-  computeOptimalSides,
-  facingSide,
-  getFixedSideAnchor,
-  getNearestSide,
-} from "../anchor";
+import { computeOptimalSides, facingSide, getFixedSideAnchor, getNearestSide } from "../anchor";
 
 const NODE: Rect = { x: 100, y: 100, width: 200, height: 100 };
 

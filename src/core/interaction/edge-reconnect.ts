@@ -4,7 +4,13 @@ import type { Viewport } from "pixi-viewport";
 import { facingSide, getFixedSideAnchor, getNearestSide } from "../geometry/anchor";
 import { findNodeAt, resolveVisibleElement } from "../geometry/hit-test";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
-import { ACCENT_COLOR, ANCHOR_HIDE_THRESHOLD, type CanvasEdge, type Rect, type Side } from "../types";
+import {
+  ACCENT_COLOR,
+  ANCHOR_HIDE_THRESHOLD,
+  type CanvasEdge,
+  type Rect,
+  type Side,
+} from "../types";
 import type { ViewportPauseController } from "../viewport/pause-controller";
 import { drawGhostLine, drawHighlight } from "./ghost-graphics";
 

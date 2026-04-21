@@ -61,7 +61,15 @@ const GROUPS: readonly GroupDef[] = [
   { id: "g-edge", label: "Edge", x: 40, y: 220, width: 500, height: 120, color: 0x38b2ac },
   { id: "g-gateway", label: "Gateway", x: 40, y: 400, width: 330, height: 120, color: 0x4299e1 },
   { id: "g-services", label: "Services", x: 40, y: 580, width: 840, height: 120, color: 0x38a169 },
-  { id: "g-messaging", label: "Messaging", x: 40, y: 760, width: 330, height: 120, color: 0xd69e2e },
+  {
+    id: "g-messaging",
+    label: "Messaging",
+    x: 40,
+    y: 760,
+    width: 330,
+    height: 120,
+    color: 0xd69e2e,
+  },
   { id: "g-data", label: "Data", x: 40, y: 940, width: 330, height: 210, color: 0xdd6b20 },
   { id: "g-workers", label: "Workers", x: 390, y: 940, width: 330, height: 210, color: 0x805ad5 },
   {
@@ -213,8 +221,22 @@ const NODES: readonly NodeDef[] = [
     group: "g-data",
   },
   // Workers
-  { id: "n-order-worker", label: "Order Worker", x: 410, y: 980, icon: "compute", group: "g-workers" },
-  { id: "n-email-worker", label: "Email Worker", x: 570, y: 980, icon: "compute", group: "g-workers" },
+  {
+    id: "n-order-worker",
+    label: "Order Worker",
+    x: 410,
+    y: 980,
+    icon: "compute",
+    group: "g-workers",
+  },
+  {
+    id: "n-email-worker",
+    label: "Email Worker",
+    x: 570,
+    y: 980,
+    icon: "compute",
+    group: "g-workers",
+  },
   { id: "n-analytics", label: "Analytics", x: 410, y: 1065, icon: "compute", group: "g-workers" },
   // Observability (vertical stack)
   { id: "n-metrics", label: "Metrics", x: 975, y: 80, icon: "compute", group: "g-observability" },
@@ -225,8 +247,20 @@ const NODES: readonly NodeDef[] = [
 
 const EDGES: readonly EdgeDef[] = [
   // Client → Edge
-  { sourceId: "n-web", sourceSide: "bottom", targetId: "n-cdn", targetSide: "top", label: "HTTPS :443" },
-  { sourceId: "n-ios", sourceSide: "bottom", targetId: "n-cdn", targetSide: "top", label: "HTTPS :443" },
+  {
+    sourceId: "n-web",
+    sourceSide: "bottom",
+    targetId: "n-cdn",
+    targetSide: "top",
+    label: "HTTPS :443",
+  },
+  {
+    sourceId: "n-ios",
+    sourceSide: "bottom",
+    targetId: "n-cdn",
+    targetSide: "top",
+    label: "HTTPS :443",
+  },
   // Edge flow
   { sourceId: "n-cdn", sourceSide: "right", targetId: "n-waf", targetSide: "left" },
   { sourceId: "n-dns", sourceSide: "bottom", targetId: "n-lb", targetSide: "top" },
@@ -370,13 +404,45 @@ const STRESS_GAP_Y = 120;
 
 const STRESS_GROUPS: readonly GroupDef[] = [
   { id: "g-frontend", label: "Frontend", x: 20, y: 20, width: 560, height: 380, color: 0x3182ce },
-  { id: "g-backend", label: "Backend Services", x: 600, y: 20, width: 920, height: 380, color: 0x38a169 },
+  {
+    id: "g-backend",
+    label: "Backend Services",
+    x: 600,
+    y: 20,
+    width: 920,
+    height: 380,
+    color: 0x38a169,
+  },
   { id: "g-data", label: "Data Layer", x: 20, y: 420, width: 560, height: 380, color: 0xd69e2e },
-  { id: "g-infra", label: "Infrastructure", x: 600, y: 420, width: 920, height: 380, color: 0x805ad5 },
-  { id: "g-monitoring", label: "Monitoring", x: 20, y: 820, width: 740, height: 380, color: 0xe53e3e },
+  {
+    id: "g-infra",
+    label: "Infrastructure",
+    x: 600,
+    y: 420,
+    width: 920,
+    height: 380,
+    color: 0x805ad5,
+  },
+  {
+    id: "g-monitoring",
+    label: "Monitoring",
+    x: 20,
+    y: 820,
+    width: 740,
+    height: 380,
+    color: 0xe53e3e,
+  },
   { id: "g-security", label: "Security", x: 780, y: 820, width: 740, height: 380, color: 0xdd6b20 },
   { id: "g-vpc", label: "VPC", x: 40, y: 50, width: 500, height: 320, color: 0x2b6cb0 },
-  { id: "g-subnet", label: "Public Subnet", x: 60, y: 80, width: 220, height: 230, color: 0x4299e1 },
+  {
+    id: "g-subnet",
+    label: "Public Subnet",
+    x: 60,
+    y: 80,
+    width: 220,
+    height: 230,
+    color: 0x4299e1,
+  },
 ];
 
 const STRESS_LABELS = [
@@ -438,9 +504,7 @@ async function buildStressScene(
     });
   }
 
-  const groupsByArea = [...STRESS_GROUPS].sort(
-    (a, b) => a.width * a.height - b.width * b.height,
-  );
+  const groupsByArea = [...STRESS_GROUPS].sort((a, b) => a.width * a.height - b.width * b.height);
   const nodeIds: string[] = [];
   for (let i = 0; i < nodeCount; i++) {
     const id = `node-${i}`;

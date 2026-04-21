@@ -6,10 +6,7 @@ import type { Command } from "./command";
 
 export type ToggleLockRegistry = Pick<
   ElementRegistry,
-  | "getElementOrThrow"
-  | "getEdgesForNode"
-  | "setEdgeSidesLocked"
-  | "setEdgeSide"
+  "getElementOrThrow" | "getEdgesForNode" | "setEdgeSidesLocked" | "setEdgeSide"
 >;
 
 interface EdgeSideSnapshot {
@@ -50,9 +47,7 @@ export class ToggleNodeEdgeLockCommand implements Command {
       const srcCenter = { x: srcEl.x + srcEl.width / 2, y: srcEl.y + srcEl.height / 2 };
       const tgtCenter = { x: tgtEl.x + tgtEl.width / 2, y: tgtEl.y + tgtEl.height / 2 };
       if (edge.sourceId === nodeId) {
-        const newSide = srcEl.edgeSidesLocked
-          ? edge.sourceSide
-          : facingSide(srcEl, tgtCenter);
+        const newSide = srcEl.edgeSidesLocked ? edge.sourceSide : facingSide(srcEl, tgtCenter);
         if (newSide !== edge.sourceSide) {
           changes.push({
             edgeId: edge.id,
@@ -63,9 +58,7 @@ export class ToggleNodeEdgeLockCommand implements Command {
         }
       }
       if (edge.targetId === nodeId) {
-        const newSide = tgtEl.edgeSidesLocked
-          ? edge.targetSide
-          : facingSide(tgtEl, srcCenter);
+        const newSide = tgtEl.edgeSidesLocked ? edge.targetSide : facingSide(tgtEl, srcCenter);
         if (newSide !== edge.targetSide) {
           changes.push({
             edgeId: edge.id,
