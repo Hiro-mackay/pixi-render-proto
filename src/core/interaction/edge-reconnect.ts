@@ -4,7 +4,7 @@ import type { Viewport } from "pixi-viewport";
 import { facingSide, getFixedSideAnchor, getNearestSide } from "../geometry/anchor";
 import { findNodeAt, resolveVisibleElement } from "../geometry/hit-test";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
-import { ACCENT_COLOR, type CanvasEdge, type Rect, type Side } from "../types";
+import { ACCENT_COLOR, ANCHOR_HIDE_THRESHOLD, type CanvasEdge, type Rect, type Side } from "../types";
 import type { ViewportPauseController } from "../viewport/pause-controller";
 import { drawGhostLine, drawHighlight } from "./ghost-graphics";
 
@@ -219,6 +219,7 @@ function createEndpointHandle(getScale: () => number): Graphics {
   g.circle(0, 0, HANDLE_RADIUS / scale);
   g.fill({ color: 0xffffff });
   g.stroke({ width: 1.5 / scale, color: HANDLE_COLOR });
+  g.visible = scale >= ANCHOR_HIDE_THRESHOLD;
   const hitR = HANDLE_HIT_RADIUS;
   g.hitArea = {
     contains: (hx: number, hy: number) => hx * hx + hy * hy < hitR * hitR,
@@ -259,4 +260,5 @@ function drawHandle(handle: Graphics, el: Rect, side: Side, getScale: () => numb
   handle.circle(0, 0, HANDLE_RADIUS / scale);
   handle.fill({ color: 0xffffff });
   handle.stroke({ width: 1.5 / scale, color: HANDLE_COLOR });
+  handle.visible = scale >= ANCHOR_HIDE_THRESHOLD;
 }

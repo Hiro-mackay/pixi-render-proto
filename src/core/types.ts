@@ -44,6 +44,10 @@ export function hasRedraw(c: object): c is { __redraw: () => void } {
 /** @internal Shared accent color used for selection, hover, ports, and interaction highlights. */
 export const ACCENT_COLOR = 0x3b82f6;
 
+/** @internal Below this viewport scale, ports / resize handles / edge reconnect handles are hidden.
+ *  Selection outlines remain visible. */
+export const ANCHOR_HIDE_THRESHOLD = 0.5;
+
 /** @internal */
 export const HEADER_HEIGHT = 28;
 /** @internal */

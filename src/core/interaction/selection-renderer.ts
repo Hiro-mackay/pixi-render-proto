@@ -1,7 +1,7 @@
 import type { Container } from "pixi.js";
 import { Graphics } from "pixi.js";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
-import { ACCENT_COLOR, type Redrawable } from "../types";
+import { ACCENT_COLOR, ANCHOR_HIDE_THRESHOLD, type Redrawable } from "../types";
 
 const OUTLINE_COLOR = ACCENT_COLOR;
 const OUTLINE_WIDTH = 2;
@@ -60,12 +60,14 @@ export function createSelectionHandles(
     handles.push(handle);
   }
 
-  const edges = edgeRects(x, y, w, h, getScale());
+  const scale = getScale();
+  const edges = edgeRects(x, y, w, h, scale);
   for (let idx = 0; idx < 4; idx++) {
     const handle = new Graphics();
     handle.eventMode = "static";
     handle.cursor = HANDLE_CURSORS[CORNER_COUNT + idx];
     drawEdgeHandle(handle, edges[idx]!);
+    handle.visible = scale >= ANCHOR_HIDE_THRESHOLD;
     layer.addChild(handle);
     handles.push(handle);
   }
@@ -90,7 +92,10 @@ export function positionSelectionHandles(
   const edges = edgeRects(x, y, w, h, scale);
   for (let idx = 0; idx < 4; idx++) {
     const handle = handles[CORNER_COUNT + idx];
-    if (handle) drawEdgeHandle(handle, edges[idx]!);
+    if (handle) {
+      drawEdgeHandle(handle, edges[idx]!);
+      handle.visible = scale >= ANCHOR_HIDE_THRESHOLD;
+    }
   }
 }
 
@@ -100,6 +105,7 @@ function drawCornerHandle(g: Graphics, cx: number, cy: number, scale: number): v
   g.rect(cx - half, cy - half, half * 2, half * 2);
   g.fill({ color: 0xffffff });
   g.stroke({ color: OUTLINE_COLOR, width: 1 / scale });
+  g.visible = scale >= ANCHOR_HIDE_THRESHOLD;
 }
 
 function drawEdgeHandle(g: Graphics, r: { x: number; y: number; w: number; h: number }): void {
