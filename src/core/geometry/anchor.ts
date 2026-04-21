@@ -62,6 +62,16 @@ export function computeOptimalSides(
   return dy >= 0 ? { srcSide: "bottom", tgtSide: "top" } : { srcSide: "top", tgtSide: "bottom" };
 }
 
+/** Returns the side of `rect` that faces `point`, based on center-to-point direction. */
+export function facingSide(rect: Rect, point: Point): Side {
+  const dx = point.x - (rect.x + rect.width / 2);
+  const dy = point.y - (rect.y + rect.height / 2);
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0 ? "right" : "left";
+  }
+  return dy >= 0 ? "bottom" : "top";
+}
+
 export function oppositeSide(side: Side): Side {
   switch (side) {
     case "right":
