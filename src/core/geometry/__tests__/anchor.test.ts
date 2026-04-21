@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
 import type { Rect } from "../../types";
-import { computeOptimalSides, getFixedSideAnchor, getNearestSide } from "../anchor";
+import {
+  computeOptimalSides,
+  facingSide,
+  getFixedSideAnchor,
+  getNearestSide,
+} from "../anchor";
 
 const NODE: Rect = { x: 100, y: 100, width: 200, height: 100 };
 
@@ -46,6 +51,42 @@ describe("getNearestSide", () => {
     const SQUARE: Rect = { x: 0, y: 0, width: 100, height: 100 };
     const result = getNearestSide(SQUARE, { x: 50, y: 50 });
     expect(["right", "bottom", "left", "top"]).toContain(result);
+  });
+});
+
+describe("facingSide", () => {
+  const RECT: Rect = { x: 100, y: 100, width: 100, height: 100 };
+  // center is (150, 150)
+
+  test("returns right when point is to the right (horizontal dominant)", () => {
+    expect(facingSide(RECT, { x: 300, y: 160 })).toBe("right");
+  });
+
+  test("returns left when point is to the left (horizontal dominant)", () => {
+    expect(facingSide(RECT, { x: 0, y: 160 })).toBe("left");
+  });
+
+  test("returns bottom when point is below (vertical dominant)", () => {
+    expect(facingSide(RECT, { x: 160, y: 400 })).toBe("bottom");
+  });
+
+  test("returns top when point is above (vertical dominant)", () => {
+    expect(facingSide(RECT, { x: 160, y: 0 })).toBe("top");
+  });
+
+  test("prefers horizontal on 45-degree tie (|dx| >= |dy|)", () => {
+    // dx = 100, dy = 100 → horizontal wins by >=
+    expect(facingSide(RECT, { x: 250, y: 250 })).toBe("right");
+  });
+
+  test("returns right when point equals center (dx=dy=0)", () => {
+    // Degenerate: both |dx| and |dy| are 0 → horizontal branch → dx >= 0 → right
+    expect(facingSide(RECT, { x: 150, y: 150 })).toBe("right");
+  });
+
+  test("picks the side corresponding to direction, not nearest edge", () => {
+    // Point is just barely right of center but far below. dy dominates → bottom.
+    expect(facingSide(RECT, { x: 155, y: 500 })).toBe("bottom");
   });
 });
 

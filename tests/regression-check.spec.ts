@@ -2,7 +2,8 @@ import { test, expect, type Page } from "@playwright/test";
 
 test.describe("Regression Check", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
+    // Force the stress grid scene so existing node-N ID assertions keep working.
+    await page.goto("/?nodes=60");
     await page.waitForSelector("canvas", { timeout: 10_000 });
     await waitForScene(page);
   });

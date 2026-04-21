@@ -367,6 +367,18 @@ async function buildArchitectureScene(engine: CanvasEngine, signal?: AbortSignal
 const STRESS_COLS = 14;
 const STRESS_GAP_X = 180;
 const STRESS_GAP_Y = 120;
+
+const STRESS_GROUPS: readonly GroupDef[] = [
+  { id: "g-frontend", label: "Frontend", x: 20, y: 20, width: 560, height: 380, color: 0x3182ce },
+  { id: "g-backend", label: "Backend Services", x: 600, y: 20, width: 920, height: 380, color: 0x38a169 },
+  { id: "g-data", label: "Data Layer", x: 20, y: 420, width: 560, height: 380, color: 0xd69e2e },
+  { id: "g-infra", label: "Infrastructure", x: 600, y: 420, width: 920, height: 380, color: 0x805ad5 },
+  { id: "g-monitoring", label: "Monitoring", x: 20, y: 820, width: 740, height: 380, color: 0xe53e3e },
+  { id: "g-security", label: "Security", x: 780, y: 820, width: 740, height: 380, color: 0xdd6b20 },
+  { id: "g-vpc", label: "VPC", x: 40, y: 50, width: 500, height: 320, color: 0x2b6cb0 },
+  { id: "g-subnet", label: "Public Subnet", x: 60, y: 80, width: 220, height: 230, color: 0x4299e1 },
+];
+
 const STRESS_LABELS = [
   "API Gateway",
   "Auth Service",
@@ -415,20 +427,43 @@ async function buildStressScene(
   const rng = mulberry32(42);
   engine.beginBulkLoad();
 
+  for (const g of STRESS_GROUPS) {
+    engine.addGroup(g.id, {
+      label: g.label,
+      x: g.x,
+      y: g.y,
+      width: g.width,
+      height: g.height,
+      color: g.color,
+    });
+  }
+
+  const groupsByArea = [...STRESS_GROUPS].sort(
+    (a, b) => a.width * a.height - b.width * b.height,
+  );
   const nodeIds: string[] = [];
   for (let i = 0; i < nodeCount; i++) {
     const id = `node-${i}`;
     const col = i % STRESS_COLS;
     const row = Math.floor(i / STRESS_COLS);
+    const nx = col * STRESS_GAP_X + 80;
+    const ny = row * STRESS_GAP_Y + 60;
     engine.addNode(id, {
       label: STRESS_LABELS[i % STRESS_LABELS.length]!,
-      x: col * STRESS_GAP_X + 80,
-      y: row * STRESS_GAP_Y + 60,
+      x: nx,
+      y: ny,
       width: NODE_W,
       height: NODE_H,
       color: NODE_COLOR_SERVICE,
       icon: textures[i % textures.length],
     });
+    // Assign to smallest enclosing group (by ascending area)
+    for (const g of groupsByArea) {
+      if (nx >= g.x && nx + NODE_W <= g.x + g.width && ny >= g.y && ny + NODE_H <= g.y + g.height) {
+        engine.assignToGroup(id, g.id);
+        break;
+      }
+    }
     nodeIds.push(id);
   }
 

@@ -1,7 +1,7 @@
 import type { Container } from "pixi.js";
 import { Graphics } from "pixi.js";
 import { ElementRegistry } from "../../registry/element-registry";
-import type { CanvasEdge, CanvasElement, GroupMeta, Redrawable } from "../../types";
+import type { CanvasEdge, CanvasElement, GroupMeta, Redrawable, Side } from "../../types";
 
 export function makeNode(id: string, x = 100, y = 200, w = 140, h = 68): CanvasElement {
   return {
@@ -45,13 +45,18 @@ export function makeGroup(
   };
 }
 
-export function makeEdge(id: string, sourceId: string, targetId: string): CanvasEdge {
+export function makeEdge(
+  id: string,
+  sourceId: string,
+  targetId: string,
+  opts: { sourceSide?: Side; targetSide?: Side } = {},
+): CanvasEdge {
   return {
     id,
     sourceId,
-    sourceSide: "right",
+    sourceSide: opts.sourceSide ?? "right",
     targetId,
-    targetSide: "left",
+    targetSide: opts.targetSide ?? "left",
     label: "HTTPS :443",
     labelColor: 0x3b82f6,
     line: new Graphics() as Redrawable,

@@ -15,7 +15,7 @@ PixiJS + pixi-viewport based interactive canvas for architecture diagram drawing
 ```
 src/canvas/
   types.ts            # Shared types, registries (elementSizeMap, groupMaps), utilities
-  view-state.ts       # Viewport zoom state (viewState.scale, ANCHOR_HIDE_THRESHOLD)
+  types.ts            # Shared constants (ACCENT_COLOR, ANCHOR_HIDE_THRESHOLD, ...)
   setup.ts            # Canvas/viewport initialization, zoom handling, walkRedraw
   node.ts             # Node creation and resize
   node-ports.ts       # Connection ports (4 per node, zoom-invariant)
@@ -72,7 +72,7 @@ nodePortsMap:   WeakMap<Container, Container>            -- Node -> Ports contai
 - **Default:** White fill + blue stroke (visible when node selected)
 - **Hover:** Blue fill + white stroke
 - **Dragging edge:** Stays blue until edge creation ends
-- **Below 0.3x zoom:** Hidden (alpha = 0)
+- **Below 0.5x zoom:** Hidden (visible = false)
 
 ### Edge Creation
 - Drag from port to start edge creation
@@ -158,7 +158,7 @@ nodePortsMap:   WeakMap<Container, Container>            -- Node -> Ports contai
 - 0-3: Corner handles (squares, visible)
 - 4-7: Edge handles (invisible, full-edge hit area)
 - Corner handles z-ordered above edge handles
-- Both hidden below 0.3x zoom
+- Both hidden below 0.5x zoom
 
 ### Keyboard
 - Delete / Backspace: remove selected edge
@@ -195,7 +195,8 @@ nodePortsMap:   WeakMap<Container, Container>            -- Node -> Ports contai
 - Skips invisible subtrees for performance
 
 ### Visibility Thresholds
-- `ANCHOR_HIDE_THRESHOLD = 0.3`: ports, endpoint handles, resize handles hidden below this zoom
+- `ANCHOR_HIDE_THRESHOLD = 0.5`: ports, edge reconnect handles, and resize handles hidden below
+  this zoom (selection outlines remain visible)
 
 ---
 

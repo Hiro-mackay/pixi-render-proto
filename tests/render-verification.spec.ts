@@ -5,7 +5,8 @@ const FPS_SAMPLE_DURATION = 3_000;
 
 test.describe("PixiJS Render Proto Verification", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
+    // Render verification asserts against the 200-node stress grid scene.
+    await page.goto("/?nodes=200");
     // Wait for PixiJS canvas to render and scene to build
     await page.waitForSelector("canvas", { timeout: 10_000 });
     // Give the scene time to fully load (200 nodes + textures)
