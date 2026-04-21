@@ -475,7 +475,11 @@ class CanvasEngineImpl implements CanvasEngine {
     if (gfx.labelPill) this.redraw.register(gfx.labelPill);
     gfx.hitLine.on("pointerdown", (e: FederatedPointerEvent) => {
       e.stopPropagation();
-      this.selectEdge(id);
+      if (this.selection.getSelectedEdgeId() === id) {
+        this.clearSelection();
+      } else {
+        this.selectEdge(id);
+      }
     });
     gfx.hitLine.on("pointerenter", () => this.showHover(id));
     gfx.hitLine.on("pointerleave", () => {

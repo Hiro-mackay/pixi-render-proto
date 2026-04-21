@@ -51,6 +51,7 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
   let downPos = { x: 0, y: 0 };
   let initialWorld = { x: 0, y: 0 };
   let shiftHeld = false;
+  let wasSoleSelectionAtDown = false;
 
   // Drop-target highlight (lazy-created on first drag)
   let dropHighlight: Graphics | null = null;
@@ -85,6 +86,9 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
       viewport.pause = true;
     }
     onDragStateChange?.(true);
+
+    wasSoleSelectionAtDown =
+      selection.isSelected(element.id) && selection.getSelectedIds().size === 1;
 
     // Select on pointerdown so outline/handles are visible during drag (Figma behavior)
     if (!shiftHeld && !selection.isSelected(element.id)) {
@@ -186,6 +190,8 @@ export function enableItemDrag(opts: ItemDragOptions): () => void {
       // Click behavior
       if (shiftHeld) {
         selection.toggle(element.id);
+      } else if (wasSoleSelectionAtDown) {
+        selection.clear();
       } else {
         selection.select(element.id);
       }
