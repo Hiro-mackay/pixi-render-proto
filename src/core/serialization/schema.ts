@@ -8,6 +8,7 @@ export interface SerializedNode {
   readonly height: number;
   readonly label: string;
   readonly color: number;
+  readonly edgeSidesLocked?: boolean;
   // icon (Texture) is not serializable — consumers must re-attach after deserialize
 }
 
@@ -21,6 +22,7 @@ export interface SerializedGroup {
   readonly color: number;
   readonly collapsed: boolean;
   readonly expandedHeight: number;
+  readonly edgeSidesLocked?: boolean;
 }
 
 export interface SerializedEdge {

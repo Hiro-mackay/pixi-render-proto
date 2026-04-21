@@ -159,6 +159,23 @@ export class ElementRegistry implements ReadonlyElementRegistry {
     return result;
   }
 
+  setEdgeSidesLocked(nodeId: string, locked: boolean): void {
+    const el = this.elements.get(nodeId);
+    if (!el) throw new ElementNotFoundError(`Element "${nodeId}" not found`);
+    el.edgeSidesLocked = locked;
+    for (const edge of this.getEdgesForNode(nodeId)) {
+      (edge as MutableCanvasEdge)._posCache = undefined;
+    }
+  }
+
+  setEdgeSide(edgeId: string, endpoint: "source" | "target", side: Side): void {
+    const edge = this.edges.get(edgeId);
+    if (!edge) throw new ElementNotFoundError(`Edge "${edgeId}" not found`);
+    if (endpoint === "source") edge.sourceSide = side;
+    else edge.targetSide = side;
+    edge._posCache = undefined;
+  }
+
   reconnectEdge(id: string, endpoint: "source" | "target", newNodeId: string, newSide: Side): void {
     const edge = this.edges.get(id);
     if (!edge) throw new ElementNotFoundError(`Edge "${id}" not found`);

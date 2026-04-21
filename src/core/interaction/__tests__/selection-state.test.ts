@@ -21,6 +21,7 @@ function makeNode(id: string): CanvasElement {
     visible: true,
     parentGroupId: null,
     container,
+    edgeSidesLocked: false,
     meta: { label: id, color: 0x2d3748 },
   };
 }

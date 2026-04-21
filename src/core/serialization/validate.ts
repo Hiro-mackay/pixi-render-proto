@@ -72,6 +72,9 @@ function validateNode(n: unknown): void {
   if (!isString(o.label)) throw new SerializationError(`Node "${o.id}": label must be a string`);
   if (!isFiniteNumber(o.color))
     throw new SerializationError(`Node "${o.id}": color must be a finite number`);
+  if (o.edgeSidesLocked !== undefined && typeof o.edgeSidesLocked !== "boolean") {
+    throw new SerializationError(`Node "${o.id}": edgeSidesLocked must be a boolean or undefined`);
+  }
 }
 
 function validateGroup(g: unknown): void {
@@ -89,6 +92,9 @@ function validateGroup(g: unknown): void {
     throw new SerializationError(`Group "${o.id}": collapsed must be a boolean`);
   if (!isPositive(o.expandedHeight))
     throw new SerializationError(`Group "${o.id}": expandedHeight must be positive`);
+  if (o.edgeSidesLocked !== undefined && typeof o.edgeSidesLocked !== "boolean") {
+    throw new SerializationError(`Group "${o.id}": edgeSidesLocked must be a boolean or undefined`);
+  }
 }
 
 function validateEdge(e: unknown): void {

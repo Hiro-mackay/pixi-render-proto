@@ -25,6 +25,7 @@ export function serialize(
         height: el.height,
         label: el.meta.label,
         color: el.meta.color,
+        ...(el.edgeSidesLocked ? { edgeSidesLocked: true } : {}),
       });
     } else {
       groups.push({
@@ -37,6 +38,7 @@ export function serialize(
         color: el.meta.color,
         collapsed: el.meta.collapsed,
         expandedHeight: el.meta.expandedHeight,
+        ...(el.edgeSidesLocked ? { edgeSidesLocked: true } : {}),
       });
     }
     if (el.parentGroupId) {

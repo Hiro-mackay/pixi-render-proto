@@ -7,6 +7,7 @@ export interface KeyboardCallbacks {
   readonly onPaste: () => void;
   readonly onDuplicate: () => void;
   readonly onSelectAll: () => void;
+  readonly onToggleEdgeLock: () => void;
 }
 
 export class KeyboardManager {
@@ -67,6 +68,11 @@ export class KeyboardManager {
     }
     if (e.key === "Delete" || e.key === "Backspace") {
       this.cb.onDelete();
+      return;
+    }
+    if (!mod && (e.key === "l" || e.key === "L")) {
+      e.preventDefault();
+      this.cb.onToggleEdgeLock();
       return;
     }
     if (e.key === "Escape") {

@@ -74,6 +74,8 @@ interface ElementBase {
   visible: boolean;
   parentGroupId: string | null;
   container: Container;
+  /** When true, edges connected to this element use their stored sides instead of auto-routing. */
+  edgeSidesLocked: boolean;
   /** Lazily initializes port graphics on first access (set by engine for nodes). */
   initPorts?: () => void;
 }

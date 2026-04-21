@@ -99,8 +99,8 @@ export function updateEdgeGraphics(
 
   const srcCenter = { x: srcEl.x + srcEl.width / 2, y: srcEl.y + srcEl.height / 2 };
   const tgtCenter = { x: tgtEl.x + tgtEl.width / 2, y: tgtEl.y + tgtEl.height / 2 };
-  const srcSide = facingSide(srcEl, tgtCenter);
-  const tgtSide = facingSide(tgtEl, srcCenter);
+  const srcSide = srcEl.edgeSidesLocked ? edge.sourceSide : facingSide(srcEl, tgtCenter);
+  const tgtSide = tgtEl.edgeSidesLocked ? edge.targetSide : facingSide(tgtEl, srcCenter);
   const start = getFixedSideAnchor(srcEl, srcSide);
   const end = getFixedSideAnchor(tgtEl, tgtSide);
   const cp = computeBezierControlPoints(start.x, start.y, start.side, end.x, end.y, end.side);

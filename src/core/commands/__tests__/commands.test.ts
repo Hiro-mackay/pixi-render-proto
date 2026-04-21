@@ -156,6 +156,7 @@ describe("expandedHeight tracking for groups", () => {
       visible: true,
       parentGroupId: null,
       container: { x: 0, y: 0, visible: true } as never,
+      edgeSidesLocked: false,
       meta: { label: "test", color: 0, collapsed: false, expandedHeight: 300 },
     };
 

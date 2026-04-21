@@ -13,6 +13,7 @@ import { DeleteCommand, type DeleteCommandOps } from "./commands/delete-command"
 import { ReconnectEdgeCommand } from "./commands/edge-command";
 import { MoveCommand } from "./commands/move-command";
 import { ResizeCommand } from "./commands/resize-command";
+import { ToggleNodeEdgeLockCommand } from "./commands/toggle-lock-command";
 import {
   createEdgeGraphics,
   removeEdgeGraphics,
@@ -220,6 +221,7 @@ class CanvasEngineImpl implements CanvasEngine {
       onPaste: () => this.paste(),
       onDuplicate: () => this.duplicate(),
       onSelectAll: () => this.selectAll(),
+      onToggleEdgeLock: () => this.toggleEdgeLockOnSelection(),
     });
 
     this.edgeCreator = new EdgeCreator(
@@ -315,6 +317,7 @@ class CanvasEngineImpl implements CanvasEngine {
       visible: true as boolean,
       parentGroupId: null as string | null,
       container: new Container(),
+      edgeSidesLocked: false,
       meta,
     };
     element.container = createNodeGraphics(element, this.getScale);
@@ -393,6 +396,7 @@ class CanvasEngineImpl implements CanvasEngine {
       visible: true,
       parentGroupId: null,
       container: new Container(),
+      edgeSidesLocked: false,
       meta,
     } satisfies GroupElement;
     element.container = createGroupGraphics(element, this.getScale);
@@ -769,6 +773,18 @@ class CanvasEngineImpl implements CanvasEngine {
       return;
     }
     this.clearSelection();
+  }
+
+  private toggleEdgeLockOnSelection(): void {
+    const ids = [...this.selection.getSelectedIds()];
+    if (ids.length === 0) return;
+    const commands = ids.map((id) => new ToggleNodeEdgeLockCommand(id, this.registry));
+    if (commands.length === 1) {
+      this.history.execute(commands[0]!);
+    } else {
+      this.history.batch(commands);
+    }
+    this.afterCommand();
   }
 
   private deleteSelected(): void {

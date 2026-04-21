@@ -87,13 +87,14 @@ function applyScene(scene: SceneData, ctx: DeserializeContext): void {
       height: g.height,
       color: g.color,
     });
-    if (g.collapsed) {
-      const el = ctx.registry.getElement(g.id);
-      if (el?.type === "group") {
-        el.meta.expandedHeight = g.expandedHeight;
-        el.meta.collapsed = true;
-        el.height = g.height;
+    const gEl = ctx.registry.getElement(g.id);
+    if (gEl?.type === "group") {
+      if (g.collapsed) {
+        gEl.meta.expandedHeight = g.expandedHeight;
+        gEl.meta.collapsed = true;
+        gEl.height = g.height;
       }
+      if (g.edgeSidesLocked) gEl.edgeSidesLocked = true;
     }
   }
 
@@ -106,6 +107,10 @@ function applyScene(scene: SceneData, ctx: DeserializeContext): void {
       height: n.height,
       color: n.color,
     });
+    if (n.edgeSidesLocked) {
+      const nEl = ctx.registry.getElement(n.id);
+      if (nEl) nEl.edgeSidesLocked = true;
+    }
   }
 
   for (const m of scene.groupMemberships) {

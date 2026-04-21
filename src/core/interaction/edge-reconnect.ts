@@ -72,14 +72,17 @@ export function createReconnectHandles(opts: ReconnectHandleOptions): ReconnectH
 
     const movingNodeId = fixedEndpoint === "source" ? edge.targetId : edge.sourceId;
     const movingEl = registry.getElement(movingNodeId);
-    const fixedNodeSide: Side = movingEl
-      ? facingSide(fixedEl, {
-          x: movingEl.x + movingEl.width / 2,
-          y: movingEl.y + movingEl.height / 2,
-        })
-      : fixedEndpoint === "source"
-        ? edge.sourceSide
-        : edge.targetSide;
+    let fixedNodeSide: Side;
+    if (fixedEl.edgeSidesLocked) {
+      fixedNodeSide = fixedEndpoint === "source" ? edge.sourceSide : edge.targetSide;
+    } else if (movingEl) {
+      fixedNodeSide = facingSide(fixedEl, {
+        x: movingEl.x + movingEl.width / 2,
+        y: movingEl.y + movingEl.height / 2,
+      });
+    } else {
+      fixedNodeSide = fixedEndpoint === "source" ? edge.sourceSide : edge.targetSide;
+    }
 
     dragging = true;
     if (pauseCtrl) {
@@ -240,8 +243,8 @@ function positionBothHandles(
   if (srcEl && tgtEl) {
     const srcCenter = { x: srcEl.x + srcEl.width / 2, y: srcEl.y + srcEl.height / 2 };
     const tgtCenter = { x: tgtEl.x + tgtEl.width / 2, y: tgtEl.y + tgtEl.height / 2 };
-    srcSide = facingSide(srcEl, tgtCenter);
-    tgtSide = facingSide(tgtEl, srcCenter);
+    srcSide = srcEl.edgeSidesLocked ? edge.sourceSide : facingSide(srcEl, tgtCenter);
+    tgtSide = tgtEl.edgeSidesLocked ? edge.targetSide : facingSide(tgtEl, srcCenter);
   }
 
   if (srcEl) drawHandle(sourceHandle, srcEl, srcSide, getScale);

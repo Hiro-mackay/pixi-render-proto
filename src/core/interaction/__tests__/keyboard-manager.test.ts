@@ -43,6 +43,7 @@ function createCallbacks() {
     onPaste: vi.fn<() => void>(),
     onDuplicate: vi.fn<() => void>(),
     onSelectAll: vi.fn<() => void>(),
+    onToggleEdgeLock: vi.fn<() => void>(),
   };
 }
 

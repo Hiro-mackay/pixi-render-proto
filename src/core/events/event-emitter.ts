@@ -10,6 +10,7 @@ export type CanvasEventMap = {
   "group:expand": { id: string };
   "element:add": { id: string; type: "node" | "group" };
   "element:remove": { id: string };
+  "element:lock-toggle": { id: string; locked: boolean };
   "group:membership": { childId: string; oldGroupId: string | null; newGroupId: string | null };
   "history:change": { canUndo: boolean; canRedo: boolean };
   "selection:change": { selectedIds: readonly string[] };

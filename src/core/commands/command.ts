@@ -10,6 +10,7 @@ export type CommandType =
   | "collapse"
   | "add-remove"
   | "edge"
+  | "toggle-lock"
   | "batch";
 
 export interface Command {

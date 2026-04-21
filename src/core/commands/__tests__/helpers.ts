@@ -14,6 +14,7 @@ export function makeNode(id: string, x = 100, y = 200, w = 140, h = 68): CanvasE
     visible: true,
     parentGroupId: null,
     container: { x, y, visible: true } as unknown as Container,
+    edgeSidesLocked: false,
     meta: { label: id, color: 0x2d3748 },
   };
 }
@@ -34,6 +35,7 @@ export function makeGroup(
     visible: true,
     parentGroupId: null,
     container: { x, y, visible: true } as unknown as Container,
+    edgeSidesLocked: false,
     meta: {
       label: id,
       color: 0x38a169,
