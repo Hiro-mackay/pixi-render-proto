@@ -15,7 +15,6 @@ export class ReconnectEdgeCommand implements Command {
   readonly type = "edge" as const;
   private readonly oldNodeId: string;
   private readonly oldSide: Side;
-  private readonly oldSourceSidePinned: boolean;
 
   constructor(
     private readonly edgeId: string,
@@ -25,7 +24,6 @@ export class ReconnectEdgeCommand implements Command {
     private readonly registry: ReconnectRegistry,
   ) {
     const edge: CanvasEdge = registry.getEdgeOrThrow(edgeId);
-    this.oldSourceSidePinned = edge.sourceSidePinned;
     if (endpoint === "source") {
       this.oldNodeId = edge.sourceId;
       this.oldSide = edge.sourceSide;
@@ -36,23 +34,11 @@ export class ReconnectEdgeCommand implements Command {
   }
 
   execute(): void {
-    this.registry.reconnectEdge(
-      this.edgeId,
-      this.endpoint,
-      this.newNodeId,
-      this.newSide,
-      this.endpoint === "source" ? true : undefined,
-    );
+    this.registry.reconnectEdge(this.edgeId, this.endpoint, this.newNodeId, this.newSide);
   }
 
   undo(): void {
-    this.registry.reconnectEdge(
-      this.edgeId,
-      this.endpoint,
-      this.oldNodeId,
-      this.oldSide,
-      this.endpoint === "source" ? this.oldSourceSidePinned : undefined,
-    );
+    this.registry.reconnectEdge(this.edgeId, this.endpoint, this.oldNodeId, this.oldSide);
   }
 
   getDomainEvents(direction: "execute" | "undo"): readonly EventDescriptor[] {

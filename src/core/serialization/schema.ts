@@ -27,7 +27,6 @@ export interface SerializedEdge {
   readonly id: string;
   readonly sourceId: string;
   readonly sourceSide: Side;
-  readonly sourceSidePinned?: boolean;
   readonly targetId: string;
   readonly targetSide: Side;
   readonly label?: string;

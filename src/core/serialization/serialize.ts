@@ -52,7 +52,6 @@ export function serialize(
       sourceSide: edge.sourceSide,
       targetId: edge.targetId,
       targetSide: edge.targetSide,
-      ...(edge.sourceSidePinned ? { sourceSidePinned: true } : {}),
       ...(edge.label !== null ? { label: edge.label } : {}),
       ...(edge.labelColor !== null ? { labelColor: edge.labelColor } : {}),
     };

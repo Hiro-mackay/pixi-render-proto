@@ -48,7 +48,6 @@ export function makeEdge(id: string, sourceId: string, targetId: string): Canvas
     id,
     sourceId,
     sourceSide: "right",
-    sourceSidePinned: false,
     targetId,
     targetSide: "left",
     label: "HTTPS :443",

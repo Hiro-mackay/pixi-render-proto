@@ -236,7 +236,6 @@ describe("SelectionState", () => {
         id,
         sourceId: "n1",
         sourceSide: "right",
-        sourceSidePinned: false,
         targetId: "n2",
         targetSide: "left",
         label: null,

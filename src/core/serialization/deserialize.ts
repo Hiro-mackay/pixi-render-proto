@@ -125,7 +125,6 @@ function applyScene(scene: SceneData, ctx: DeserializeContext): void {
     ctx.engine.addEdge(e.id, {
       sourceId: e.sourceId,
       sourceSide: e.sourceSide,
-      sourceSidePinned: e.sourceSidePinned,
       targetId: e.targetId,
       targetSide: e.targetSide,
       label: e.label,

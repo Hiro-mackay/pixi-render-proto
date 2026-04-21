@@ -109,9 +109,6 @@ function validateEdge(e: unknown): void {
   if (o.labelColor !== undefined && !isFiniteNumber(o.labelColor)) {
     throw new SerializationError(`Edge "${o.id}": labelColor must be a finite number or undefined`);
   }
-  if (o.sourceSidePinned !== undefined && typeof o.sourceSidePinned !== "boolean") {
-    throw new SerializationError(`Edge "${o.id}": sourceSidePinned must be a boolean or undefined`);
-  }
 }
 
 function validateMembership(m: unknown): void {
