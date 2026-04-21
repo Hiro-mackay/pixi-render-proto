@@ -164,6 +164,8 @@ class CanvasEngineImpl implements CanvasEngine {
       this.cullToViewport();
       this.redraw.markAllDirty();
       this.redraw.flush();
+      this.selection.update();
+      this.reconnectHandles?.reposition();
     });
     ctx.onPan(() => {
       this.cullToViewport();
