@@ -43,10 +43,6 @@ export function createNodeGraphics(element: NodeElement, _getScale: () => number
   label.anchor.set(0.5, 0);
   container.addChild(label);
 
-  const lockIcon: Redrawable = new Graphics();
-  lockIcon.label = "lock-icon";
-  container.addChild(lockIcon);
-
   const drawBg = () => {
     const color = element.meta.color ?? DEFAULT_NODE_COLOR;
     bg.clear();
@@ -63,30 +59,5 @@ export function createNodeGraphics(element: NodeElement, _getScale: () => number
   drawBg();
   bg.__redraw = drawBg;
 
-  const drawLockIcon = () => {
-    lockIcon.clear();
-    if (!element.edgeSidesLocked) return;
-    const size = 10;
-    const x = element.width - size - 6;
-    const y = 6;
-    drawLockGlyph(lockIcon, x, y, size);
-  };
-  drawLockIcon();
-  lockIcon.__redraw = drawLockIcon;
-
   return container;
-}
-
-function drawLockGlyph(g: Graphics, x: number, y: number, size: number): void {
-  const bodyW = size * 0.78;
-  const bodyH = size * 0.54;
-  const bodyX = x + (size - bodyW) / 2;
-  const bodyY = y + size - bodyH;
-  const shackleR = bodyW * 0.34;
-  const cx = x + size / 2;
-  const stroke = Math.max(1, size * 0.14);
-  g.arc(cx, bodyY, shackleR, Math.PI, 0, false);
-  g.stroke({ width: stroke, color: 0xfacc15, cap: "round" });
-  g.roundRect(bodyX, bodyY, bodyW, bodyH, 1);
-  g.fill(0xfacc15);
 }

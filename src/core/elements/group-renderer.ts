@@ -153,34 +153,5 @@ export function createGroupGraphics(element: GroupElement, _getScale: () => numb
   badge.position.set(12 + label.width + 8, 9);
   container.addChild(badge);
 
-  const lockIcon: Redrawable = new Graphics();
-  lockIcon.label = "lock-icon";
-  container.addChild(lockIcon);
-  const drawLockIcon = () => {
-    lockIcon.clear();
-    if (!element.edgeSidesLocked) return;
-    const size = 10;
-    const toggleX = element.width - ICON_SIZE - 4;
-    const x = toggleX - size - 6;
-    const y = (HEADER_HEIGHT - size) / 2;
-    drawGroupLockGlyph(lockIcon, x, y, size);
-  };
-  drawLockIcon();
-  lockIcon.__redraw = drawLockIcon;
-
   return container;
-}
-
-function drawGroupLockGlyph(g: Graphics, x: number, y: number, size: number): void {
-  const bodyW = size * 0.78;
-  const bodyH = size * 0.54;
-  const bodyX = x + (size - bodyW) / 2;
-  const bodyY = y + size - bodyH;
-  const shackleR = bodyW * 0.34;
-  const cx = x + size / 2;
-  const stroke = Math.max(1, size * 0.14);
-  g.arc(cx, bodyY, shackleR, Math.PI, 0, false);
-  g.stroke({ width: stroke, color: 0xfacc15, cap: "round" });
-  g.roundRect(bodyX, bodyY, bodyW, bodyH, 1);
-  g.fill(0xfacc15);
 }
