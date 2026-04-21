@@ -65,6 +65,7 @@ export class DeleteCommand implements Command {
       opts: {
         sourceId: edge.sourceId,
         sourceSide: edge.sourceSide,
+        sourceSidePinned: edge.sourceSidePinned,
         targetId: edge.targetId,
         targetSide: edge.targetSide,
         label: edge.label ?? undefined,

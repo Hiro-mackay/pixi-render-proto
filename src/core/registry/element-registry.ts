@@ -10,9 +10,13 @@ import { EdgeIndex } from "./edge-index";
 
 /** Internal mutable view of CanvasEdge for reconnection within the registry. */
 interface MutableCanvasEdge
-  extends Omit<CanvasEdge, "sourceId" | "sourceSide" | "targetId" | "targetSide"> {
+  extends Omit<
+    CanvasEdge,
+    "sourceId" | "sourceSide" | "sourceSidePinned" | "targetId" | "targetSide"
+  > {
   sourceId: string;
   sourceSide: Side;
+  sourceSidePinned: boolean;
   targetId: string;
   targetSide: Side;
 }
@@ -159,7 +163,13 @@ export class ElementRegistry implements ReadonlyElementRegistry {
     return result;
   }
 
-  reconnectEdge(id: string, endpoint: "source" | "target", newNodeId: string, newSide: Side): void {
+  reconnectEdge(
+    id: string,
+    endpoint: "source" | "target",
+    newNodeId: string,
+    newSide: Side,
+    sourceSidePinned?: boolean,
+  ): void {
     const edge = this.edges.get(id);
     if (!edge) throw new ElementNotFoundError(`Edge "${id}" not found`);
     if (!this.elements.has(newNodeId)) {
@@ -170,6 +180,7 @@ export class ElementRegistry implements ReadonlyElementRegistry {
       this.edgeIndex.reconnect(edge.id, oldNodeId, newNodeId, edge.targetId);
       edge.sourceId = newNodeId;
       edge.sourceSide = newSide;
+      if (sourceSidePinned !== undefined) edge.sourceSidePinned = sourceSidePinned;
     } else {
       const oldNodeId = edge.targetId;
       this.edgeIndex.reconnect(edge.id, oldNodeId, newNodeId, edge.sourceId);

@@ -90,6 +90,7 @@ export class CanvasClipboard {
           sourceSide: edge.sourceSide,
           targetId: edge.targetId,
           targetSide: edge.targetSide,
+          ...(edge.sourceSidePinned ? { sourceSidePinned: true } : {}),
           ...(edge.label !== null ? { label: edge.label } : {}),
           ...(edge.labelColor !== null ? { labelColor: edge.labelColor } : {}),
         });
@@ -218,6 +219,7 @@ export class CanvasClipboard {
           {
             sourceId: newSourceId,
             sourceSide: e.sourceSide,
+            sourceSidePinned: e.sourceSidePinned,
             targetId: newTargetId,
             targetSide: e.targetSide,
             label: e.label,

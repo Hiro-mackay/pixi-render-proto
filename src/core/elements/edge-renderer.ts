@@ -99,7 +99,7 @@ export function updateEdgeGraphics(
 
   const srcCenter = { x: srcEl.x + srcEl.width / 2, y: srcEl.y + srcEl.height / 2 };
   const tgtCenter = { x: tgtEl.x + tgtEl.width / 2, y: tgtEl.y + tgtEl.height / 2 };
-  const srcSide = facingSide(srcEl, tgtCenter);
+  const srcSide = edge.sourceSidePinned ? edge.sourceSide : facingSide(srcEl, tgtCenter);
   const tgtSide = facingSide(tgtEl, srcCenter);
   const start = getFixedSideAnchor(srcEl, srcSide);
   const end = getFixedSideAnchor(tgtEl, tgtSide);

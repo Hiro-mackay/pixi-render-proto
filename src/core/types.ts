@@ -111,6 +111,7 @@ export interface CanvasEdge {
   readonly id: string;
   readonly sourceId: string;
   readonly sourceSide: Side;
+  readonly sourceSidePinned: boolean;
   readonly targetId: string;
   readonly targetSide: Side;
   label: string | null;
@@ -156,6 +157,7 @@ export interface GroupOptions {
 export interface EdgeOptions {
   readonly sourceId: string;
   readonly sourceSide: Side;
+  readonly sourceSidePinned?: boolean;
   readonly targetId: string;
   readonly targetSide: Side;
   readonly label?: string;

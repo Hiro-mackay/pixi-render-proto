@@ -442,6 +442,7 @@ class CanvasEngineImpl implements CanvasEngine {
       id,
       sourceId: opts.sourceId,
       sourceSide: opts.sourceSide,
+      sourceSidePinned: opts.sourceSidePinned ?? false,
       targetId: opts.targetId,
       targetSide: opts.targetSide,
       label: opts.label ?? null,
