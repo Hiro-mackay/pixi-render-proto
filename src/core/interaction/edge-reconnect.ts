@@ -98,6 +98,10 @@ export function createReconnectHandles(opts: ReconnectHandleOptions): ReconnectH
     ghostLine.visible = true;
     sourceHandle.visible = false;
     targetHandle.visible = false;
+    edge.line.visible = false;
+    edge.hitLine.visible = false;
+    if (edge.labelPill) edge.labelPill.visible = false;
+    if (edge.labelText) edge.labelText.visible = false;
 
     const onMove = (me: FederatedPointerEvent) => {
       if (!dragging) return;
@@ -162,6 +166,11 @@ export function createReconnectHandles(opts: ReconnectHandleOptions): ReconnectH
     ghostLine.visible = false;
     highlight.clear();
     highlight.visible = false;
+
+    edge.line.visible = true;
+    edge.hitLine.visible = true;
+    if (edge.labelPill) edge.labelPill.visible = true;
+    if (edge.labelText) edge.labelText.visible = true;
 
     if (!destroyed) {
       sourceHandle.visible = true;
