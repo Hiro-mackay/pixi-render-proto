@@ -197,6 +197,13 @@ class CanvasEngineImpl implements CanvasEngine {
       if (this.hoveredId && selectedIds.includes(this.hoveredId)) {
         this.clearHover();
       }
+      // Tear down edge reconnect handles when selection switches away from an edge
+      // (e.g. user pointerdowns on a node while an edge was selected).
+      if (this.reconnectHandles && !this.selection.getSelectedEdgeId()) {
+        this.reconnectHandles.destroy();
+        this.reconnectHandles = null;
+        this.selection.setOnEdgeUpdate(undefined);
+      }
     });
     this.selectionLayer.addChild(this.hoverOutline);
     ctx.viewport.addChild(this.selectionLayer);
