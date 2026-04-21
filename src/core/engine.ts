@@ -597,10 +597,16 @@ class CanvasEngineImpl implements CanvasEngine {
   }
 
   clearSelection(): void {
+    const edgeId = this.selection.getSelectedEdgeId();
     this.reconnectHandles?.destroy();
     this.reconnectHandles = null;
     this.selection.setOnEdgeUpdate(undefined);
     this.selection.clear();
+    if (edgeId) {
+      const edge = this.registry.getEdge(edgeId);
+      if (edge) this.redraw.markDirty(edge.line);
+      this.redraw.flush();
+    }
   }
 
   getSelection(): readonly string[] {
