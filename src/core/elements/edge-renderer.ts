@@ -4,7 +4,7 @@ import { facingSide, getFixedSideAnchor } from "../geometry/anchor";
 import { computeBezierControlPoints, cubicBezierPoint, sideDirection } from "../geometry/bezier";
 import { resolveVisibleElement } from "../geometry/hit-test";
 import type { ReadonlyElementRegistry } from "../registry/element-registry";
-import type { CanvasEdge, Redrawable } from "../types";
+import type { CanvasEdge, Redrawable, Side } from "../types";
 import { ACCENT_COLOR, getTextResolution } from "../types";
 
 const EDGE_COLOR = 0xa5b4cb;
@@ -15,10 +15,9 @@ const HIT_STROKE_WIDTH = 10;
 const SELECTED_COLOR = ACCENT_COLOR;
 const SELECTED_STROKE_WIDTH = 2.5;
 const DEFAULT_LABEL_BG = 0x475569;
-const PIN_MARKER_FILL = ACCENT_COLOR;
-const PIN_MARKER_RING = 0xffffff;
-const PIN_MARKER_RADIUS = 3.5;
-const PIN_MARKER_RING_WIDTH = 1.25;
+const PIN_MARKER_COLOR = 0xfacc15;
+const PIN_MARKER_BAR_HALF = 5;
+const PIN_MARKER_BAR_WIDTH = 2;
 const LABEL_STYLE = new TextStyle({
   fontFamily: "system-ui, -apple-system, sans-serif",
   fontSize: 9,
@@ -121,10 +120,10 @@ export function updateEdgeGraphics(
   drawArrowHead(edge.line, end.x, end.y, -dir.x, -dir.y, sw, color, alpha);
 
   if (srcEl.edgeSidesLocked) {
-    drawPinMarker(edge.line, start.x, start.y);
+    drawPinMarker(edge.line, start.x, start.y, start.side);
   }
   if (tgtEl.edgeSidesLocked) {
-    drawPinMarker(edge.line, end.x, end.y);
+    drawPinMarker(edge.line, end.x, end.y, end.side);
   }
 
   edge.hitLine.clear();
@@ -164,13 +163,14 @@ export function updateEdgeGraphics(
   };
 }
 
-/** Draws a small accent-colored dot at the anchor point to indicate
- *  "this connection endpoint is pinned". A thin white ring keeps it visible
- *  against both the default grey edge and the selected blue edge. */
-function drawPinMarker(g: Graphics, x: number, y: number): void {
-  g.circle(x, y, PIN_MARKER_RADIUS);
-  g.fill({ color: PIN_MARKER_FILL });
-  g.stroke({ width: PIN_MARKER_RING_WIDTH, color: PIN_MARKER_RING, alpha: 0.95 });
+/** Draws a short perpendicular bar at the anchor point to indicate "connection pinned here". */
+function drawPinMarker(g: Graphics, x: number, y: number, side: Side): void {
+  const dir = sideDirection(side);
+  const px = -dir.y;
+  const py = dir.x;
+  g.moveTo(x + px * PIN_MARKER_BAR_HALF, y + py * PIN_MARKER_BAR_HALF);
+  g.lineTo(x - px * PIN_MARKER_BAR_HALF, y - py * PIN_MARKER_BAR_HALF);
+  g.stroke({ width: PIN_MARKER_BAR_WIDTH, color: PIN_MARKER_COLOR, cap: "round" });
 }
 
 function drawArrowHead(
