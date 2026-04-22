@@ -4,8 +4,8 @@ const SCENE_LOAD_WAIT = 5_000;
 
 test.describe("Group Layer System", () => {
   test.beforeEach(async ({ page }) => {
-    // Force the stress grid scene so existing node-N ID assertions keep working.
-    await page.goto("/?nodes=60");
+    // Force the stress grid scene (200 nodes) so all groups have member nodes.
+    await page.goto("/?nodes=200");
     await page.waitForSelector("canvas", { timeout: 10_000 });
     await page.waitForTimeout(SCENE_LOAD_WAIT);
   });

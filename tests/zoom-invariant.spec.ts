@@ -4,7 +4,8 @@ const SCENE_LOAD_WAIT = 5_000;
 
 test.describe("Zoom-Invariant Rendering Verification", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
+    // Force the stress grid scene so the canvas center always has a node to hit.
+    await page.goto("/?nodes=200");
     await page.waitForSelector("canvas", { timeout: 10_000 });
     await page.waitForTimeout(SCENE_LOAD_WAIT);
   });

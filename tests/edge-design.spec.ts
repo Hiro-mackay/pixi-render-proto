@@ -2,8 +2,8 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Edge Design Showcase", () => {
   test.beforeEach(async ({ page }) => {
-    // Force the stress grid scene so existing node-N ID assertions keep working.
-    await page.goto("/?nodes=60");
+    // Force the stress grid scene (200 nodes) so existing assertions keep working.
+    await page.goto("/?nodes=200");
     await page.waitForSelector("canvas", { timeout: 10_000 });
     await waitForSceneReady(page);
   });
